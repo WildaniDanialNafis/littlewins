@@ -1,0 +1,354 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+/* ============================================================
+   RESET & BOX SIZING
+   ============================================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* ============================================================
+   ROOT
+   ============================================================ */
+
+:root {
+  accent-color: var(--color-primary);
+}
+
+html {
+  min-height: 100%;
+
+  font-family: var(--token-font-family-sans);
+
+  color-scheme: light;
+  scroll-behavior: smooth;
+
+  background-color: var(--color-background);
+
+  -webkit-tap-highlight-color: transparent;
+
+  /*
+   * Menjaga lebar layout tetap stabil ketika scrollbar muncul.
+   * Browser modern mendukung overflow-y:auto dengan baik,
+   * sehingga tidak perlu memaksa scrollbar selalu terlihat.
+   */
+}
+
+html.dark {
+  color-scheme: dark;
+  background-color: var(--color-background);
+}
+
+/* ============================================================
+   BODY
+   ============================================================ */
+
+body {
+  min-height: 100vh;
+  margin: 0;
+
+  background-color: var(--color-background);
+  color: var(--color-text);
+
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1.5;
+
+  text-rendering: optimizeLegibility;
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ============================================================
+   ROOT APP
+   ============================================================ */
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ============================================================
+   SELECTION
+   ============================================================ */
+
+::selection {
+  background-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+
+/* ============================================================
+   MEDIA
+   ============================================================ */
+
+img,
+picture,
+svg,
+video,
+canvas {
+  display: block;
+  max-width: 100%;
+}
+
+img,
+video {
+  height: auto;
+}
+
+/* ============================================================
+   FORM ELEMENTS
+   ============================================================ */
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+/* ============================================================
+   FOCUS
+   ============================================================ */
+
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/*
+ * Komponen yang menggunakan Tailwind ring menangani
+ * focus indicator-nya sendiri.
+ */
+[class*="focus-visible:ring"]:focus-visible {
+  outline: none;
+}
+
+/* ============================================================
+   PLACEHOLDER
+   ============================================================ */
+
+::placeholder {
+  color: var(--color-placeholder);
+  opacity: 1;
+}
+
+/* ============================================================
+   SCROLLBAR
+   ============================================================ */
+
+@supports (scrollbar-width: thin) {
+  html {
+    scrollbar-width: thin;
+    scrollbar-color:
+      var(--color-border)
+      transparent;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--color-border);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-border-hover);
+}
+
+/* ============================================================
+   REDUCED MOTION
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .animate-fade-in-up {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* ============================================================
+   REPORT EXPORT MODE
+   ============================================================ */
+
+.report-document {
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+
+.report-document,
+.report-document * {
+  box-shadow: none !important;
+
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-shadow: 0 0 #0000 !important;
+
+  filter: none !important;
+  outline: none !important;
+
+  animation: none !important;
+  transition: none !important;
+}
+
+.report-document *:hover {
+  transform: none !important;
+  filter: none !important;
+  box-shadow: none !important;
+}
+
+/* ============================================================
+   PRINT STYLES
+   ============================================================ */
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  a[href]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.8em;
+  }
+
+  a[href^="#"]::after,
+  a[href^="javascript:"]::after {
+    content: "";
+  }
+}
+
+/* ============================================================
+   ANIMATIONS
+   ============================================================ */
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation:
+    fade-in-up
+    0.5s
+    var(--token-ease-out)
+    both;
+}
+
+/* ============================================================
+   CUSTOM UTILITY
+   ============================================================ */
+
+/*
+ * Jangan definisikan ulang:
+ *
+ * .container
+ * .truncate
+ * .line-clamp-2
+ * .line-clamp-3
+ *
+ * karena Tailwind sudah menyediakan utility tersebut.
+ */
+
+/* ============================================================
+   SMOOTH SCROLL
+   ============================================================ */
+
+.smooth-scroll {
+  scroll-behavior: smooth;
+}
+
+/* ============================================================
+   NO SELECT
+   ============================================================ */
+
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ============================================================
+   VISUALLY HIDDEN
+   ============================================================ */
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* ============================================================
+   CUSTOM FOCUS RING
+   ============================================================ */
+
+.focus-ring {
+  transition:
+    box-shadow
+    var(--token-transition-fast)
+    var(--token-ease-out);
+}
+
+.focus-ring:focus-visible {
+  outline: none;
+
+  box-shadow:
+    0 0 0 2px var(--color-background),
+    0 0 0 4px var(--color-primary);
+}
+
+/* ============================================================
+   DARK MODE
+   ============================================================ */
+
+html:not(.dark) {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}

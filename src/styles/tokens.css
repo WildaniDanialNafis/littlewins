@@ -1,0 +1,581 @@
+/* ============================================================
+   DESIGN TOKENS
+   ============================================================ */
+
+:root {
+  /* ==========================================================
+     BRAND
+     ========================================================== */
+
+  --token-primary: var(--color-indigo-600);
+  --token-primary-hover: var(--color-indigo-700);
+  --token-primary-active: var(--color-indigo-800);
+  --token-primary-soft: var(--color-indigo-50);
+  --token-primary-soft-hover: var(--color-indigo-100);
+  --token-primary-light: var(--color-indigo-400);
+  --token-primary-dark: var(--color-indigo-800);
+  --token-primary-foreground: var(--color-white);
+
+  --token-secondary: var(--color-violet-600);
+  --token-secondary-hover: var(--color-violet-700);
+  --token-secondary-soft: var(--color-violet-50);
+  --token-secondary-soft-hover: var(--color-violet-100);
+  --token-secondary-foreground: var(--color-white);
+
+  /* ==========================================================
+     SEMANTIC STATUS
+     ========================================================== */
+
+  --token-success: var(--color-green-600);
+  --token-success-hover: var(--color-green-700);
+  --token-success-soft: var(--color-green-50);
+  --token-success-soft-hover: var(--color-green-100);
+  --token-success-foreground: var(--color-white);
+
+  --token-danger: var(--color-red-600);
+  --token-danger-hover: var(--color-red-700);
+  --token-danger-active: var(--color-red-800);
+  --token-danger-soft: var(--color-red-50);
+  --token-danger-soft-hover: var(--color-red-100);
+  --token-danger-foreground: var(--color-white);
+
+  --token-warning: var(--color-amber-600);
+  --token-warning-hover: var(--color-amber-700);
+  --token-warning-soft: var(--color-amber-100);
+  --token-warning-soft-hover: var(--color-amber-200);
+  --token-warning-foreground: var(--color-white);
+
+  --token-info: var(--color-sky-600);
+  --token-info-hover: var(--color-sky-700);
+  --token-info-soft: var(--color-sky-50);
+  --token-info-soft-hover: var(--color-sky-100);
+  --token-info-foreground: var(--color-white);
+
+  /* ==========================================================
+     LIGHT THEME
+     ========================================================== */
+
+  --token-background: var(--color-slate-50);
+  --token-background-subtle: var(--color-slate-100);
+
+  --token-surface: var(--color-white);
+  --token-surface-muted: var(--color-slate-50);
+  --token-surface-hover: var(--color-slate-100);
+
+  --token-border: var(--color-slate-200);
+  --token-border-hover: var(--color-slate-300);
+  --token-border-strong: var(--color-slate-300);
+
+  --token-text: var(--color-slate-900);
+  --token-text-secondary: var(--color-slate-700);
+  --token-muted: var(--color-slate-500);
+  --token-placeholder: var(--color-slate-400);
+
+  /* ==========================================================
+     DARK THEME
+     ========================================================== */
+
+  --token-background-dark: var(--color-slate-950);
+  --token-background-subtle-dark: var(--color-slate-900);
+
+  --token-surface-dark: var(--color-slate-900);
+  --token-surface-muted-dark: var(--color-slate-800);
+  --token-surface-hover-dark: var(--color-slate-800);
+
+  --token-border-dark: var(--color-slate-800);
+  --token-border-hover-dark: var(--color-slate-700);
+  --token-border-strong-dark: var(--color-slate-600);
+
+  --token-text-dark: var(--color-slate-100);
+  --token-text-secondary-dark: var(--color-slate-300);
+  --token-muted-dark: var(--color-slate-400);
+  --token-placeholder-dark: var(--color-slate-500);
+
+  /* ==========================================================
+     TYPOGRAPHY
+     ========================================================== */
+
+  --token-font-family-sans:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  --token-font-family-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* ==========================================================
+     RADIUS
+     ========================================================== */
+
+  --token-radius-xs: 0.25rem;
+  --token-radius-sm: 0.5rem;
+  --token-radius-md: 0.75rem;
+  --token-radius-lg: 1rem;
+  --token-radius-xl: 1.25rem;
+  --token-radius-2xl: 1.5rem;
+  --token-radius-full: 9999px;
+
+  /* ==========================================================
+     SHADOW
+     ========================================================== */
+
+  --token-shadow-sm: 0 1px 2px rgb(15 23 42 / 0.05);
+
+  --token-shadow-md: 0 4px 12px rgb(15 23 42 / 0.06);
+
+  --token-shadow-lg: 0 10px 24px rgb(15 23 42 / 0.08);
+
+  --token-shadow-xl: 0 20px 40px rgb(15 23 42 / 0.1);
+
+  /* ==========================================================
+     MOTION
+     ========================================================== */
+
+  --token-transition-fast: 120ms;
+  --token-transition-base: 180ms;
+  --token-transition-slow: 280ms;
+
+  --token-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --token-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ==========================================================
+     Z-INDEX
+     ========================================================== */
+
+  --token-z-dropdown: 1000;
+  --token-z-sticky: 1020;
+  --token-z-fixed: 1030;
+  --token-z-modal-backdrop: 1040;
+  --token-z-modal: 1050;
+  --token-z-popover: 1060;
+  --token-z-tooltip: 1070;
+  --token-z-toast: 1080;
+
+  /* ==========================================================
+     SPACING
+     ========================================================== */
+
+  --token-spacing-0: 0;
+  --token-spacing-px: 1px;
+  --token-spacing-0-5: 0.125rem;
+  --token-spacing-1: 0.25rem;
+  --token-spacing-1-5: 0.375rem;
+  --token-spacing-2: 0.5rem;
+  --token-spacing-2-5: 0.625rem;
+  --token-spacing-3: 0.75rem;
+  --token-spacing-3-5: 0.875rem;
+  --token-spacing-4: 1rem;
+  --token-spacing-5: 1.25rem;
+  --token-spacing-6: 1.5rem;
+  --token-spacing-7: 1.75rem;
+  --token-spacing-8: 2rem;
+  --token-spacing-9: 2.25rem;
+  --token-spacing-10: 2.5rem;
+  --token-spacing-11: 2.75rem;
+  --token-spacing-12: 3rem;
+  --token-spacing-14: 3.5rem;
+  --token-spacing-16: 4rem;
+  --token-spacing-20: 5rem;
+  --token-spacing-24: 6rem;
+  --token-spacing-28: 7rem;
+  --token-spacing-32: 8rem;
+  --token-spacing-36: 9rem;
+  --token-spacing-40: 10rem;
+  --token-spacing-44: 11rem;
+  --token-spacing-48: 12rem;
+  --token-spacing-52: 13rem;
+  --token-spacing-56: 14rem;
+  --token-spacing-60: 15rem;
+  --token-spacing-64: 16rem;
+  --token-spacing-72: 18rem;
+  --token-spacing-80: 20rem;
+  --token-spacing-96: 24rem;
+
+  /* ==========================================================
+     BORDER WIDTH
+     ========================================================== */
+
+  --token-border-width-0: 0;
+  --token-border-width-1: 1px;
+  --token-border-width-2: 2px;
+  --token-border-width-4: 4px;
+  --token-border-width-8: 8px;
+
+  /* ==========================================================
+     OPACITY
+     ========================================================== */
+
+  --token-opacity-0: 0;
+  --token-opacity-5: 0.05;
+  --token-opacity-10: 0.1;
+  --token-opacity-20: 0.2;
+  --token-opacity-25: 0.25;
+  --token-opacity-30: 0.3;
+  --token-opacity-40: 0.4;
+  --token-opacity-50: 0.5;
+  --token-opacity-60: 0.6;
+  --token-opacity-70: 0.7;
+  --token-opacity-75: 0.75;
+  --token-opacity-80: 0.8;
+  --token-opacity-90: 0.9;
+  --token-opacity-95: 0.95;
+  --token-opacity-100: 1;
+}
+
+/* ============================================================
+   DARK THEME OVERRIDES
+   ============================================================ */
+
+html.dark {
+  --token-background: var(--token-background-dark);
+
+  --token-background-subtle: var(--token-background-subtle-dark);
+
+  --token-surface: var(--token-surface-dark);
+
+  --token-surface-muted: var(--token-surface-muted-dark);
+
+  --token-surface-hover: var(--token-surface-hover-dark);
+
+  --token-border: var(--token-border-dark);
+
+  --token-border-hover: var(--token-border-hover-dark);
+
+  --token-border-strong: var(--token-border-strong-dark);
+
+  --token-text: var(--token-text-dark);
+
+  --token-text-secondary: var(--token-text-secondary-dark);
+
+  --token-muted: var(--token-muted-dark);
+
+  --token-placeholder: var(--token-placeholder-dark);
+
+  --token-primary: var(--color-indigo-400);
+
+  --token-primary-hover: var(--color-indigo-300);
+
+  --token-primary-active: var(--color-indigo-200);
+
+  --token-primary-soft: var(--color-indigo-950);
+
+  --token-primary-soft-hover: var(--color-indigo-900);
+
+  --token-primary-foreground: var(--color-slate-950);
+
+  --token-secondary: var(--color-violet-400);
+
+  --token-secondary-hover: var(--color-violet-300);
+
+  --token-secondary-soft: var(--color-violet-950);
+
+  --token-secondary-soft-hover: var(--color-violet-900);
+
+  --token-secondary-foreground: var(--color-slate-950);
+
+  --token-success: var(--color-green-400);
+
+  --token-success-hover: var(--color-green-300);
+
+  --token-success-soft: var(--color-green-950);
+
+  --token-success-soft-hover: var(--color-green-900);
+
+  --token-success-foreground: var(--color-slate-950);
+
+  --token-danger: var(--color-red-400);
+
+  --token-danger-hover: var(--color-red-300);
+
+  --token-danger-active: var(--color-red-200);
+
+  --token-danger-soft: var(--color-red-950);
+
+  --token-danger-soft-hover: var(--color-red-900);
+
+  --token-danger-foreground: var(--color-slate-950);
+
+  --token-warning: var(--color-amber-400);
+
+  --token-warning-hover: var(--color-amber-300);
+
+  --token-warning-soft: var(--color-amber-950);
+
+  --token-warning-soft-hover: var(--color-amber-900);
+
+  --token-warning-foreground: var(--color-slate-950);
+
+  --token-info: var(--color-sky-400);
+
+  --token-info-hover: var(--color-sky-300);
+
+  --token-info-soft: var(--color-sky-950);
+
+  --token-info-soft-hover: var(--color-sky-900);
+
+  --token-info-foreground: var(--color-slate-950);
+}
+
+/* ============================================================
+   TAILWIND CSS V4 THEME
+   ============================================================ */
+
+@theme inline {
+  /* ==========================================================
+     BRAND
+     ========================================================== */
+
+  --color-primary: var(--token-primary);
+
+  --color-primary-hover: var(--token-primary-hover);
+
+  --color-primary-active: var(--token-primary-active);
+
+  --color-primary-soft: var(--token-primary-soft);
+
+  --color-primary-soft-hover: var(--token-primary-soft-hover);
+
+  --color-primary-light: var(--token-primary-light);
+
+  --color-primary-dark: var(--token-primary-dark);
+
+  --color-primary-foreground: var(--token-primary-foreground);
+
+  --color-secondary: var(--token-secondary);
+
+  --color-secondary-hover: var(--token-secondary-hover);
+
+  --color-secondary-soft: var(--token-secondary-soft);
+
+  --color-secondary-soft-hover: var(--token-secondary-soft-hover);
+
+  --color-secondary-foreground: var(--token-secondary-foreground);
+
+  /* ==========================================================
+     STATUS
+     ========================================================== */
+
+  --color-success: var(--token-success);
+
+  --color-success-hover: var(--token-success-hover);
+
+  --color-success-soft: var(--token-success-soft);
+
+  --color-success-soft-hover: var(--token-success-soft-hover);
+
+  --color-success-foreground: var(--token-success-foreground);
+
+  --color-danger: var(--token-danger);
+
+  --color-danger-hover: var(--token-danger-hover);
+
+  --color-danger-active: var(--token-danger-active);
+
+  --color-danger-soft: var(--token-danger-soft);
+
+  --color-danger-soft-hover: var(--token-danger-soft-hover);
+
+  --color-danger-foreground: var(--token-danger-foreground);
+
+  --color-warning: var(--token-warning);
+
+  --color-warning-hover: var(--token-warning-hover);
+
+  --color-warning-soft: var(--token-warning-soft);
+
+  --color-warning-soft-hover: var(--token-warning-soft-hover);
+
+  --color-warning-foreground: var(--token-warning-foreground);
+
+  --color-info: var(--token-info);
+
+  --color-info-hover: var(--token-info-hover);
+
+  --color-info-soft: var(--token-info-soft);
+
+  --color-info-soft-hover: var(--token-info-soft-hover);
+
+  --color-info-foreground: var(--token-info-foreground);
+
+  /* ==========================================================
+     BACKGROUND / SURFACE
+     ========================================================== */
+
+  --color-background: var(--token-background);
+
+  --color-background-subtle: var(--token-background-subtle);
+
+  --color-surface: var(--token-surface);
+
+  --color-surface-muted: var(--token-surface-muted);
+
+  --color-surface-hover: var(--token-surface-hover);
+
+  /* ==========================================================
+     BORDER
+     ========================================================== */
+
+  --color-border: var(--token-border);
+
+  --color-border-hover: var(--token-border-hover);
+
+  --color-border-strong: var(--token-border-strong);
+
+  /* ==========================================================
+     TEXT
+     ========================================================== */
+
+  --color-text: var(--token-text);
+
+  --color-text-secondary: var(--token-text-secondary);
+
+  --color-muted: var(--token-muted);
+
+  --color-placeholder: var(--token-placeholder);
+
+  /* ==========================================================
+     RADIUS
+     ========================================================== */
+
+  --radius-xs: var(--token-radius-xs);
+
+  --radius-sm: var(--token-radius-sm);
+
+  --radius-md: var(--token-radius-md);
+
+  --radius-lg: var(--token-radius-lg);
+
+  --radius-xl: var(--token-radius-xl);
+
+  --radius-2xl: var(--token-radius-2xl);
+
+  --radius-full: var(--token-radius-full);
+
+  /* ==========================================================
+     SHADOW
+     ========================================================== */
+
+  --shadow-sm: var(--token-shadow-sm);
+
+  --shadow-md: var(--token-shadow-md);
+
+  --shadow-lg: var(--token-shadow-lg);
+
+  --shadow-xl: var(--token-shadow-xl);
+
+  /* ==========================================================
+     FONT
+     ========================================================== */
+
+  --font-sans: var(--token-font-family-sans);
+
+  --font-mono: var(--token-font-family-mono);
+
+  /* ==========================================================
+     SPACING
+     ========================================================== */
+
+  --spacing-0: var(--token-spacing-0);
+
+  --spacing-px: var(--token-spacing-px);
+
+  --spacing-0-5: var(--token-spacing-0-5);
+
+  --spacing-1: var(--token-spacing-1);
+
+  --spacing-1-5: var(--token-spacing-1-5);
+
+  --spacing-2: var(--token-spacing-2);
+
+  --spacing-2-5: var(--token-spacing-2-5);
+
+  --spacing-3: var(--token-spacing-3);
+
+  --spacing-3-5: var(--token-spacing-3-5);
+
+  --spacing-4: var(--token-spacing-4);
+
+  --spacing-5: var(--token-spacing-5);
+
+  --spacing-6: var(--token-spacing-6);
+
+  --spacing-7: var(--token-spacing-7);
+
+  --spacing-8: var(--token-spacing-8);
+
+  --spacing-9: var(--token-spacing-9);
+
+  --spacing-10: var(--token-spacing-10);
+
+  --spacing-11: var(--token-spacing-11);
+
+  --spacing-12: var(--token-spacing-12);
+
+  --spacing-14: var(--token-spacing-14);
+
+  --spacing-16: var(--token-spacing-16);
+
+  --spacing-20: var(--token-spacing-20);
+
+  --spacing-24: var(--token-spacing-24);
+
+  --spacing-28: var(--token-spacing-28);
+
+  --spacing-32: var(--token-spacing-32);
+
+  --spacing-36: var(--token-spacing-36);
+
+  --spacing-40: var(--token-spacing-40);
+
+  --spacing-44: var(--token-spacing-44);
+
+  --spacing-48: var(--token-spacing-48);
+
+  --spacing-52: var(--token-spacing-52);
+
+  --spacing-56: var(--token-spacing-56);
+
+  --spacing-60: var(--token-spacing-60);
+
+  --spacing-64: var(--token-spacing-64);
+
+  --spacing-72: var(--token-spacing-72);
+
+  --spacing-80: var(--token-spacing-80);
+
+  --spacing-96: var(--token-spacing-96);
+
+  /* ==========================================================
+     OPACITY
+     ========================================================== */
+
+  --opacity-0: var(--token-opacity-0);
+
+  --opacity-5: var(--token-opacity-5);
+
+  --opacity-10: var(--token-opacity-10);
+
+  --opacity-20: var(--token-opacity-20);
+
+  --opacity-25: var(--token-opacity-25);
+
+  --opacity-30: var(--token-opacity-30);
+
+  --opacity-40: var(--token-opacity-40);
+
+  --opacity-50: var(--token-opacity-50);
+
+  --opacity-60: var(--token-opacity-60);
+
+  --opacity-70: var(--token-opacity-70);
+
+  --opacity-75: var(--token-opacity-75);
+
+  --opacity-80: var(--token-opacity-80);
+
+  --opacity-90: var(--token-opacity-90);
+
+  --opacity-95: var(--token-opacity-95);
+
+  --opacity-100: var(--token-opacity-100);
+}
