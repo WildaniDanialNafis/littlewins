@@ -1,7 +1,6 @@
 import {
   createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useState,
@@ -9,22 +8,15 @@ import {
 
 import { ROUTES, STORAGE_KEYS } from "@/shared/constants";
 
+import authService from "@/services/api/authService";
+
 const AuthContext = createContext(null);
 
 AuthContext.displayName = "AuthContext";
 
-const MOCK_USER = {
-  id: 1,
-  email: "",
-  full_name: "User Demo",
-  role: "teacher",
-  profile: {
-    id: 1,
-    full_name: "User Demo",
-  },
-};
-
-const MOCK_TOKEN = "mock-jwt-token";
+/* ============================================================
+ * STORAGE
+ * ============================================================ */
 
 const getStoredAuth = () => {
   try {
@@ -45,6 +37,7 @@ const getStoredAuth = () => {
     };
   } catch {
     localStorage.removeItem(STORAGE_KEYS.user);
+
     localStorage.removeItem(STORAGE_KEYS.authToken);
 
     return {
@@ -62,81 +55,121 @@ const saveAuth = (user, token) => {
 
 const clearAuth = () => {
   localStorage.removeItem(STORAGE_KEYS.user);
+
   localStorage.removeItem(STORAGE_KEYS.authToken);
+
   localStorage.removeItem(STORAGE_KEYS.refreshToken);
 };
 
+/* ============================================================
+ * PROVIDER
+ * ============================================================ */
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+
   const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const { user: storedUser } = getStoredAuth();
+  /* ==========================================================
+   * RESTORE SESSION
+   * ========================================================== */
 
-    setUser(storedUser);
-    setLoading(false);
+  useEffect(() => {
+    const restoreSession = async () => {
+      const { user: storedUser, token } = getStoredAuth();
+
+      if (!storedUser || !token) {
+        setLoading(false);
+        return;
+      }
+
+      setUser(storedUser);
+      setLoading(false);
+    };
+
+    restoreSession();
   }, []);
 
-  const login = useCallback(async (email, password) => {
+  /* ==========================================================
+   * LOGIN
+   * ========================================================== */
+
+  const login = useCallback(async (username, password) => {
     setError(null);
     setLoading(true);
 
     try {
-      // TODO:
-      // Ganti mock authentication ini dengan:
-      //
-      // const response = await loginService.login(
-      //   email,
-      //   password,
-      // );
-      //
-      // const { user, token } = response;
+      const normalizedUsername = String(username ?? "")
+        .trim()
+        .toLowerCase();
 
-      void password;
+      if (!normalizedUsername) {
+        throw new Error("Username wajib diisi.");
+      }
 
-      const userData = {
-        ...MOCK_USER,
-        email,
-      };
+      if (!password) {
+        throw new Error("Password wajib diisi.");
+      }
 
-      saveAuth(userData, MOCK_TOKEN);
-      setUser(userData);
+      const response = await authService.login(normalizedUsername, password);
 
-      return userData;
+      const { user, token } = response ?? {};
+
+      if (!user) {
+        throw new Error("Data pengguna tidak ditemukan.");
+      }
+
+      if (!token) {
+        throw new Error("Token autentikasi tidak ditemukan.");
+      }
+
+      saveAuth(user, token);
+
+      setUser(user);
+
+      return user;
     } catch (error) {
       const normalizedError =
         error instanceof Error ? error : new Error("Login gagal.");
 
       setError(normalizedError);
+
       throw normalizedError;
     } finally {
       setLoading(false);
     }
   }, []);
+
+  /* ==========================================================
+   * LOGOUT
+   * ========================================================== */
 
   const logout = useCallback(async () => {
     setError(null);
     setLoading(true);
 
     try {
-      // TODO:
-      // await loginService.logout();
-
+      await authService.logout();
+    } catch {
+      /*
+       * Session lokal tetap dibersihkan
+       * meskipun request logout gagal.
+       */
+    } finally {
       clearAuth();
       setUser(null);
 
-      window.location.assign(ROUTES.login);
-    } catch (error) {
-      const normalizedError =
-        error instanceof Error ? error : new Error("Logout gagal.");
-
-      setError(normalizedError);
-      throw normalizedError;
-    } finally {
       setLoading(false);
+
+      window.location.assign(ROUTES.login);
     }
   }, []);
+
+  /* ==========================================================
+   * UPDATE USER
+   * ========================================================== */
 
   const updateUser = useCallback((updatedUser) => {
     setUser(updatedUser);
@@ -150,20 +183,29 @@ export const AuthProvider = ({ children }) => {
           : new Error("Gagal menyimpan data pengguna.");
 
       setError(normalizedError);
+
       throw normalizedError;
     }
   }, []);
+
+  /* ==========================================================
+   * CONTEXT VALUE
+   * ========================================================== */
 
   const value = useMemo(
     () => ({
       user,
       loading,
       error,
+
       login,
       logout,
       updateUser,
+
       isAuthenticated: Boolean(user),
+
       isTeacher: user?.role === "teacher",
+
       isStudent: user?.role === "student",
     }),
     [user, loading, error, login, logout, updateUser],

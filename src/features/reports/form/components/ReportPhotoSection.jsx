@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useEffect, useMemo } from "react";
 
 import { PhotoIcon } from "@/shared/icons";
 
@@ -10,6 +10,24 @@ const ReportPhotoSection = ({
   onRemoveExisting,
   disabled = false,
 }) => {
+  const newPhotos = Array.isArray(photos)
+    ? photos.filter((photo) => photo instanceof File)
+    : [];
+
+  const savedPhotos = Array.isArray(existingPhotos) ? existingPhotos : [];
+
+  const newPhotoPreviews = useMemo(() => {
+    return newPhotos.map((file) => URL.createObjectURL(file));
+  }, [newPhotos]);
+
+  useEffect(() => {
+    return () => {
+      newPhotoPreviews.forEach((url) => {
+        URL.revokeObjectURL(url);
+      });
+    };
+  }, [newPhotoPreviews]);
+
   const handleChange = (event) => {
     const files = Array.from(event.target.files || []);
 
@@ -20,7 +38,7 @@ const ReportPhotoSection = ({
     event.target.value = "";
   };
 
-  const getPhotoSource = (photo) => {
+  const getExistingPhotoSource = (photo) => {
     if (!photo) {
       return null;
     }
@@ -30,12 +48,7 @@ const ReportPhotoSection = ({
     }
 
     return (
-      photo.preview ||
-      photo.photo_url ||
-      photo.url ||
-      photo.image_url ||
-      photo.photo ||
-      null
+      photo.photo_url || photo.url || photo.image_url || photo.photo || null
     );
   };
 
@@ -44,19 +57,27 @@ const ReportPhotoSection = ({
       return `existing-photo-${index}`;
     }
 
-    return photo.id ?? photo.photo_id ?? `existing-photo-${index}`;
+    return (
+      photo.id ??
+      photo.photo_id ??
+      photo.report_photo_id ??
+      `existing-photo-${index}`
+    );
   };
 
-  const getNewPhotoKey = (photo, index) => {
-    if (!(photo instanceof File)) {
+  const getNewPhotoKey = (file, index) => {
+    if (!(file instanceof File)) {
       return `new-photo-${index}`;
     }
 
-    return [photo.name, photo.size, photo.lastModified].join("-");
+    return [file.name, file.size, file.lastModified].join("-");
   };
 
   return (
     <div className="space-y-6">
+      {/* =====================================================
+          UPLOAD
+          ===================================================== */}
       <label
         htmlFor="report-photos"
         className={[
@@ -94,7 +115,10 @@ const ReportPhotoSection = ({
         />
       </label>
 
-      {existingPhotos.length > 0 && (
+      {/* =====================================================
+          FOTO LAMA
+          ===================================================== */}
+      {savedPhotos.length > 0 && (
         <section>
           <div className="mb-3">
             <p className="text-sm font-semibold text-text">Foto tersimpan</p>
@@ -105,8 +129,8 @@ const ReportPhotoSection = ({
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-            {existingPhotos.map((photo, index) => {
-              const src = getPhotoSource(photo);
+            {savedPhotos.map((photo, index) => {
+              const src = getExistingPhotoSource(photo);
 
               if (!src) {
                 return null;
@@ -162,31 +186,34 @@ const ReportPhotoSection = ({
         </section>
       )}
 
-      {photos.length > 0 && (
+      {/* =====================================================
+          FOTO BARU / PREVIEW
+          ===================================================== */}
+      {newPhotos.length > 0 && (
         <section>
           <div className="mb-3">
             <p className="text-sm font-semibold text-text">Foto baru</p>
 
             <p className="mt-0.5 text-xs text-muted">
-              Foto ini akan disimpan saat laporan disimpan.
+              Foto yang baru dipilih dan akan disimpan saat laporan disimpan.
             </p>
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-            {photos.map((photo, index) => {
-              const src = getPhotoSource(photo);
+            {newPhotos.map((file, index) => {
+              const preview = newPhotoPreviews[index];
 
-              if (!src) {
+              if (!preview) {
                 return null;
               }
 
               return (
                 <figure
-                  key={getNewPhotoKey(photo, index)}
+                  key={getNewPhotoKey(file, index)}
                   className="group relative overflow-hidden rounded-xl border border-border bg-surface"
                 >
                   <img
-                    src={src}
+                    src={preview}
                     alt={`Foto baru ${index + 1}`}
                     className="aspect-4/3 w-full object-cover"
                   />
@@ -228,7 +255,10 @@ const ReportPhotoSection = ({
         </section>
       )}
 
-      {existingPhotos.length === 0 && photos.length === 0 && (
+      {/* =====================================================
+          EMPTY STATE
+          ===================================================== */}
+      {savedPhotos.length === 0 && newPhotos.length === 0 && (
         <p className="text-sm text-muted">Belum ada foto yang ditambahkan.</p>
       )}
     </div>

@@ -11,7 +11,10 @@ export {
   ReportTeacherNote,
 } from "./components";
 
+export { default as ReportDetailPage } from "./pages/ReportDetailPage";
+
 export { default as useLightbox } from "./hooks/useLightbox";
+
 export { default as useReportDetail } from "./hooks/useReportDetail";
 
 export {

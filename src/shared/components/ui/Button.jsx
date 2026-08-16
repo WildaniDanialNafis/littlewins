@@ -45,9 +45,10 @@ const SIZES = {
 };
 
 export const Button = ({
+  as: Component = "button",
   variant = "primary",
   size = "md",
-  type = "button",
+  type,
   children,
   className = "",
   fullWidth = false,
@@ -57,12 +58,24 @@ export const Button = ({
 }) => {
   const isDisabled = disabled || loading;
 
+  const isNativeButton = Component === "button";
+
+  const resolvedType = isNativeButton ? (type ?? "button") : undefined;
+
   return (
-    <button
-      type={type}
-      disabled={isDisabled}
-      aria-disabled={isDisabled || undefined}
-      aria-busy={loading || undefined}
+    <Component
+      {...props}
+      {...(resolvedType ? { type: resolvedType } : {})}
+      {...(isDisabled
+        ? {
+            "aria-disabled": true,
+          }
+        : {})}
+      {...(loading
+        ? {
+            "aria-busy": true,
+          }
+        : {})}
       className={[
         "inline-flex shrink-0 items-center justify-center gap-2 rounded-lg",
         "font-medium leading-none text-sm select-none",
@@ -72,20 +85,19 @@ export const Button = ({
         "focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         "disabled:pointer-events-none disabled:cursor-not-allowed",
         "disabled:opacity-50",
-        "motion-reduce:transition-none",
         VARIANTS[variant] ?? VARIANTS.primary,
         SIZES[size] ?? SIZES.md,
         fullWidth && "w-full",
+        isDisabled && "pointer-events-none opacity-50",
         className,
       ]
         .filter(Boolean)
         .join(" ")}
-      {...props}
     >
       {loading && <Spinner size="sm" className="shrink-0" aria-hidden="true" />}
 
       {children}
-    </button>
+    </Component>
   );
 };
 

@@ -13,14 +13,9 @@ import {
   useReportDetail,
 } from "@/features/reports/detail";
 
-import {
-  Button,
-  EmptyState,
-  ErrorState,
-  LoadingState,
-} from "@/shared/components/ui";
+import { EmptyState, ErrorState, LoadingState } from "@/shared/components/ui";
 
-import { ArrowLeftIcon, EditIcon, PrintIcon } from "@/shared/icons";
+import { ArrowLeftIcon, EditIcon } from "@/shared/icons";
 
 import { ROUTES } from "@/shared/constants";
 import { cx } from "@/shared/utils";
@@ -69,8 +64,26 @@ const ACTION_VARIANTS = {
   ].join(" "),
 };
 
-const ReportDetailPage = () => {
+const ROLE_CONFIG = {
+  teacher: {
+    reportsRoute: ROUTES.teacher.reports,
+
+    getEditRoute: (id) => ROUTES.teacher.reportEdit(id),
+
+    canEdit: true,
+  },
+
+  student: {
+    reportsRoute: ROUTES.student.reports,
+
+    canEdit: false,
+  },
+};
+
+const ReportDetailPage = ({ role = "teacher" }) => {
   const { id } = useParams();
+
+  const roleConfig = ROLE_CONFIG[role] ?? ROLE_CONFIG.teacher;
 
   const { viewData, nilaiStyle, isLoading, error, refresh, lightbox } =
     useReportDetail(id);
@@ -99,7 +112,7 @@ const ReportDetailPage = () => {
           description="Laporan yang kamu cari tidak tersedia atau sudah tidak dapat diakses."
           action={
             <Link
-              to={ROUTES.teacher.reports}
+              to={roleConfig.reportsRoute}
               className={cx(ACTION_VARIANTS.primary, "w-full sm:w-auto")}
             >
               <ArrowLeftIcon className="h-4 w-4" aria-hidden="true" />
@@ -123,7 +136,7 @@ const ReportDetailPage = () => {
           className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between print:hidden"
         >
           <Link
-            to={ROUTES.teacher.reports}
+            to={roleConfig.reportsRoute}
             className={cx(ACTION_VARIANTS.ghost, "w-full sm:w-auto")}
           >
             <ArrowLeftIcon className="h-4 w-4" aria-hidden="true" />
@@ -131,27 +144,18 @@ const ReportDetailPage = () => {
             <span>Kembali ke Laporan</span>
           </Link>
 
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-            <Link
-              to={ROUTES.teacher.reportEdit(viewData.id)}
-              className={cx(ACTION_VARIANTS.primary, "w-full sm:w-auto")}
-            >
-              <EditIcon className="h-4 w-4" aria-hidden="true" />
+          {roleConfig.canEdit && (
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+              <Link
+                to={roleConfig.getEditRoute(viewData.id)}
+                className={cx(ACTION_VARIANTS.primary, "w-full sm:w-auto")}
+              >
+                <EditIcon className="h-4 w-4" aria-hidden="true" />
 
-              <span>Edit Laporan</span>
-            </Link>
-
-            <Button
-              type="button"
-              variant="secondary"
-              className="w-full sm:w-auto"
-              onClick={() => window.print()}
-            >
-              <PrintIcon className="h-4 w-4" aria-hidden="true" />
-
-              <span>Cetak</span>
-            </Button>
-          </div>
+                <span>Edit Laporan</span>
+              </Link>
+            </div>
+          )}
         </nav>
 
         <article

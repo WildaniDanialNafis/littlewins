@@ -2,7 +2,7 @@
  * Application route definitions.
  *
  * Semua route aplikasi didefinisikan di satu tempat
- * agar navigasi dan redirect mudah di-maintain.
+ * agar navigasi, redirect, dan breadcrumb mudah di-maintain.
  */
 
 // ============================================================
@@ -16,7 +16,6 @@ export const ROUTES = Object.freeze({
 
   home: "/",
   login: "/login",
-  register: "/register",
 
   // ----------------------------------------------------------
   // Teacher
@@ -65,7 +64,6 @@ export const API_ROUTES = Object.freeze({
   auth: Object.freeze({
     login: "/login",
     logout: "/logout",
-    register: "/register",
     me: "/me",
   }),
 
@@ -87,11 +85,15 @@ export const API_ROUTES = Object.freeze({
 });
 
 // ============================================================
-// BREADCRUMB HELPERS
+// BREADCRUMB
 // ============================================================
 
-export const BREADCRUMB = {
-  teacher: {
+export const BREADCRUMB = Object.freeze({
+  // ----------------------------------------------------------
+  // Teacher
+  // ----------------------------------------------------------
+
+  teacher: Object.freeze({
     dashboard: () => [
       {
         label: "Dashboard",
@@ -124,7 +126,7 @@ export const BREADCRUMB = {
       },
     ],
 
-    reportForm: (editMode) => [
+    reportForm: (editMode = false) => [
       {
         label: "Dashboard",
         path: ROUTES.teacher.dashboard,
@@ -137,9 +139,13 @@ export const BREADCRUMB = {
         label: editMode ? "Edit Laporan" : "Buat Laporan",
       },
     ],
-  },
+  }),
 
-  student: {
+  // ----------------------------------------------------------
+  // Student
+  // ----------------------------------------------------------
+
+  student: Object.freeze({
     dashboard: () => [
       {
         label: "Dashboard",
@@ -171,7 +177,11 @@ export const BREADCRUMB = {
         label: title || "Detail Laporan",
       },
     ],
-  },
+  }),
+
+  // ----------------------------------------------------------
+  // Settings
+  // ----------------------------------------------------------
 
   settings: (role) => {
     const dashboardPath =
@@ -187,4 +197,4 @@ export const BREADCRUMB = {
       },
     ];
   },
-};
+});

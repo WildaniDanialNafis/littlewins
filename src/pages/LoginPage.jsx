@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 import { Button, Input } from "@/shared/components/ui";
 
@@ -18,8 +18,10 @@ const LoginPage = () => {
 
   const { login, loading } = useAuth();
 
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
+
   const [password, setPassword] = useState("");
+
   const [error, setError] = useState(null);
 
   /* ==========================================================
@@ -38,29 +40,39 @@ const LoginPage = () => {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+
     setError(null);
 
-    const normalizedEmail = email.trim();
+    const normalizedUsername = username.trim();
 
-    if (!normalizedEmail || !password) {
-      setError("Email dan password wajib diisi.");
+    if (!normalizedUsername || !password) {
+      setError("Username dan password wajib diisi.");
+
       return;
     }
 
     try {
-      const user = await login(normalizedEmail, password);
+      const user = await login(normalizedUsername, password);
 
       if (user?.role === "teacher") {
-        navigate(ROUTES.teacher.dashboard);
+        navigate(ROUTES.teacher.dashboard, {
+          replace: true,
+        });
+
         return;
       }
 
       if (user?.role === "student") {
-        navigate(ROUTES.student.dashboard);
+        navigate(ROUTES.student.dashboard, {
+          replace: true,
+        });
+
         return;
       }
 
-      navigate(ROUTES.home);
+      navigate(ROUTES.login, {
+        replace: true,
+      });
     } catch (error) {
       setError(
         error instanceof Error
@@ -82,7 +94,7 @@ const LoginPage = () => {
         </h1>
 
         <p className="mt-1 text-sm leading-relaxed text-muted">
-          Masukkan email dan password untuk melanjutkan.
+          Masukkan username dan password untuk melanjutkan.
         </p>
       </header>
 
@@ -98,20 +110,25 @@ const LoginPage = () => {
           )}
 
           <Input
-            id="email"
-            label="Email"
-            type="email"
-            value={email}
-            onChange={handleFieldChange(setEmail)}
-            placeholder="masukkan@email.com"
+            id="username"
+            name="username"
+            label="Username"
+            type="text"
+            value={username}
+            onChange={handleFieldChange(setUsername)}
+            placeholder="Masukkan username"
             required
             disabled={loading}
-            autoComplete="email"
+            autoComplete="username"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             autoFocus
           />
 
           <Input
             id="password"
+            name="password"
             label="Password"
             type="password"
             value={password}
@@ -135,16 +152,6 @@ const LoginPage = () => {
           </Button>
         </form>
       </ContentBlock>
-
-      <p className="text-center text-sm text-muted">
-        Belum punya akun?{" "}
-        <Link
-          to={ROUTES.register}
-          className="font-semibold text-primary transition-colors hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-        >
-          Daftar Sekarang
-        </Link>
-      </p>
     </div>
   );
 };

@@ -116,6 +116,7 @@ export const normalizeExistingRelations = (
   return normalizeArray(items)
     .map((item) => {
       const id = getRelationId(item, fallbackIdFields);
+
       const value = getRelationValue(item, field);
 
       if (id === null || !value) {
@@ -144,7 +145,7 @@ export const getPhotoUrl = (photo) => {
     return photo;
   }
 
-  return photo.photo_url || photo.url || photo.photo || photo.image_url || null;
+  return photo.photo_url || photo.url || photo.image_url || photo.photo || null;
 };
 
 export const getPhotoId = (photo) => {
@@ -153,8 +154,11 @@ export const getPhotoId = (photo) => {
 
 export const buildReportPayload = (form) => ({
   student_id: normalizeId(form.student_id),
+
   teacher_id: normalizeId(form.teacher_id),
+
   program_id: normalizeId(form.program_id),
+
   class_id: normalizeId(form.class_id),
 
   report_date: normalizeString(form.report_date),
@@ -240,30 +244,38 @@ export const getFormErrors = (form) => {
   return errors;
 };
 
-export const fileToBase64 = (file) => {
-  return new Promise((resolve, reject) => {
-    if (!(file instanceof File)) {
-      reject(new Error("File foto tidak valid."));
-      return;
-    }
+/* ============================================================
+ * FILE / IMAGE HELPERS
+ * ============================================================ */
 
-    const reader = new FileReader();
+const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "gif", "heic", "heif"];
 
-    reader.onload = () => {
-      if (typeof reader.result !== "string") {
-        reject(new Error(`Gagal membaca file ${file.name}.`));
-        return;
-      }
+const getFileExtension = (fileName = "") => {
+  const value = String(fileName).toLowerCase();
 
-      resolve(reader.result);
-    };
+  const dotIndex = value.lastIndexOf(".");
 
-    reader.onerror = () => {
-      reject(new Error(`Gagal membaca file ${file.name}.`));
-    };
+  if (dotIndex === -1) {
+    return "";
+  }
 
-    reader.readAsDataURL(file);
-  });
+  return value.slice(dotIndex + 1).trim();
+};
+
+export const isImageFile = (file) => {
+  if (!(file instanceof File)) {
+    return false;
+  }
+
+  const mimeType = typeof file.type === "string" ? file.type.toLowerCase() : "";
+
+  if (mimeType.startsWith("image/")) {
+    return true;
+  }
+
+  const extension = getFileExtension(file.name);
+
+  return IMAGE_EXTENSIONS.includes(extension);
 };
 
 export const normalizeImageFiles = (files) => {
@@ -278,9 +290,7 @@ export const normalizeImageFiles = (files) => {
         ? files
         : [files];
 
-  return source.filter(
-    (file) => file instanceof File && file.type.startsWith("image/"),
-  );
+  return source.filter(isImageFile);
 };
 
 export const createFileKey = (file) => {
@@ -289,6 +299,151 @@ export const createFileKey = (file) => {
   }
 
   return [file.name, file.size, file.lastModified].join(":");
+};
+
+const readFileAsDataUrl = (file) => {
+  return new Promise((resolve, reject) => {
+    if (!(file instanceof File)) {
+      reject(new Error("File foto tidak valid."));
+
+      return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result !== "string") {
+        reject(new Error(`Gagal membaca file ${file.name}.`));
+
+        return;
+      }
+
+      resolve(reader.result);
+    };
+
+    reader.onerror = () => {
+      reject(new Error(`Gagal membaca file ${file.name}.`));
+    };
+
+    reader.readAsDataURL(file);
+  });
+};
+
+const loadImage = (source) => {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+
+    image.onload = () => {
+      resolve(image);
+    };
+
+    image.onerror = () => {
+      reject(new Error("Gambar tidak dapat diproses."));
+    };
+
+    image.src = source;
+  });
+};
+
+const canvasToBlob = (canvas, type, quality) => {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error("Gagal membuat gambar hasil kompresi."));
+
+          return;
+        }
+
+        resolve(blob);
+      },
+      type,
+      quality,
+    );
+  });
+};
+
+const createProcessedFile = (blob, originalFile) => {
+  const originalName = originalFile?.name || "photo.jpg";
+
+  const baseName = originalName.replace(/\.[^/.]+$/, "");
+
+  return new File([blob], `${baseName}.jpg`, {
+    type: "image/jpeg",
+    lastModified: Date.now(),
+  });
+};
+
+export const processImageFile = async (
+  file,
+  { maxWidth = 1600, maxHeight = 1600, quality = 0.82 } = {},
+) => {
+  if (!(file instanceof File)) {
+    throw new Error("File foto tidak valid.");
+  }
+
+  if (!isImageFile(file)) {
+    throw new Error(`File ${file.name} bukan gambar yang didukung.`);
+  }
+
+  const extension = getFileExtension(file.name);
+
+  /*
+   * Browser tertentu belum bisa decode HEIC/HEIF
+   * melalui Canvas dengan konsisten.
+   *
+   * Untuk file tersebut kita pertahankan file asli.
+   */
+  const isHeic = extension === "heic" || extension === "heif";
+
+  if (isHeic) {
+    return file;
+  }
+
+  const originalDataUrl = await readFileAsDataUrl(file);
+
+  const image = await loadImage(originalDataUrl);
+
+  const originalWidth = image.naturalWidth || image.width;
+
+  const originalHeight = image.naturalHeight || image.height;
+
+  if (!originalWidth || !originalHeight) {
+    throw new Error(`Ukuran gambar ${file.name} tidak dapat dibaca.`);
+  }
+
+  const scale = Math.min(
+    1,
+    maxWidth / originalWidth,
+    maxHeight / originalHeight,
+  );
+
+  const width = Math.max(1, Math.round(originalWidth * scale));
+
+  const height = Math.max(1, Math.round(originalHeight * scale));
+
+  const canvas = document.createElement("canvas");
+
+  canvas.width = width;
+  canvas.height = height;
+
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    throw new Error("Browser tidak mendukung pemrosesan gambar.");
+  }
+
+  context.drawImage(image, 0, 0, width, height);
+
+  const blob = await canvasToBlob(canvas, "image/jpeg", quality);
+
+  return createProcessedFile(blob, file);
+};
+
+export const fileToBase64 = async (file, options = {}) => {
+  const processedFile = await processImageFile(file, options);
+
+  return readFileAsDataUrl(processedFile);
 };
 
 export const getNextPhotoSortOrder = (photos) => {

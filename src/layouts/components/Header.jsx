@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
 import { Link, NavLink } from "react-router-dom";
 
 import { useAuth } from "@/shared/hooks";
@@ -6,17 +7,25 @@ import { ROUTES } from "@/shared/constants";
 import { LogoIcon } from "@/shared/icons";
 import { cx } from "@/shared/utils";
 
+/* ============================================================
+ * NAV ITEM
+ * ============================================================ */
+
 const NavItem = ({ to, children, className = "" }) => {
   return (
     <NavLink
       to={to}
       className={({ isActive }) =>
         cx(
-          "relative inline-flex h-full items-center text-sm font-medium transition-colors",
+          "relative inline-flex h-full items-center",
+          "text-sm font-medium transition-colors",
           "hover:text-primary",
-          "focus-visible:outline-none focus-visible:text-primary",
-          "focus-visible:ring-2 focus-visible:ring-primary/30",
-          "focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          "focus-visible:outline-none",
+          "focus-visible:text-primary",
+          "focus-visible:ring-2",
+          "focus-visible:ring-primary/30",
+          "focus-visible:ring-offset-2",
+          "focus-visible:ring-offset-background",
           isActive
             ? "text-primary after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:rounded-full after:bg-primary"
             : "text-muted",
@@ -30,6 +39,10 @@ const NavItem = ({ to, children, className = "" }) => {
 };
 
 NavItem.displayName = "NavItem";
+
+/* ============================================================
+ * LOGOUT ICON
+ * ============================================================ */
 
 const LogoutIcon = () => {
   return (
@@ -52,6 +65,10 @@ const LogoutIcon = () => {
 
 LogoutIcon.displayName = "LogoutIcon";
 
+/* ============================================================
+ * LOGOUT BUTTON
+ * ============================================================ */
+
 const LogoutButton = ({ onClick, className = "", tabIndex }) => {
   return (
     <button
@@ -60,10 +77,13 @@ const LogoutButton = ({ onClick, className = "", tabIndex }) => {
       tabIndex={tabIndex}
       className={cx(
         "flex h-10 items-center gap-2 rounded-lg px-3",
-        "text-sm font-medium text-danger transition-colors",
+        "text-sm font-medium text-danger",
+        "transition-colors",
         "hover:bg-danger-soft",
-        "focus-visible:outline-none focus-visible:ring-2",
-        "focus-visible:ring-danger/30 focus-visible:ring-offset-2",
+        "focus-visible:outline-none",
+        "focus-visible:ring-2",
+        "focus-visible:ring-danger/30",
+        "focus-visible:ring-offset-2",
         "focus-visible:ring-offset-background",
         className,
       )}
@@ -77,26 +97,33 @@ const LogoutButton = ({ onClick, className = "", tabIndex }) => {
 
 LogoutButton.displayName = "LogoutButton";
 
+/* ============================================================
+ * HAMBURGER ICON
+ * ============================================================ */
+
 const HamburgerIcon = ({ open }) => {
   return (
     <span className="flex h-5 w-6 flex-col justify-between" aria-hidden="true">
       <span
         className={cx(
-          "block h-0.5 origin-left bg-current transition-all duration-300",
+          "block h-0.5 origin-left bg-current",
+          "transition-all duration-300",
           open && "translate-x-0.5 rotate-45",
         )}
       />
 
       <span
         className={cx(
-          "block h-0.5 bg-current transition-opacity duration-300",
+          "block h-0.5 bg-current",
+          "transition-opacity duration-300",
           open && "opacity-0",
         )}
       />
 
       <span
         className={cx(
-          "block h-0.5 origin-left bg-current transition-all duration-300",
+          "block h-0.5 origin-left bg-current",
+          "transition-all duration-300",
           open && "translate-x-0.5 -rotate-45",
         )}
       />
@@ -106,10 +133,15 @@ const HamburgerIcon = ({ open }) => {
 
 HamburgerIcon.displayName = "HamburgerIcon";
 
+/* ============================================================
+ * MOBILE MENU HOOK
+ * ============================================================ */
+
 const useMobileMenu = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   const menuRef = useRef(null);
+
   const buttonRef = useRef(null);
 
   const close = useCallback(() => {
@@ -119,6 +151,10 @@ const useMobileMenu = () => {
   const toggle = useCallback(() => {
     setIsOpen((current) => !current);
   }, []);
+
+  /* ==========================================================
+   * OUTSIDE CLICK
+   * ========================================================== */
 
   useEffect(() => {
     if (!isOpen) {
@@ -145,6 +181,10 @@ const useMobileMenu = () => {
     };
   }, [isOpen, close]);
 
+  /* ==========================================================
+   * CLOSE ON DESKTOP
+   * ========================================================== */
+
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 768) {
@@ -158,6 +198,10 @@ const useMobileMenu = () => {
       window.removeEventListener("resize", handleResize);
     };
   }, [close]);
+
+  /* ==========================================================
+   * LOCK BODY SCROLL
+   * ========================================================== */
 
   useEffect(() => {
     if (!isOpen) {
@@ -173,6 +217,10 @@ const useMobileMenu = () => {
     };
   }, [isOpen]);
 
+  /* ==========================================================
+   * ESCAPE
+   * ========================================================== */
+
   useEffect(() => {
     if (!isOpen) {
       return undefined;
@@ -184,6 +232,7 @@ const useMobileMenu = () => {
       }
 
       close();
+
       buttonRef.current?.focus();
     };
 
@@ -203,14 +252,24 @@ const useMobileMenu = () => {
   };
 };
 
+/* ============================================================
+ * HEADER
+ * ============================================================ */
+
 const Header = () => {
   const { user, logout } = useAuth();
 
   const mobileMenu = useMobileMenu();
 
   const isAuthenticated = Boolean(user);
+
   const isTeacher = user?.role === "teacher";
+
   const isStudent = user?.role === "student";
+
+  /* ==========================================================
+   * NAVIGATION ITEMS
+   * ========================================================== */
 
   const navItems = useMemo(() => {
     if (isTeacher) {
@@ -255,11 +314,19 @@ const Header = () => {
     ];
   }, [isTeacher, isStudent]);
 
+  /* ==========================================================
+   * LOGO ROUTE
+   * ========================================================== */
+
   const logoRoute = isTeacher
     ? ROUTES.teacher.dashboard
     : isStudent
       ? ROUTES.student.dashboard
       : ROUTES.home;
+
+  /* ==========================================================
+   * LOGOUT
+   * ========================================================== */
 
   const handleLogout = useCallback(async () => {
     mobileMenu.close();
@@ -271,19 +338,40 @@ const Header = () => {
     }
   }, [logout, mobileMenu.close]);
 
+  /* ==========================================================
+   * VIEW
+   * ========================================================== */
+
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-surface/80 backdrop-blur-md">
+    <header className="sticky top-0 z-50 border-b border-border bg-surface shadow-sm">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between md:h-20">
+          {/* ==================================================
+           * LOGO
+           * ================================================== */}
+
           <Link
             to={logoRoute}
             onClick={mobileMenu.close}
-            className="flex h-full shrink-0 items-center gap-2 text-xl font-bold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className={cx(
+              "flex h-full shrink-0 items-center gap-2",
+              "text-xl font-bold text-primary",
+              "focus-visible:outline-none",
+              "focus-visible:ring-2",
+              "focus-visible:ring-primary/30",
+              "focus-visible:ring-offset-2",
+              "focus-visible:ring-offset-background",
+            )}
             aria-label="Beranda LittleWins"
           >
             <LogoIcon className="h-8 w-8" aria-hidden="true" />
+
             <span>LittleWins</span>
           </Link>
+
+          {/* ==================================================
+           * DESKTOP NAV
+           * ================================================== */}
 
           <nav
             className="hidden h-full items-center gap-8 md:flex"
@@ -296,6 +384,10 @@ const Header = () => {
             ))}
           </nav>
 
+          {/* ==================================================
+           * ACTIONS
+           * ================================================== */}
+
           <div className="flex h-full items-center gap-1.5 sm:gap-2 md:gap-3">
             {isAuthenticated && (
               <LogoutButton onClick={handleLogout} className="hidden md:flex" />
@@ -305,7 +397,18 @@ const Header = () => {
               type="button"
               ref={mobileMenu.buttonRef}
               onClick={mobileMenu.toggle}
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background md:hidden"
+              className={cx(
+                "inline-flex h-10 w-10 shrink-0",
+                "items-center justify-center rounded-lg",
+                "transition-colors",
+                "hover:bg-surface-muted",
+                "focus-visible:outline-none",
+                "focus-visible:ring-2",
+                "focus-visible:ring-primary/30",
+                "focus-visible:ring-offset-2",
+                "focus-visible:ring-offset-background",
+                "md:hidden",
+              )}
               aria-label={mobileMenu.isOpen ? "Tutup menu" : "Buka menu"}
               aria-expanded={mobileMenu.isOpen}
               aria-controls="mobile-navigation"
@@ -316,16 +419,26 @@ const Header = () => {
         </div>
       </div>
 
+      {/* ======================================================
+       * MOBILE NAVIGATION
+       * ====================================================== */}
+
       <div
         id="mobile-navigation"
         ref={mobileMenu.menuRef}
         className={cx(
-          "fixed inset-x-0 top-16 z-40 border-b border-border",
-          "bg-surface/95 backdrop-blur-lg md:top-20 md:hidden",
-          "transition-all duration-(--token-transition-base) ease-out",
+          "fixed inset-x-0 top-16 z-40 md:top-20 md:hidden",
+          "border-b border-border bg-surface",
+          "shadow-lg",
+          "overflow-y-auto overscroll-contain",
+          "max-h-[calc(100dvh-4rem)] md:max-h-[calc(100dvh-5rem)]",
+          "transition-[transform,opacity,visibility]",
+          "duration-(--token-transition-base)",
+          "ease-out",
+
           mobileMenu.isOpen
-            ? "pointer-events-auto translate-y-0 opacity-100"
-            : "pointer-events-none -translate-y-4 opacity-0",
+            ? "visible pointer-events-auto translate-y-0 opacity-100"
+            : "invisible pointer-events-none -translate-y-2 opacity-0",
         )}
         aria-hidden={!mobileMenu.isOpen}
       >
@@ -344,9 +457,11 @@ const Header = () => {
                   "flex min-h-12 items-center rounded-xl px-4 py-3",
                   "text-base font-medium transition-colors",
                   "focus-visible:outline-none",
-                  "focus-visible:ring-2 focus-visible:ring-primary/30",
+                  "focus-visible:ring-2",
+                  "focus-visible:ring-primary/30",
                   "focus-visible:ring-offset-2",
                   "focus-visible:ring-offset-background",
+
                   isActive
                     ? "bg-primary-soft text-primary"
                     : "text-muted hover:bg-surface-muted hover:text-text",
@@ -373,4 +488,5 @@ const Header = () => {
 Header.displayName = "Header";
 
 export { Header };
+
 export default Header;

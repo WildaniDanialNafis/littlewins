@@ -29,7 +29,6 @@ import {
   normalizeId,
   normalizeImageFiles,
   normalizeRelationValues,
-  normalizeString,
 } from "../utils/reportFormUtils";
 
 const getDisplayName = (item, fallback) => {
@@ -146,6 +145,7 @@ const syncMaterials = async ({ reportId, existing, desired }) => {
   const desiredValues = normalizeRelationValues(desired);
 
   const matchedIds = new Set();
+
   const valuesToCreate = [];
 
   desiredValues.forEach((desiredValue) => {
@@ -187,6 +187,7 @@ const syncActivities = async ({ reportId, existing, desired }) => {
   const desiredValues = normalizeRelationValues(desired);
 
   const matchedIds = new Set();
+
   const valuesToCreate = [];
 
   desiredValues.forEach((desiredValue) => {
@@ -226,18 +227,32 @@ const uploadPhotos = async ({ reportId, files, startOrder }) => {
     return [];
   }
 
-  const payloads = await Promise.all(
-    normalizedFiles.map(async (file, index) => ({
-      photo: await fileToBase64(file),
-      sort_order: startOrder + index,
-    })),
-  );
+  const uploadedPhotos = [];
 
-  return Promise.all(
-    payloads.map((payload) =>
-      reportPhotoService.createPhoto(reportId, payload),
-    ),
-  );
+  /*
+   * Satu per satu lebih aman untuk Android
+   * dibanding memproses banyak foto sekaligus.
+   *
+   * Ini mengurangi lonjakan penggunaan memory.
+   */
+  for (let index = 0; index < normalizedFiles.length; index += 1) {
+    const file = normalizedFiles[index];
+
+    const base64 = await fileToBase64(file, {
+      maxWidth: 1600,
+      maxHeight: 1600,
+      quality: 0.82,
+    });
+
+    const photo = await reportPhotoService.createPhoto(reportId, {
+      photo: base64,
+      sort_order: startOrder + index,
+    });
+
+    uploadedPhotos.push(photo);
+  }
+
+  return uploadedPhotos;
 };
 
 const removePhotos = async ({ reportId, photoIds }) => {
@@ -355,7 +370,9 @@ const useReportForm = ({
 
     return Array.isArray(photos)
       ? photos.filter((photo) => {
-          const id = getPhotoId(photo);
+          const id = normalizeId(
+            photo?.id ?? photo?.photo_id ?? photo?.report_photo_id,
+          );
 
           return id !== null && !removed.has(id);
         })
@@ -369,6 +386,7 @@ const useReportForm = ({
       setRemovedPhotoIds([]);
       setErrors({});
       setSubmitError(null);
+
       return;
     }
 
@@ -393,6 +411,7 @@ const useReportForm = ({
     );
 
     setHydratedId(normalizedReportId);
+
     setRemovedPhotoIds([]);
     setErrors({});
     setSubmitError(null);
@@ -419,7 +438,10 @@ const useReportForm = ({
         return current;
       }
 
-      const next = { ...current };
+      const next = {
+        ...current,
+      };
+
       delete next[field];
 
       return next;
@@ -442,7 +464,10 @@ const useReportForm = ({
         return current;
       }
 
-      const next = { ...current };
+      const next = {
+        ...current,
+      };
+
       delete next.rating;
 
       return next;
@@ -538,6 +563,8 @@ const useReportForm = ({
     const incoming = normalizeImageFiles(files);
 
     if (incoming.length === 0) {
+      setSubmitError("Tidak ada file gambar yang valid.");
+
       return;
     }
 
@@ -583,6 +610,7 @@ const useReportForm = ({
 
     if (id === null) {
       setSubmitError("Foto tidak memiliki ID database yang valid.");
+
       return;
     }
 
@@ -618,7 +646,9 @@ const useReportForm = ({
         const message = "ID laporan tidak valid.";
 
         setSubmitError(message);
-        setErrors({ form: message });
+        setErrors({
+          form: message,
+        });
 
         return;
       }
@@ -627,7 +657,9 @@ const useReportForm = ({
         const message = "Laporan yang akan diedit tidak ditemukan.";
 
         setSubmitError(message);
-        setErrors({ form: message });
+        setErrors({
+          form: message,
+        });
 
         return;
       }
@@ -669,6 +701,7 @@ const useReportForm = ({
           });
 
           onSuccess?.(report);
+
           return;
         }
 
@@ -709,6 +742,7 @@ const useReportForm = ({
         );
 
         setSubmitError(message);
+
         setErrors({
           form: message,
         });

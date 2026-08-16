@@ -41,7 +41,7 @@ const NotFoundPage = () => {
 
             <div className="mt-6 flex justify-center">
               <Button as={Link} to={ROUTES.home} variant="primary" size="md">
-                Kembali ke Beranda
+                Kembali
               </Button>
             </div>
           </div>
