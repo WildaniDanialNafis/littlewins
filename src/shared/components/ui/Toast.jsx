@@ -4,8 +4,11 @@ import { cx } from "@/shared/utils/cx";
 
 const VARIANT_CLASSES = {
   success: "border-success/20 bg-success-soft text-success",
+
   error: "border-danger/20 bg-danger-soft text-danger",
+
   warning: "border-warning/20 bg-warning-soft text-warning",
+
   info: "border-info/20 bg-info-soft text-info",
 };
 
@@ -118,41 +121,31 @@ export const Toast = ({ message, type = "info", duration = 4000, onClose }) => {
 
   return (
     <div
-      role={isError ? "alert" : "status"}
-      aria-live={isError ? "assertive" : "polite"}
       className={cx(
-        "flex w-full max-w-sm items-start gap-3 rounded-xl border px-4 py-3.5 shadow-lg backdrop-blur-sm",
-        "animate-fade-in-up",
-        "transition-[background-color,border-color,color,box-shadow,opacity]",
-        "duration-(--token-transition-fast) ease-out",
-        "motion-reduce:animate-none motion-reduce:transition-none",
+        "pointer-events-auto flex items-start gap-3 rounded-xl border px-4 py-3",
+        "shadow-lg backdrop-blur-sm",
+        "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-right-2",
+        "motion-reduce:animate-none",
         VARIANT_CLASSES[type] ?? VARIANT_CLASSES.info,
       )}
+      role={isError ? "alert" : "status"}
+      aria-live={isError ? "assertive" : "polite"}
     >
-      <div
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-current/10"
-        aria-hidden="true"
-      >
-        <ToastIcon type={type} />
-      </div>
+      <ToastIcon type={type} />
 
-      <p className="min-w-0 flex-1 pt-1 text-sm font-medium leading-relaxed">
-        {message}
-      </p>
+      <p className="min-w-0 flex-1 text-sm leading-5">{message}</p>
 
       {onClose && (
         <button
           type="button"
           onClick={onClose}
           className={cx(
-            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
-            "text-current/60 transition-colors duration-(--token-transition-fast)",
-            "hover:bg-current/10 hover:text-current",
-            "active:bg-current/15",
-            "focus-visible:outline-none focus-visible:ring-2",
-            "focus-visible:ring-current/30 focus-visible:ring-offset-2",
-            "focus-visible:ring-offset-background",
-            "motion-reduce:transition-none",
+            "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md",
+            "opacity-70 transition-opacity",
+            "hover:opacity-100",
+            "focus-visible:outline-none",
+            "focus-visible:ring-2",
+            "focus-visible:ring-current/30",
           )}
           aria-label="Tutup notifikasi"
         >

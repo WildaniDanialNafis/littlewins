@@ -17,11 +17,47 @@ import { ArrowLeftIcon } from "@/shared/icons";
 
 import { ROUTES } from "@/shared/constants";
 
+const normalizeId = (value) => {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const numericValue = Number(value);
+
+  if (!Number.isInteger(numericValue) || numericValue <= 0) {
+    return null;
+  }
+
+  return numericValue;
+};
+
 const ReportFormPage = ({ mode = "create" }) => {
   const navigate = useNavigate();
+
   const { id } = useParams();
 
   const isEdit = mode === "edit";
+
+  const normalizedReportId = normalizeId(id);
+
+  const handleSuccess = useCallback(
+    (report) => {
+      const savedReportId = normalizeId(report?.id ?? normalizedReportId);
+
+      if (savedReportId === null) {
+        navigate(ROUTES.teacher.reports, {
+          replace: true,
+        });
+
+        return;
+      }
+
+      navigate(ROUTES.teacher.reportDetail(savedReportId), {
+        replace: true,
+      });
+    },
+    [navigate, normalizedReportId],
+  );
 
   const {
     form,
@@ -55,81 +91,30 @@ const ReportFormPage = ({ mode = "create" }) => {
     handleSubmit,
   } = useReportForm({
     mode,
-    reportId: id,
-    onSuccess: (report) => {
-      const reportId = report?.id ?? id;
-
-      if (!reportId) {
-        navigate(ROUTES.teacher.reports, { replace: true });
-        return;
-      }
-
-      navigate(ROUTES.teacher.reportDetail(reportId), { replace: true });
-    },
+    reportId: normalizedReportId,
+    onSuccess: handleSuccess,
   });
 
   const handleCancel = useCallback(() => {
-    if (isEdit && id) {
-      navigate(ROUTES.teacher.reportDetail(id));
+    if (isEdit && normalizedReportId !== null) {
+      navigate(ROUTES.teacher.reportDetail(normalizedReportId));
+
       return;
     }
 
     navigate(ROUTES.teacher.reports);
-  }, [id, isEdit, navigate]);
+  }, [navigate, isEdit, normalizedReportId]);
 
-  const breadcrumb = isEdit
-    ? [
-        {
-          label: "Laporan",
-          path: ROUTES.teacher.reports,
-        },
-        {
-          label: "Edit Laporan",
-        },
-      ]
-    : [
-        {
-          label: "Laporan",
-          path: ROUTES.teacher.reports,
-        },
-        {
-          label: "Buat Laporan",
-        },
-      ];
-
-  if (isLoading) {
+  if (isEdit && normalizedReportId === null) {
     return (
-      <PageContainer
-        title={isEdit ? "Edit Laporan" : "Buat Laporan"}
-        subtitle="Menyiapkan form..."
-        breadcrumb={breadcrumb}
-      >
-        <LoadingState
-          message={isEdit ? "Memuat laporan..." : "Memuat data..."}
-        />
-      </PageContainer>
-    );
-  }
-
-  if (isEdit && !id) {
-    return (
-      <PageContainer
-        title="Edit Laporan"
-        subtitle="Laporan tidak ditemukan."
-        breadcrumb={breadcrumb}
-      >
+      <PageContainer>
         <EmptyState
-          title="ID laporan tidak tersedia"
-          description="Halaman edit membutuhkan ID laporan yang valid."
+          title="Laporan tidak valid"
+          description="ID laporan yang ingin diedit tidak valid."
           action={
-            <Button
-              type="button"
-              variant="primary"
-              onClick={() => navigate(ROUTES.teacher.reports)}
-            >
+            <Button type="button" variant="secondary" onClick={handleCancel}>
               <ArrowLeftIcon className="h-4 w-4" aria-hidden="true" />
-
-              <span>Kembali ke laporan</span>
+              Kembali
             </Button>
           }
         />
@@ -137,56 +122,50 @@ const ReportFormPage = ({ mode = "create" }) => {
     );
   }
 
-  if (isEdit && error) {
+  if (isLoading && !form) {
     return (
-      <PageContainer
-        title="Edit Laporan"
-        subtitle="Gagal memuat laporan."
-        breadcrumb={breadcrumb}
-      >
-        <ErrorState
-          error={error instanceof Error ? error : new Error(String(error))}
-        />
+      <PageContainer>
+        <LoadingState />
+      </PageContainer>
+    );
+  }
+
+  if (error && isEdit && !form) {
+    return (
+      <PageContainer>
+        <ErrorState title="Gagal memuat laporan" description={error} />
       </PageContainer>
     );
   }
 
   return (
-    <PageContainer
-      title={isEdit ? "Edit Laporan" : "Buat Laporan"}
-      subtitle={
-        isEdit
-          ? "Perbarui data perkembangan belajar siswa."
-          : "Catat hasil perkembangan belajar siswa."
-      }
-      breadcrumb={breadcrumb}
-    >
-      <div className="mx-auto w-full max-w-7xl">
-        <ReportForm
-          form={form}
-          errors={errors}
-          studentOptions={studentOptions}
-          teacherOptions={teacherOptions}
-          programOptions={programOptions}
-          classOptions={classOptions}
-          relationOptionsLoading={relationOptionsLoading}
-          submitting={submitting}
-          existingPhotos={existingPhotos}
-          onChange={updateField}
-          onRatingChange={updateRating}
-          onAddMaterial={addMaterial}
-          onRemoveMaterial={removeMaterial}
-          onMaterialChange={changeMaterial}
-          onAddActivity={addActivity}
-          onRemoveActivity={removeActivity}
-          onActivityChange={changeActivity}
-          onAddPhoto={addPhoto}
-          onRemovePhoto={removePhoto}
-          onRemoveExistingPhoto={removeExistingPhoto}
-          onSubmit={handleSubmit}
-          onCancel={handleCancel}
-        />
-      </div>
+    <PageContainer>
+      <ReportForm
+        mode={mode}
+        form={form}
+        errors={errors}
+        loading={isLoading || relationOptionsLoading}
+        submitting={submitting}
+        error={error}
+        existingPhotos={existingPhotos}
+        studentOptions={studentOptions}
+        teacherOptions={teacherOptions}
+        programOptions={programOptions}
+        classOptions={classOptions}
+        onChange={updateField}
+        onRatingChange={updateRating}
+        onAddMaterial={addMaterial}
+        onRemoveMaterial={removeMaterial}
+        onChangeMaterial={changeMaterial}
+        onAddActivity={addActivity}
+        onRemoveActivity={removeActivity}
+        onChangeActivity={changeActivity}
+        onAddPhoto={addPhoto}
+        onRemovePhoto={removePhoto}
+        onRemoveExistingPhoto={removeExistingPhoto}
+        onSubmit={handleSubmit}
+        onCancel={handleCancel}
+      />
     </PageContainer>
   );
 };

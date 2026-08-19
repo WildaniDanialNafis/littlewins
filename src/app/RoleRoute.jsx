@@ -4,40 +4,52 @@ import { ROUTES } from "@/shared/constants";
 
 import { useAuth } from "@/shared/hooks";
 
-const ROLE_DASHBOARDS = {
+const ROLE_DASHBOARDS = Object.freeze({
   teacher: ROUTES.teacher.dashboard,
 
   student: ROUTES.student.dashboard,
+});
+
+const RoleLoading = () => {
+  return (
+    <div
+      className="flex min-h-screen items-center justify-center px-4"
+      role="status"
+      aria-live="polite"
+      aria-label="Memeriksa akses"
+    >
+      <p className="text-sm text-muted">Memeriksa akses...</p>
+    </div>
+  );
 };
 
+RoleLoading.displayName = "RoleLoading";
+
 const RoleRoute = ({ role }) => {
-  const { user, loading } = useAuth();
+  const { role: currentRole, isAuthenticated, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div
-        className="flex min-h-screen items-center justify-center px-4"
-        role="status"
-        aria-live="polite"
-        aria-label="Memeriksa akses"
-      >
-        <p className="text-sm text-muted">Memeriksa akses...</p>
-      </div>
-    );
+    return <RoleLoading />;
   }
 
-  if (!ROLE_DASHBOARDS[role]) {
+  if (!isAuthenticated) {
     return <Navigate to={ROUTES.login} replace />;
   }
 
-  if (user?.role !== role) {
-    const dashboard = ROLE_DASHBOARDS[user?.role];
+  const requestedDashboard = ROLE_DASHBOARDS[role];
 
-    if (!dashboard) {
-      return <Navigate to={ROUTES.login} replace />;
-    }
+  if (!requestedDashboard) {
+    return <Navigate to={ROUTES.login} replace />;
+  }
 
-    return <Navigate to={dashboard} replace />;
+  const currentDashboard = ROLE_DASHBOARDS[currentRole];
+
+  if (!currentDashboard) {
+    return <Navigate to={ROUTES.login} replace />;
+  }
+
+  if (currentRole !== role) {
+    return <Navigate to={currentDashboard} replace />;
   }
 
   return <Outlet />;

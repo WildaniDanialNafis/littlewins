@@ -9,22 +9,29 @@ export { default as ReportPhotoSection } from "./components/ReportPhotoSection";
 export { default as useReportForm } from "./hooks/useReportForm";
 
 export {
+  syncMaterials,
+  syncActivities,
+  uploadPhotos,
+  removePhotos,
+  syncReportRelations,
+  syncReportPhotos,
+} from "./hooks/useReportFormSync";
+
+export {
   EMPTY_REPORT_FORM,
+  buildEditForm,
   buildReportPayload,
   clampRating,
   cloneEmptyForm,
+  createEmptyReportForm,
   createFileKey,
   fileToBase64,
   getFormErrors,
   getNextPhotoSortOrder,
   getPhotoId,
-  getPhotoUrl,
-  getRelationId,
-  getRelationValue,
-  normalizeArray,
   normalizeExistingRelations,
   normalizeId,
   normalizeImageFiles,
+  normalizeRelationComparisonValue,
   normalizeRelationValues,
-  normalizeString,
 } from "./utils/reportFormUtils";

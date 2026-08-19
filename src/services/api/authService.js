@@ -7,25 +7,30 @@ class AuthService extends BaseService {
     super("");
   }
 
-  login(username, password) {
+  login(username, password, options = {}) {
     return this.request(API_ROUTES.auth.login, {
       method: "POST",
+
       body: {
         username,
         password,
       },
+
+      ...options,
     });
   }
 
-  logout() {
+  logout(options = {}) {
     return this.request(API_ROUTES.auth.logout, {
       method: "POST",
+      ...options,
     });
   }
 
-  me() {
+  me(options = {}) {
     return this.request(API_ROUTES.auth.me, {
       method: "GET",
+      ...options,
     });
   }
 }

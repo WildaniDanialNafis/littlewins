@@ -4,11 +4,15 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 
 import { ToastProvider } from "@/contexts/ToastContext";
 
+import { ErrorBoundary } from "@/shared/components/ui";
+
 export const Providers = ({ children }) => {
   return (
     <AuthProvider>
       <ThemeProvider>
-        <ToastProvider>{children}</ToastProvider>
+        <ToastProvider>
+          <ErrorBoundary>{children}</ErrorBoundary>
+        </ToastProvider>
       </ThemeProvider>
     </AuthProvider>
   );

@@ -7,48 +7,57 @@ class ReportMaterialService extends BaseService {
     super(API_ROUTES.reports);
   }
 
-  getAllMaterials(reportId) {
+  getAllMaterials(reportId, options = {}) {
     return this.request(this._materialCollectionPath(reportId), {
       method: "GET",
+      ...options,
     });
   }
 
-  getMaterialById(reportId, materialId) {
+  getMaterialById(reportId, materialId, options = {}) {
     return this.request(
       `${this._materialCollectionPath(reportId)}/${this._encodeId(materialId)}`,
       {
         method: "GET",
+        ...options,
       },
     );
   }
 
-  createMaterial(reportId, payload) {
+  createMaterial(reportId, payload, options = {}) {
     return this.request(this._materialCollectionPath(reportId), {
       method: "POST",
       body: payload,
+      ...options,
     });
   }
 
-  updateMaterial(reportId, materialId, payload) {
+  updateMaterial(reportId, materialId, payload, options = {}) {
     return this.request(
       `${this._materialCollectionPath(reportId)}/${this._encodeId(materialId)}`,
       {
         method: "PUT",
         body: payload,
+        ...options,
       },
     );
   }
 
-  removeMaterial(reportId, materialId) {
+  removeMaterial(reportId, materialId, options = {}) {
     return this.request(
       `${this._materialCollectionPath(reportId)}/${this._encodeId(materialId)}`,
       {
         method: "DELETE",
+        ...options,
       },
     );
   }
 
   _materialCollectionPath(reportId) {
+    if (reportId === null || reportId === undefined || reportId === "") {
+      throw new Error("Report ID wajib diisi.");
+    }
+
     const fullPath = API_ROUTES.reportMaterials(reportId);
 
     const basePath = API_ROUTES.reports;
@@ -59,7 +68,11 @@ class ReportMaterialService extends BaseService {
   }
 
   _encodeId(id) {
-    return encodeURIComponent(id);
+    if (id === null || id === undefined || id === "") {
+      throw new Error("Material ID wajib diisi.");
+    }
+
+    return encodeURIComponent(String(id));
   }
 }
 

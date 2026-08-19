@@ -4,31 +4,46 @@ import { ROUTES } from "@/shared/constants";
 
 import { useAuth } from "@/shared/hooks";
 
+const AuthLoading = () => {
+  return (
+    <div
+      className="flex min-h-screen items-center justify-center px-4"
+      role="status"
+      aria-live="polite"
+      aria-label="Memeriksa sesi"
+    >
+      <p className="text-sm text-muted">Memeriksa sesi...</p>
+    </div>
+  );
+};
+
+AuthLoading.displayName = "AuthLoading";
+
 const GuestRoute = () => {
-  const { user, loading } = useAuth();
+  const { isAuthenticated, role, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div
-        className="flex min-h-screen items-center justify-center px-4"
-        role="status"
-        aria-live="polite"
-        aria-label="Memeriksa sesi"
-      >
-        <p className="text-sm text-muted">Memeriksa sesi...</p>
-      </div>
-    );
+    return <AuthLoading />;
   }
 
-  if (user?.role === "teacher") {
-    return <Navigate to={ROUTES.teacher.dashboard} replace />;
+  if (!isAuthenticated) {
+    return <Outlet />;
   }
 
-  if (user?.role === "student") {
-    return <Navigate to={ROUTES.student.dashboard} replace />;
-  }
+  switch (role) {
+    case "teacher":
+      return <Navigate to={ROUTES.teacher.dashboard} replace />;
 
-  return <Outlet />;
+    case "student":
+      return <Navigate to={ROUTES.student.dashboard} replace />;
+
+    default:
+      /*
+       * Authenticated tetapi role invalid.
+       * Jangan memberikan guest route.
+       */
+      return <Navigate to={ROUTES.login} replace />;
+  }
 };
 
 GuestRoute.displayName = "GuestRoute";

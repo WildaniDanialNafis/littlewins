@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   useClasses,
@@ -12,18 +12,10 @@ import {
 } from "@/shared/hooks";
 
 import {
-  reportMaterialService,
-  reportActivityService,
-  reportPhotoService,
-} from "@/services/api";
-
-import {
   buildReportPayload,
   cloneEmptyForm,
   createFileKey,
-  fileToBase64,
   getFormErrors,
-  getNextPhotoSortOrder,
   getPhotoId,
   normalizeExistingRelations,
   normalizeId,
@@ -31,14 +23,23 @@ import {
   normalizeRelationValues,
 } from "../utils/reportFormUtils";
 
+import { syncReportPhotos, syncReportRelations } from "./useReportFormSync";
+
+/* ============================================================
+ * HELPERS
+ * ============================================================ */
+
 const getDisplayName = (item, fallback) => {
   if (!item) {
     return fallback;
   }
 
-  return (
-    item.full_name || item.nama_lengkap || item.name || item.nama || fallback
-  );
+  const value =
+    item.full_name ?? item.nama_lengkap ?? item.name ?? item.nama ?? "";
+
+  const normalized = String(value).trim();
+
+  return normalized || fallback;
 };
 
 const mapOptions = (items, fallback) => {
@@ -76,14 +77,6 @@ const getErrorMessage = (error, fallback = "Terjadi kesalahan.") => {
   }
 
   return fallback;
-};
-
-const getCurrentReport = (reports, reportId) => {
-  if (!Array.isArray(reports) || reportId === null) {
-    return null;
-  }
-
-  return reports.find((report) => normalizeId(report?.id) === reportId) ?? null;
 };
 
 const buildEditForm = ({ report, materials, activities }) => {
@@ -136,136 +129,9 @@ const buildEditForm = ({ report, materials, activities }) => {
   };
 };
 
-const syncMaterials = async ({ reportId, existing, desired }) => {
-  const existingItems = normalizeExistingRelations(existing, "material", [
-    "material_id",
-    "report_material_id",
-  ]);
-
-  const desiredValues = normalizeRelationValues(desired);
-
-  const matchedIds = new Set();
-
-  const valuesToCreate = [];
-
-  desiredValues.forEach((desiredValue) => {
-    const match = existingItems.find(
-      (item) =>
-        !matchedIds.has(item.id) &&
-        item.value.toLowerCase() === desiredValue.toLowerCase(),
-    );
-
-    if (match) {
-      matchedIds.add(match.id);
-      return;
-    }
-
-    valuesToCreate.push(desiredValue);
-  });
-
-  const idsToDelete = existingItems
-    .filter((item) => !matchedIds.has(item.id))
-    .map((item) => item.id);
-
-  await Promise.all(
-    idsToDelete.map((id) => reportMaterialService.removeMaterial(reportId, id)),
-  );
-
-  await Promise.all(
-    valuesToCreate.map((material) =>
-      reportMaterialService.createMaterial(reportId, { material }),
-    ),
-  );
-};
-
-const syncActivities = async ({ reportId, existing, desired }) => {
-  const existingItems = normalizeExistingRelations(existing, "activity", [
-    "activity_id",
-    "report_activity_id",
-  ]);
-
-  const desiredValues = normalizeRelationValues(desired);
-
-  const matchedIds = new Set();
-
-  const valuesToCreate = [];
-
-  desiredValues.forEach((desiredValue) => {
-    const match = existingItems.find(
-      (item) =>
-        !matchedIds.has(item.id) &&
-        item.value.toLowerCase() === desiredValue.toLowerCase(),
-    );
-
-    if (match) {
-      matchedIds.add(match.id);
-      return;
-    }
-
-    valuesToCreate.push(desiredValue);
-  });
-
-  const idsToDelete = existingItems
-    .filter((item) => !matchedIds.has(item.id))
-    .map((item) => item.id);
-
-  await Promise.all(
-    idsToDelete.map((id) => reportActivityService.removeActivity(reportId, id)),
-  );
-
-  await Promise.all(
-    valuesToCreate.map((activity) =>
-      reportActivityService.createActivity(reportId, { activity }),
-    ),
-  );
-};
-
-const uploadPhotos = async ({ reportId, files, startOrder }) => {
-  const normalizedFiles = normalizeImageFiles(files);
-
-  if (normalizedFiles.length === 0) {
-    return [];
-  }
-
-  const uploadedPhotos = [];
-
-  /*
-   * Satu per satu lebih aman untuk Android
-   * dibanding memproses banyak foto sekaligus.
-   *
-   * Ini mengurangi lonjakan penggunaan memory.
-   */
-  for (let index = 0; index < normalizedFiles.length; index += 1) {
-    const file = normalizedFiles[index];
-
-    const base64 = await fileToBase64(file, {
-      maxWidth: 1600,
-      maxHeight: 1600,
-      quality: 0.82,
-    });
-
-    const photo = await reportPhotoService.createPhoto(reportId, {
-      photo: base64,
-      sort_order: startOrder + index,
-    });
-
-    uploadedPhotos.push(photo);
-  }
-
-  return uploadedPhotos;
-};
-
-const removePhotos = async ({ reportId, photoIds }) => {
-  if (!Array.isArray(photoIds)) {
-    return;
-  }
-
-  const ids = photoIds.map(normalizeId).filter((id) => id !== null);
-
-  await Promise.all(
-    ids.map((photoId) => reportPhotoService.removePhoto(reportId, photoId)),
-  );
-};
+/* ============================================================
+ * HOOK
+ * ============================================================ */
 
 const useReportForm = ({
   mode = "create",
@@ -280,13 +146,33 @@ const useReportForm = ({
 
   const [errors, setErrors] = useState({});
 
-  const [submitting, setSubmitting] = useState(false);
-
   const [submitError, setSubmitError] = useState(null);
+
+  const [submitting, setSubmitting] = useState(false);
 
   const [hydratedId, setHydratedId] = useState(null);
 
   const [removedPhotoIds, setRemovedPhotoIds] = useState([]);
+
+  const mountedRef = useRef(false);
+
+  const submitLockRef = useRef(false);
+
+  /* ==========================================================
+   * LIFECYCLE
+   * ========================================================== */
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  /* ==========================================================
+   * LOOKUPS
+   * ========================================================== */
 
   const {
     data: students = [],
@@ -312,41 +198,116 @@ const useReportForm = ({
     error: classesError,
   } = useClasses();
 
-  const {
-    reports = [],
-    loading: reportsLoading,
-    error: reportsError,
-    createReport,
-    updateReport,
-  } = useReports({
-    autoFetch: isEdit,
+  /* ==========================================================
+   * REPORT
+   *
+   * IMPORTANT:
+   * Edit tidak lagi fetch seluruh reports list.
+   * ========================================================== */
+
+  const { getReport, createReport, updateReport, deleteReport } = useReports({
+    autoFetch: false,
   });
+
+  const [currentReport, setCurrentReport] = useState(null);
+
+  const [reportLoading, setReportLoading] = useState(
+    Boolean(isEdit && normalizedReportId !== null),
+  );
+
+  const [reportError, setReportError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!isEdit || normalizedReportId === null) {
+      setCurrentReport(null);
+      setReportLoading(false);
+      setReportError(null);
+
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setReportLoading(true);
+    setReportError(null);
+
+    const loadReport = async () => {
+      try {
+        const report = await getReport(normalizedReportId);
+
+        if (cancelled || !mountedRef.current) {
+          return;
+        }
+
+        if (!report || typeof report !== "object") {
+          setCurrentReport(null);
+
+          setReportError(new Error("Laporan tidak ditemukan."));
+
+          return;
+        }
+
+        setCurrentReport(report);
+      } catch (error) {
+        if (cancelled || !mountedRef.current) {
+          return;
+        }
+
+        setCurrentReport(null);
+
+        setReportError(
+          error instanceof Error ? error : new Error("Gagal memuat laporan."),
+        );
+      } finally {
+        if (!cancelled && mountedRef.current) {
+          setReportLoading(false);
+        }
+      }
+    };
+
+    void loadReport();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [getReport, isEdit, normalizedReportId]);
+
+  /* ==========================================================
+   * RELATIONS
+   * ========================================================== */
 
   const {
     materials = [],
     loading: materialsLoading,
     error: materialsError,
     refresh: refreshMaterials,
-  } = useReportMaterials(normalizedReportId);
+  } = useReportMaterials(normalizedReportId, {
+    autoFetch: isEdit && normalizedReportId !== null,
+  });
 
   const {
     activities = [],
     loading: activitiesLoading,
     error: activitiesError,
     refresh: refreshActivities,
-  } = useReportActivities(normalizedReportId);
+  } = useReportActivities(normalizedReportId, {
+    autoFetch: isEdit && normalizedReportId !== null,
+  });
 
   const {
     photos = [],
     loading: photosLoading,
     error: photosError,
     refresh: refreshPhotos,
-  } = useReportPhotos(normalizedReportId);
+  } = useReportPhotos(normalizedReportId, {
+    autoFetch: isEdit && normalizedReportId !== null,
+  });
 
-  const currentReport = useMemo(
-    () => getCurrentReport(reports, normalizedReportId),
-    [reports, normalizedReportId],
-  );
+  /* ==========================================================
+   * OPTIONS
+   * ========================================================== */
 
   const studentOptions = useMemo(
     () => mapOptions(students, "Siswa"),
@@ -365,23 +326,32 @@ const useReportForm = ({
 
   const classOptions = useMemo(() => mapOptions(classes, "Kelas"), [classes]);
 
+  /* ==========================================================
+   * EXISTING PHOTOS
+   * ========================================================== */
+
   const existingPhotos = useMemo(() => {
     const removed = new Set(removedPhotoIds);
 
-    return Array.isArray(photos)
-      ? photos.filter((photo) => {
-          const id = normalizeId(
-            photo?.id ?? photo?.photo_id ?? photo?.report_photo_id,
-          );
+    if (!Array.isArray(photos)) {
+      return [];
+    }
 
-          return id !== null && !removed.has(id);
-        })
-      : [];
+    return photos.filter((photo) => {
+      const id = getPhotoId(photo);
+
+      return id !== null && !removed.has(id);
+    });
   }, [photos, removedPhotoIds]);
+
+  /* ==========================================================
+   * HYDRATE EDIT FORM
+   * ========================================================== */
 
   useEffect(() => {
     if (!isEdit) {
       setForm(cloneEmptyForm());
+
       setHydratedId(null);
       setRemovedPhotoIds([]);
       setErrors({});
@@ -394,7 +364,12 @@ const useReportForm = ({
       return;
     }
 
-    if (materialsLoading || activitiesLoading || photosLoading) {
+    if (
+      reportLoading ||
+      materialsLoading ||
+      activitiesLoading ||
+      photosLoading
+    ) {
       return;
     }
 
@@ -419,6 +394,7 @@ const useReportForm = ({
     isEdit,
     normalizedReportId,
     currentReport,
+    reportLoading,
     materials,
     activities,
     materialsLoading,
@@ -426,6 +402,10 @@ const useReportForm = ({
     photosLoading,
     hydratedId,
   ]);
+
+  /* ==========================================================
+   * FIELD
+   * ========================================================== */
 
   const updateField = useCallback((field, value) => {
     setForm((current) => ({
@@ -476,13 +456,15 @@ const useReportForm = ({
     setSubmitError(null);
   }, []);
 
+  /* ==========================================================
+   * MATERIALS
+   * ========================================================== */
+
   const addMaterial = useCallback(() => {
     setForm((current) => ({
       ...current,
-      materials: [
-        ...(Array.isArray(current.materials) ? current.materials : []),
-        "",
-      ],
+
+      materials: [...normalizeRelationValues(current.materials), ""],
     }));
   }, []);
 
@@ -496,6 +478,7 @@ const useReportForm = ({
 
       return {
         ...current,
+
         materials: next.length > 0 ? next : [""],
       };
     });
@@ -509,6 +492,10 @@ const useReportForm = ({
         ? [...current.materials]
         : [""];
 
+      if (index < 0 || index >= materials.length) {
+        return current;
+      }
+
       materials[index] = value;
 
       return {
@@ -520,9 +507,14 @@ const useReportForm = ({
     setSubmitError(null);
   }, []);
 
+  /* ==========================================================
+   * ACTIVITIES
+   * ========================================================== */
+
   const addActivity = useCallback(() => {
     setForm((current) => ({
       ...current,
+
       activities: [
         ...(Array.isArray(current.activities) ? current.activities : []),
         "",
@@ -533,6 +525,7 @@ const useReportForm = ({
   const removeActivity = useCallback((index) => {
     setForm((current) => ({
       ...current,
+
       activities: (Array.isArray(current.activities)
         ? current.activities
         : []
@@ -548,6 +541,10 @@ const useReportForm = ({
         ? [...current.activities]
         : [];
 
+      if (index < 0 || index >= activities.length) {
+        return current;
+      }
+
       activities[index] = value;
 
       return {
@@ -558,6 +555,10 @@ const useReportForm = ({
 
     setSubmitError(null);
   }, []);
+
+  /* ==========================================================
+   * PHOTOS
+   * ========================================================== */
 
   const addPhoto = useCallback((files) => {
     const incoming = normalizeImageFiles(files);
@@ -597,6 +598,7 @@ const useReportForm = ({
   const removePhoto = useCallback((index) => {
     setForm((current) => ({
       ...current,
+
       photos: (Array.isArray(current.photos) ? current.photos : []).filter(
         (_, itemIndex) => itemIndex !== index,
       ),
@@ -621,11 +623,15 @@ const useReportForm = ({
     setSubmitError(null);
   }, []);
 
+  /* ==========================================================
+   * SUBMIT
+   * ========================================================== */
+
   const handleSubmit = useCallback(
     async (event) => {
       event.preventDefault();
 
-      if (submitting) {
+      if (submitLockRef.current) {
         return;
       }
 
@@ -646,6 +652,7 @@ const useReportForm = ({
         const message = "ID laporan tidak valid.";
 
         setSubmitError(message);
+
         setErrors({
           form: message,
         });
@@ -657,12 +664,15 @@ const useReportForm = ({
         const message = "Laporan yang akan diedit tidak ditemukan.";
 
         setSubmitError(message);
+
         setErrors({
           form: message,
         });
 
         return;
       }
+
+      submitLockRef.current = true;
 
       setSubmitting(true);
       setErrors({});
@@ -671,10 +681,14 @@ const useReportForm = ({
       try {
         const payload = buildReportPayload(form);
 
-        if (!isEdit) {
-          const report = await createReport(payload);
+        /* ==================================================
+         * CREATE
+         * ================================================== */
 
-          const newReportId = normalizeId(report?.id);
+        if (!isEdit) {
+          const createdReport = await createReport(payload);
+
+          const newReportId = normalizeId(createdReport?.id);
 
           if (newReportId === null) {
             throw new Error(
@@ -682,28 +696,63 @@ const useReportForm = ({
             );
           }
 
-          await syncMaterials({
-            reportId: newReportId,
-            existing: [],
-            desired: form.materials,
-          });
+          try {
+            await syncReportRelations({
+              reportId: newReportId,
 
-          await syncActivities({
-            reportId: newReportId,
-            existing: [],
-            desired: form.activities,
-          });
+              materials: form.materials,
 
-          await uploadPhotos({
-            reportId: newReportId,
-            files: form.photos,
-            startOrder: 0,
-          });
+              activities: form.activities,
 
-          onSuccess?.(report);
+              existingMaterials: [],
+
+              existingActivities: [],
+            });
+
+            await syncReportPhotos({
+              reportId: newReportId,
+
+              newPhotos: form.photos,
+
+              removedPhotoIds: [],
+
+              existingPhotos: [],
+            });
+          } catch (childError) {
+            /*
+             * Parent sudah berhasil,
+             * child gagal.
+             *
+             * Rollback parent untuk
+             * menghindari orphan report.
+             */
+            try {
+              await deleteReport(newReportId);
+            } catch (rollbackError) {
+              throw new Error(
+                `${getErrorMessage(
+                  childError,
+                  "Gagal menyimpan detail laporan.",
+                )} Rollback laporan utama juga gagal: ${getErrorMessage(
+                  rollbackError,
+                  "Unknown error.",
+                )}`,
+              );
+            }
+
+            throw childError;
+          }
+
+          if (mountedRef.current) {
+            onSuccess?.(createdReport);
+          }
 
           return;
         }
+
+        /* ==================================================
+         * UPDATE
+         * ================================================== */
 
         const updatedReport = await updateReport(normalizedReportId, payload);
 
@@ -711,58 +760,65 @@ const useReportForm = ({
           throw new Error("Gagal memperbarui laporan.");
         }
 
-        await syncMaterials({
+        await syncReportRelations({
           reportId: normalizedReportId,
-          existing: materials,
-          desired: form.materials,
+
+          materials: form.materials,
+
+          activities: form.activities,
+
+          existingMaterials: materials,
+
+          existingActivities: activities,
         });
 
-        await syncActivities({
+        await syncReportPhotos({
           reportId: normalizedReportId,
-          existing: activities,
-          desired: form.activities,
+
+          newPhotos: form.photos,
+
+          removedPhotoIds: removedPhotoIds,
+
+          existingPhotos: existingPhotos,
         });
 
-        await removePhotos({
-          reportId: normalizedReportId,
-          photoIds: removedPhotoIds,
-        });
-
-        await uploadPhotos({
-          reportId: normalizedReportId,
-          files: form.photos,
-          startOrder: getNextPhotoSortOrder(existingPhotos),
-        });
-
-        onSuccess?.(updatedReport);
+        if (mountedRef.current) {
+          onSuccess?.(updatedReport);
+        }
       } catch (error) {
-        const message = getErrorMessage(
-          error,
-          isEdit ? "Gagal memperbarui laporan." : "Gagal menyimpan laporan.",
-        );
+        if (mountedRef.current) {
+          const message = getErrorMessage(
+            error,
+            isEdit ? "Gagal memperbarui laporan." : "Gagal menyimpan laporan.",
+          );
 
-        setSubmitError(message);
+          setSubmitError(message);
 
-        setErrors({
-          form: message,
-        });
+          setErrors({
+            form: message,
+          });
 
-        window.scrollTo({
-          top: 0,
-          behavior: "smooth",
-        });
+          window.scrollTo({
+            top: 0,
+            behavior: "smooth",
+          });
+        }
       } finally {
-        setSubmitting(false);
+        submitLockRef.current = false;
+
+        if (mountedRef.current) {
+          setSubmitting(false);
+        }
       }
     },
     [
-      submitting,
       form,
       isEdit,
       normalizedReportId,
       currentReport,
       createReport,
       updateReport,
+      deleteReport,
       materials,
       activities,
       removedPhotoIds,
@@ -771,30 +827,69 @@ const useReportForm = ({
     ],
   );
 
-  const relationOptionsLoading =
-    studentsLoading || teachersLoading || programsLoading || classesLoading;
+  /* ==========================================================
+   * STATE
+   * ========================================================== */
 
-  const isLoading =
+  const relationOptionsLoading = Boolean(
+    studentsLoading || teachersLoading || programsLoading || classesLoading,
+  );
+
+  const isLoading = Boolean(
     relationOptionsLoading ||
-    (isEdit &&
-      (reportsLoading ||
-        materialsLoading ||
-        activitiesLoading ||
-        photosLoading));
+    reportLoading ||
+    materialsLoading ||
+    activitiesLoading ||
+    photosLoading,
+  );
 
   const error =
     submitError ||
     getErrorMessage(
-      studentsError ||
+      reportError ||
+        studentsError ||
         teachersError ||
         programsError ||
         classesError ||
-        reportsError ||
         materialsError ||
         activitiesError ||
         photosError,
       null,
     );
+
+  /* ==========================================================
+   * REFRESH
+   * ========================================================== */
+
+  const refresh = useCallback(async () => {
+    const tasks = [];
+
+    if (isEdit && normalizedReportId !== null) {
+      tasks.push(
+        getReport(normalizedReportId),
+        refreshMaterials(),
+        refreshActivities(),
+        refreshPhotos(),
+      );
+    }
+
+    const results = await Promise.allSettled(tasks);
+
+    const failed = results.find((result) => result.status === "rejected");
+
+    if (failed) {
+      throw failed.reason instanceof Error
+        ? failed.reason
+        : new Error("Gagal memperbarui data form.");
+    }
+  }, [
+    getReport,
+    isEdit,
+    normalizedReportId,
+    refreshMaterials,
+    refreshActivities,
+    refreshPhotos,
+  ]);
 
   return {
     form,
@@ -805,6 +900,7 @@ const useReportForm = ({
     error,
 
     currentReport,
+
     existingPhotos,
     removedPhotoIds,
 
@@ -831,14 +927,7 @@ const useReportForm = ({
     removeExistingPhoto,
 
     handleSubmit,
-
-    refresh: async () => {
-      await Promise.all([
-        refreshMaterials(),
-        refreshActivities(),
-        refreshPhotos(),
-      ]);
-    },
+    refresh,
   };
 };
 

@@ -1,3 +1,9 @@
+/* ============================================================
+   GLOBAL STYLES
+   Tailwind CSS v4
+   Responsive • Accessible • Mobile-first
+   ============================================================ */
+
 @import "tailwindcss";
 @import "./tokens.css";
 
@@ -17,25 +23,46 @@
 
 :root {
   accent-color: var(--color-primary);
+
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+
+  color-scheme: light;
+
+  background-color: var(--color-background);
+
+  /*
+   * Prevent browser tap highlight while preserving
+   * :focus-visible accessibility.
+   */
+  -webkit-tap-highlight-color: transparent;
+
+  /*
+   * Stabilize scrollbar behavior on desktop so
+   * layout does not shift when scrollbars appear.
+   */
+  scrollbar-gutter: stable;
 }
 
 html {
   min-height: 100%;
 
-  font-family: var(--token-font-family-sans);
-
-  color-scheme: light;
+  /*
+   * Smooth scrolling only when user has not requested
+   * reduced motion. Reduced-motion rule below overrides this.
+   */
   scroll-behavior: smooth;
 
-  background-color: var(--color-background);
-
-  -webkit-tap-highlight-color: transparent;
+  /*
+   * Prevent accidental horizontal overflow without
+   * creating another scrolling container.
+   */
+  overflow-x: clip;
 
   /*
-   * Menjaga lebar layout tetap stabil ketika scrollbar muncul.
-   * Browser modern mendukung overflow-y:auto dengan baik,
-   * sehingga tidak perlu memaksa scrollbar selalu terlihat.
+   * Improve mobile viewport handling.
    */
+  min-height: 100%;
 }
 
 html.dark {
@@ -48,20 +75,49 @@ html.dark {
    ============================================================ */
 
 body {
+  /*
+   * 320px is the practical lower bound for the app.
+   * The actual content itself remains fluid.
+   */
+  min-width: 320px;
+
+  min-height: 100%;
+
+  /*
+   * Modern viewport units:
+   * svh = stable viewport
+   * dvh = dynamic viewport
+   *
+   * fallback order is intentional.
+   */
   min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
+
   margin: 0;
+
+  overflow-x: clip;
 
   background-color: var(--color-background);
   color: var(--color-text);
 
-  font-family: inherit;
-  font-size: 1rem;
-  line-height: 1.5;
+  font-family: var(--token-font-family-sans);
+  font-size: var(--token-font-size-base);
+  line-height: var(--token-leading-normal);
 
+  /*
+   * Better text rendering across platforms.
+   */
   text-rendering: optimizeLegibility;
 
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /*
+   * Avoid accidental horizontal scrolling caused by
+   * overly long content.
+   */
+  overflow-wrap: anywhere;
 }
 
 /* ============================================================
@@ -69,18 +125,120 @@ body {
    ============================================================ */
 
 #root {
+  width: 100%;
+  min-width: 0;
+
   min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
+
   display: flex;
   flex-direction: column;
 }
 
 /* ============================================================
-   SELECTION
+   INTERACTIVE ELEMENTS
    ============================================================ */
 
-::selection {
-  background-color: var(--color-primary);
-  color: var(--color-primary-foreground);
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button,
+a,
+label,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  /*
+   * Prevent delayed click behavior on touch devices
+   * without disabling useful gestures.
+   */
+  touch-action: manipulation;
+}
+
+button,
+a,
+select,
+summary,
+[role="button"],
+[role="tab"],
+[role="checkbox"],
+[role="radio"],
+input[type="button"],
+input[type="submit"],
+input[type="reset"] {
+  /*
+   * Avoid surprising text selection during taps.
+   */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+button:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   FORM ELEMENTS
+   ============================================================ */
+
+input,
+textarea,
+select {
+  min-width: 0;
+  max-width: 100%;
+}
+
+textarea {
+  /*
+   * Supported by modern browsers.
+   * Browsers without support fall back gracefully.
+   */
+  field-sizing: content;
+
+  min-height: 6rem;
+
+  resize: vertical;
+}
+
+input[type="search"] {
+  appearance: none;
+  -webkit-appearance: none;
+
+  /*
+   * Prevent Safari from forcing a different typography.
+   */
+  font: inherit;
+}
+
+input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+/*
+ * Prevent iOS Safari from zooming the page when focusing
+ * text inputs by keeping the effective font size >= 16px.
+ */
+@media (max-width: 767px) {
+  input,
+  textarea,
+  select {
+    font-size: max(1rem, 16px);
+  }
 }
 
 /* ============================================================
@@ -101,32 +259,31 @@ video {
   height: auto;
 }
 
-/* ============================================================
-   FORM ELEMENTS
-   ============================================================ */
-
-button,
-input,
-textarea,
-select {
-  font: inherit;
+img {
+  overflow: clip;
 }
 
-/* ============================================================
-   FOCUS
-   ============================================================ */
-
-:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
+svg {
+  flex-shrink: 0;
 }
 
 /*
- * Komponen yang menggunakan Tailwind ring menangani
- * focus indicator-nya sendiri.
+ * Prevent replaced elements from overflowing flex/grid
+ * layouts when intrinsic dimensions are unexpected.
  */
-[class*="focus-visible:ring"]:focus-visible {
-  outline: none;
+img,
+video,
+canvas {
+  min-width: 0;
+}
+
+/* ============================================================
+   SELECTION
+   ============================================================ */
+
+::selection {
+  background-color: var(--color-primary);
+  color: var(--color-primary-foreground);
 }
 
 /* ============================================================
@@ -139,34 +296,118 @@ select {
 }
 
 /* ============================================================
+   FOCUS
+   ============================================================ */
+
+:focus-visible {
+  outline: var(--token-focus-ring-width) solid var(--token-focus-ring);
+
+  outline-offset: var(--token-focus-ring-offset);
+}
+
+/*
+ * Components using Tailwind focus-visible:ring
+ * can manage their own focus indicator.
+ */
+[class*="focus-visible:ring"]:focus-visible {
+  outline: none;
+}
+
+/* ============================================================
    SCROLLBAR
    ============================================================ */
 
 @supports (scrollbar-width: thin) {
   html {
     scrollbar-width: thin;
-    scrollbar-color:
-      var(--color-border)
-      transparent;
+    scrollbar-color: var(--color-border) transparent;
   }
 }
 
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+@supports selector(::-webkit-scrollbar) {
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--color-border);
+
+    border-radius: var(--radius-full);
+
+    /*
+     * Prevent the thumb from becoming visually
+     * too large on very wide scrolling areas.
+     */
+    min-height: 2rem;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-border-hover);
+  }
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
+/* ============================================================
+   MOBILE / TOUCH UX
+   ============================================================ */
+
+@media (hover: none) and (pointer: coarse) {
+  button,
+  [role="button"] {
+    touch-action: manipulation;
+  }
 }
 
-::-webkit-scrollbar-thumb {
-  background-color: var(--color-border);
-  border-radius: var(--radius-full);
+/*
+ * Increase the effective hit area of controls that already
+ * have a visually appropriate size, without forcing every
+ * button in the application to become large.
+ */
+@media (hover: none) and (pointer: coarse) {
+  input[type="checkbox"],
+  input[type="radio"] {
+    width: 1.125rem;
+    height: 1.125rem;
+  }
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background-color: var(--color-border-hover);
+/* ============================================================
+   SAFE AREA
+   ============================================================ */
+
+.safe-area-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-area-right {
+  padding-right: env(safe-area-inset-right);
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.safe-area-left {
+  padding-left: env(safe-area-inset-left);
+}
+
+/*
+ * Safe-area aware horizontal padding.
+ */
+.safe-area-x {
+  padding-inline: max(var(--token-layout-gutter), env(safe-area-inset-left))
+    max(var(--token-layout-gutter), env(safe-area-inset-right));
+}
+
+/*
+ * Safe-area aware bottom spacing.
+ */
+.safe-area-bottom {
+  padding-bottom: max(var(--token-layout-gutter), env(safe-area-inset-bottom));
 }
 
 /* ============================================================
@@ -224,7 +465,7 @@ select {
 }
 
 /* ============================================================
-   PRINT STYLES
+   PRINT
    ============================================================ */
 
 @media print {
@@ -239,6 +480,9 @@ select {
     text-shadow: none !important;
   }
 
+  /*
+   * Only expose actual destination URLs.
+   */
   a[href]::after {
     content: " (" attr(href) ")";
     font-size: 0.8em;
@@ -251,7 +495,7 @@ select {
 }
 
 /* ============================================================
-   ANIMATIONS
+   ANIMATION
    ============================================================ */
 
 @keyframes fade-in-up {
@@ -267,27 +511,8 @@ select {
 }
 
 .animate-fade-in-up {
-  animation:
-    fade-in-up
-    0.5s
-    var(--token-ease-out)
-    both;
+  animation: fade-in-up var(--token-transition-slow) var(--token-ease-out) both;
 }
-
-/* ============================================================
-   CUSTOM UTILITY
-   ============================================================ */
-
-/*
- * Jangan definisikan ulang:
- *
- * .container
- * .truncate
- * .line-clamp-2
- * .line-clamp-3
- *
- * karena Tailwind sudah menyediakan utility tersebut.
- */
 
 /* ============================================================
    SMOOTH SCROLL
@@ -312,13 +537,19 @@ select {
 
 .visually-hidden {
   position: absolute !important;
+
   width: 1px !important;
   height: 1px !important;
+
   padding: 0 !important;
   margin: -1px !important;
+
   overflow: hidden !important;
+
   clip: rect(0, 0, 0, 0) !important;
+
   white-space: nowrap !important;
+
   border: 0 !important;
 }
 
@@ -327,10 +558,7 @@ select {
    ============================================================ */
 
 .focus-ring {
-  transition:
-    box-shadow
-    var(--token-transition-fast)
-    var(--token-ease-out);
+  transition: box-shadow var(--token-transition-fast) var(--token-ease-out);
 }
 
 .focus-ring:focus-visible {
@@ -338,7 +566,225 @@ select {
 
   box-shadow:
     0 0 0 2px var(--color-background),
-    0 0 0 4px var(--color-primary);
+    0 0 0 var(--token-focus-ring-width) var(--color-primary);
+}
+
+/* ============================================================
+   UTILITY — FULL HEIGHT APP SHELL
+   ============================================================ */
+
+.app-shell {
+  width: 100%;
+  min-width: 0;
+
+  min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
+
+  display: flex;
+  flex-direction: column;
+}
+
+/* ============================================================
+   UTILITY — CONTENT CONTAINER
+   ============================================================ */
+
+.page-container {
+  width: 100%;
+  min-width: 0;
+
+  max-width: var(--container-2xl);
+
+  margin-inline: auto;
+
+  /*
+   * Fluid gutter:
+   *
+   * - smaller spacing on narrow mobile
+   * - slightly larger on large screens
+   * - never becomes excessively wide
+   */
+  padding-inline: max(var(--token-layout-gutter), env(safe-area-inset-left))
+    max(var(--token-layout-gutter), env(safe-area-inset-right));
+}
+
+/* ============================================================
+   UTILITY — RESPONSIVE SECTION
+   ============================================================ */
+
+.page-section {
+  width: 100%;
+  min-width: 0;
+
+  /*
+   * Fluid vertical rhythm instead of abrupt breakpoint jumps.
+   */
+  padding-block: clamp(1.25rem, 2vw, var(--token-layout-section-gap));
+}
+
+/* ============================================================
+   UTILITY — CONTENT BLOCK
+   ============================================================ */
+
+.content-block {
+  width: 100%;
+  min-width: 0;
+}
+
+/* ============================================================
+   UTILITY — HORIZONTAL SCROLL
+   ============================================================ */
+
+.scroll-x {
+  width: 100%;
+  min-width: 0;
+
+  overflow-x: auto;
+  overflow-y: hidden;
+
+  overscroll-behavior-inline: contain;
+
+  scrollbar-width: thin;
+
+  /*
+   * Prevent content from being glued against
+   * the scrollbar edge.
+   */
+  scrollbar-gutter: stable;
+}
+
+/*
+ * Convenient wrapper for tables, code, charts,
+ * and other intentionally horizontal content.
+ */
+.scroll-x > * {
+  min-width: max-content;
+}
+
+/* ============================================================
+   UTILITY — TEXT WRAPPING
+   ============================================================ */
+
+.text-balance {
+  text-wrap: balance;
+}
+
+.text-pretty {
+  text-wrap: pretty;
+}
+
+/* ============================================================
+   UTILITY — CONTENT WIDTH
+   ============================================================ */
+
+/*
+ * Prevent extremely long text lines on large displays.
+ */
+.prose-width {
+  width: 100%;
+  max-width: 75ch;
+}
+
+/*
+ * Useful for headings and introductory text.
+ */
+.heading-width {
+  width: 100%;
+  max-width: 40rem;
+}
+
+/* ============================================================
+   UTILITY — FLUID SPACING
+   ============================================================ */
+
+.section-gap {
+  gap: clamp(1rem, 2vw, var(--token-layout-section-gap));
+}
+
+.stack-gap {
+  gap: clamp(0.75rem, 1.5vw, 1.5rem);
+}
+
+/* ============================================================
+   UTILITY — RESPONSIVE GRID
+   ============================================================ */
+
+/*
+ * Automatically adapts to available width instead of
+ * forcing a specific breakpoint.
+ */
+.auto-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+}
+
+/* ============================================================
+   UTILITY — STABLE FLEX CHILD
+   ============================================================ */
+
+.flex-child {
+  min-width: 0;
+  min-height: 0;
+}
+
+/* ============================================================
+   RESPONSIVE — NARROW MOBILE
+   ============================================================ */
+
+@media (max-width: 479px) {
+  .page-container {
+    padding-inline: max(0.875rem, env(safe-area-inset-left))
+      max(0.875rem, env(safe-area-inset-right));
+  }
+
+  .page-section {
+    padding-block: 1rem;
+  }
+}
+
+/* ============================================================
+   RESPONSIVE — TABLET
+   ============================================================ */
+
+@media (min-width: 640px) {
+  .page-container {
+    padding-inline: max(
+        1.25rem,
+        var(--token-layout-gutter),
+        env(safe-area-inset-left)
+      )
+      max(1.25rem, var(--token-layout-gutter), env(safe-area-inset-right));
+  }
+}
+
+/* ============================================================
+   RESPONSIVE — LARGE TABLET / DESKTOP
+   ============================================================ */
+
+@media (min-width: 1024px) {
+  .page-container {
+    padding-inline: max(
+        1.5rem,
+        var(--token-layout-gutter),
+        env(safe-area-inset-left)
+      )
+      max(1.5rem, var(--token-layout-gutter), env(safe-area-inset-right));
+  }
+}
+
+/* ============================================================
+   RESPONSIVE — WIDE DESKTOP
+   ============================================================ */
+
+@media (min-width: 1280px) {
+  .page-container {
+    padding-inline: max(
+        2rem,
+        var(--token-layout-gutter),
+        env(safe-area-inset-left)
+      )
+      max(2rem, var(--token-layout-gutter), env(safe-area-inset-right));
+  }
 }
 
 /* ============================================================
@@ -351,4 +797,24 @@ html:not(.dark) {
 
 html.dark {
   color-scheme: dark;
+}
+
+/* ============================================================
+   HEIGHT UTILITIES
+   ============================================================ */
+
+/*
+ * Useful for app shells, drawers, dialogs, and full-screen
+ * sections that must behave correctly with mobile browser UI.
+ */
+.min-screen-height {
+  min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
+}
+
+.screen-height {
+  height: 100vh;
+  height: 100svh;
+  height: 100dvh;
 }

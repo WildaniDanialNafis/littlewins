@@ -1,35 +1,194 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Link, NavLink } from "react-router-dom";
 
-import { useAuth } from "@/shared/hooks";
 import { ROUTES } from "@/shared/constants";
+
+import { useAuth } from "@/shared/hooks";
+
 import { LogoIcon } from "@/shared/icons";
+
 import { cx } from "@/shared/utils";
+
+/* ============================================================
+ * CONSTANTS
+ * ============================================================ */
+
+const MOBILE_BREAKPOINT = "(min-width: 768px)";
+
+const HEADER_HEIGHT_CLASS = "h-16 sm:h-18";
+
+const MOBILE_MENU_TOP_CLASS = "top-16 sm:top-18";
+
+const MOBILE_MENU_HEIGHT_CLASS =
+  "max-h-[calc(100dvh-4rem)] sm:max-h-[calc(100dvh-4.5rem)]";
+
+/* ============================================================
+ * ICONS
+ * ============================================================ */
+
+const LogoutIcon = () => (
+  <svg
+    className="size-5 shrink-0"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+    <path d="m16 17 5-5-5-5" />
+    <path d="M21 12H9" />
+  </svg>
+);
+
+LogoutIcon.displayName = "LogoutIcon";
+
+const HamburgerIcon = ({ open }) => (
+  <span
+    className="relative flex size-5 items-center justify-center"
+    aria-hidden="true"
+  >
+    <span
+      className={cx(
+        "absolute h-0.5 w-5 rounded-full bg-current",
+        "transition-transform duration-200",
+        open ? "rotate-45" : "-translate-y-1.5",
+      )}
+    />
+
+    <span
+      className={cx(
+        "absolute h-0.5 w-5 rounded-full bg-current",
+        "transition-opacity duration-150",
+        open ? "opacity-0" : "opacity-100",
+      )}
+    />
+
+    <span
+      className={cx(
+        "absolute h-0.5 w-5 rounded-full bg-current",
+        "transition-transform duration-200",
+        open ? "-rotate-45" : "translate-y-1.5",
+      )}
+    />
+  </span>
+);
+
+HamburgerIcon.displayName = "HamburgerIcon";
+
+const ChevronIcon = () => (
+  <svg
+    className="size-4 shrink-0 text-muted"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="m9 18 6-6-6-6" />
+  </svg>
+);
+
+ChevronIcon.displayName = "ChevronIcon";
+
+/* ============================================================
+ * NAVIGATION
+ * ============================================================ */
+
+const getNavItems = (role) => {
+  switch (role) {
+    case "teacher":
+      return [
+        {
+          to: ROUTES.teacher.dashboard,
+          label: "Dashboard",
+        },
+        {
+          to: ROUTES.teacher.reports,
+          label: "Laporan",
+        },
+        {
+          to: ROUTES.teacher.settings,
+          label: "Pengaturan",
+        },
+      ];
+
+    case "student":
+      return [
+        {
+          to: ROUTES.student.dashboard,
+          label: "Dashboard",
+        },
+        {
+          to: ROUTES.student.reports,
+          label: "Laporan",
+        },
+        {
+          to: ROUTES.student.settings,
+          label: "Pengaturan",
+        },
+      ];
+
+    default:
+      return [
+        {
+          to: ROUTES.home,
+          label: "Beranda",
+        },
+      ];
+  }
+};
+
+const getLogoRoute = (role) => {
+  switch (role) {
+    case "teacher":
+      return ROUTES.teacher.dashboard;
+
+    case "student":
+      return ROUTES.student.dashboard;
+
+    default:
+      return ROUTES.home;
+  }
+};
 
 /* ============================================================
  * NAV ITEM
  * ============================================================ */
 
-const NavItem = ({ to, children, className = "" }) => {
+const NavItem = ({ to, children }) => {
   return (
     <NavLink
       to={to}
       className={({ isActive }) =>
         cx(
           "relative inline-flex h-full items-center",
-          "text-sm font-medium transition-colors",
-          "hover:text-primary",
+          "whitespace-nowrap",
+          "px-1",
+          "text-sm font-medium",
+          "transition-colors duration-(--token-transition-fast)",
           "focus-visible:outline-none",
-          "focus-visible:text-primary",
           "focus-visible:ring-2",
           "focus-visible:ring-primary/30",
           "focus-visible:ring-offset-2",
-          "focus-visible:ring-offset-background",
+          "focus-visible:ring-offset-surface",
+
           isActive
-            ? "text-primary after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:rounded-full after:bg-primary"
-            : "text-muted",
-          className,
+            ? [
+                "text-primary",
+                "after:absolute",
+                "after:inset-x-0",
+                "after:bottom-0",
+                "after:h-0.5",
+                "after:rounded-full",
+                "after:bg-primary",
+              ].join(" ")
+            : ["text-muted", "hover:text-text"].join(" "),
         )
       }
     >
@@ -39,31 +198,6 @@ const NavItem = ({ to, children, className = "" }) => {
 };
 
 NavItem.displayName = "NavItem";
-
-/* ============================================================
- * LOGOUT ICON
- * ============================================================ */
-
-const LogoutIcon = () => {
-  return (
-    <svg
-      className="h-5 w-5 shrink-0"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-      <path d="m16 17 5-5-5-5" />
-      <path d="M21 12H9" />
-    </svg>
-  );
-};
-
-LogoutIcon.displayName = "LogoutIcon";
 
 /* ============================================================
  * LOGOUT BUTTON
@@ -76,62 +210,30 @@ const LogoutButton = ({ onClick, className = "", tabIndex }) => {
       onClick={onClick}
       tabIndex={tabIndex}
       className={cx(
-        "flex h-10 items-center gap-2 rounded-lg px-3",
-        "text-sm font-medium text-danger",
-        "transition-colors",
+        "inline-flex min-h-11 items-center justify-center gap-2",
+        "rounded-lg px-3",
+        "text-sm font-medium",
+        "text-danger",
+        "transition-colors duration-(--token-transition-fast)",
         "hover:bg-danger-soft",
+        "active:bg-danger-soft-hover",
         "focus-visible:outline-none",
         "focus-visible:ring-2",
         "focus-visible:ring-danger/30",
         "focus-visible:ring-offset-2",
-        "focus-visible:ring-offset-background",
+        "focus-visible:ring-offset-surface",
         className,
       )}
       aria-label="Keluar dari akun"
     >
       <LogoutIcon />
-      <span className="hidden md:inline">Logout</span>
+
+      <span>Logout</span>
     </button>
   );
 };
 
 LogoutButton.displayName = "LogoutButton";
-
-/* ============================================================
- * HAMBURGER ICON
- * ============================================================ */
-
-const HamburgerIcon = ({ open }) => {
-  return (
-    <span className="flex h-5 w-6 flex-col justify-between" aria-hidden="true">
-      <span
-        className={cx(
-          "block h-0.5 origin-left bg-current",
-          "transition-all duration-300",
-          open && "translate-x-0.5 rotate-45",
-        )}
-      />
-
-      <span
-        className={cx(
-          "block h-0.5 bg-current",
-          "transition-opacity duration-300",
-          open && "opacity-0",
-        )}
-      />
-
-      <span
-        className={cx(
-          "block h-0.5 origin-left bg-current",
-          "transition-all duration-300",
-          open && "translate-x-0.5 -rotate-45",
-        )}
-      />
-    </span>
-  );
-};
-
-HamburgerIcon.displayName = "HamburgerIcon";
 
 /* ============================================================
  * MOBILE MENU HOOK
@@ -164,6 +266,10 @@ const useMobileMenu = () => {
     const handlePointerDown = (event) => {
       const target = event.target;
 
+      if (!(target instanceof Node)) {
+        return;
+      }
+
       if (
         menuRef.current?.contains(target) ||
         buttonRef.current?.contains(target)
@@ -182,25 +288,31 @@ const useMobileMenu = () => {
   }, [isOpen, close]);
 
   /* ==========================================================
-   * CLOSE ON DESKTOP
+   * DESKTOP TRANSITION
    * ========================================================== */
 
   useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth >= 768) {
+    const mediaQuery = window.matchMedia(MOBILE_BREAKPOINT);
+
+    const handleChange = (event) => {
+      if (event.matches) {
         close();
       }
     };
 
-    window.addEventListener("resize", handleResize);
+    if (mediaQuery.matches) {
+      close();
+    }
+
+    mediaQuery.addEventListener("change", handleChange);
 
     return () => {
-      window.removeEventListener("resize", handleResize);
+      mediaQuery.removeEventListener("change", handleChange);
     };
   }, [close]);
 
   /* ==========================================================
-   * LOCK BODY SCROLL
+   * BODY SCROLL LOCK
    * ========================================================== */
 
   useEffect(() => {
@@ -208,12 +320,12 @@ const useMobileMenu = () => {
       return undefined;
     }
 
-    const previousOverflow = document.body.style.overflow;
+    const previousOverflow = document.documentElement.style.overflow;
 
-    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
 
     return () => {
-      document.body.style.overflow = previousOverflow;
+      document.documentElement.style.overflow = previousOverflow;
     };
   }, [isOpen]);
 
@@ -233,7 +345,9 @@ const useMobileMenu = () => {
 
       close();
 
-      buttonRef.current?.focus();
+      window.requestAnimationFrame(() => {
+        buttonRef.current?.focus();
+      });
     };
 
     document.addEventListener("keydown", handleKeyDown);
@@ -252,81 +366,65 @@ const useMobileMenu = () => {
   };
 };
 
+useMobileMenu.displayName = "useMobileMenu";
+
+/* ============================================================
+ * MOBILE NAV ITEM
+ * ============================================================ */
+
+const MobileNavItem = ({ to, children, onNavigate, tabIndex }) => {
+  return (
+    <NavLink
+      to={to}
+      onClick={onNavigate}
+      tabIndex={tabIndex}
+      className={({ isActive }) =>
+        cx(
+          "group flex min-h-12 w-full items-center",
+          "justify-between gap-3",
+          "rounded-xl px-4 py-3",
+          "text-base font-medium",
+          "transition-colors duration-(--token-transition-fast)",
+          "focus-visible:outline-none",
+          "focus-visible:ring-2",
+          "focus-visible:ring-primary/30",
+          "focus-visible:ring-offset-2",
+          "focus-visible:ring-offset-surface",
+
+          isActive
+            ? ["bg-primary-soft", "text-primary", "[&>svg]:text-primary"].join(
+                " ",
+              )
+            : [
+                "text-muted",
+                "hover:bg-surface-muted",
+                "hover:text-text",
+                "active:bg-surface-hover",
+              ].join(" "),
+        )
+      }
+    >
+      <span className="min-w-0 truncate">{children}</span>
+
+      <ChevronIcon />
+    </NavLink>
+  );
+};
+
+MobileNavItem.displayName = "MobileNavItem";
+
 /* ============================================================
  * HEADER
  * ============================================================ */
 
 const Header = () => {
-  const { user, logout } = useAuth();
+  const { user, role, isAuthenticated, logout } = useAuth();
 
   const mobileMenu = useMobileMenu();
 
-  const isAuthenticated = Boolean(user);
+  const navItems = getNavItems(role);
 
-  const isTeacher = user?.role === "teacher";
-
-  const isStudent = user?.role === "student";
-
-  /* ==========================================================
-   * NAVIGATION ITEMS
-   * ========================================================== */
-
-  const navItems = useMemo(() => {
-    if (isTeacher) {
-      return [
-        {
-          to: ROUTES.teacher.dashboard,
-          label: "Dashboard",
-        },
-        {
-          to: ROUTES.teacher.reports,
-          label: "Laporan",
-        },
-        {
-          to: ROUTES.teacher.settings,
-          label: "Pengaturan",
-        },
-      ];
-    }
-
-    if (isStudent) {
-      return [
-        {
-          to: ROUTES.student.dashboard,
-          label: "Dashboard",
-        },
-        {
-          to: ROUTES.student.reports,
-          label: "Laporan",
-        },
-        {
-          to: ROUTES.student.settings,
-          label: "Pengaturan",
-        },
-      ];
-    }
-
-    return [
-      {
-        to: ROUTES.home,
-        label: "Beranda",
-      },
-    ];
-  }, [isTeacher, isStudent]);
-
-  /* ==========================================================
-   * LOGO ROUTE
-   * ========================================================== */
-
-  const logoRoute = isTeacher
-    ? ROUTES.teacher.dashboard
-    : isStudent
-      ? ROUTES.student.dashboard
-      : ROUTES.home;
-
-  /* ==========================================================
-   * LOGOUT
-   * ========================================================== */
+  const logoRoute = getLogoRoute(role);
 
   const handleLogout = useCallback(async () => {
     mobileMenu.close();
@@ -338,78 +436,107 @@ const Header = () => {
     }
   }, [logout, mobileMenu.close]);
 
-  /* ==========================================================
-   * VIEW
-   * ========================================================== */
-
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-surface shadow-sm">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between md:h-20">
-          {/* ==================================================
-           * LOGO
-           * ================================================== */}
-
+    <header
+      className={cx(
+        "sticky inset-x-0 top-0 z-50",
+        "border-b border-border",
+        "bg-surface/95",
+        "backdrop-blur",
+        "supports-backdrop-filter:bg-surface/85",
+      )}
+    >
+      <div className="page-container">
+        <div
+          className={cx(
+            "flex min-w-0 items-center",
+            "justify-between",
+            "gap-3",
+            HEADER_HEIGHT_CLASS,
+          )}
+        >
           <Link
             to={logoRoute}
             onClick={mobileMenu.close}
             className={cx(
-              "flex h-full shrink-0 items-center gap-2",
-              "text-xl font-bold text-primary",
+              "group inline-flex min-w-0 shrink",
+              "items-center",
+              "gap-2 sm:gap-2.5",
+              "rounded-lg",
+              "text-lg font-bold text-primary sm:text-xl",
               "focus-visible:outline-none",
               "focus-visible:ring-2",
               "focus-visible:ring-primary/30",
               "focus-visible:ring-offset-2",
-              "focus-visible:ring-offset-background",
+              "focus-visible:ring-offset-surface",
             )}
             aria-label="Beranda LittleWins"
           >
-            <LogoIcon className="h-8 w-8" aria-hidden="true" />
+            <LogoIcon
+              className={cx(
+                "size-8 shrink-0",
+                "transition-transform duration-(--token-transition-fast)",
+                "group-hover:scale-[1.03]",
+                "sm:size-9",
+              )}
+              aria-hidden="true"
+            />
 
-            <span>LittleWins</span>
+            <span className="min-w-0 truncate">LittleWins</span>
           </Link>
 
-          {/* ==================================================
-           * DESKTOP NAV
-           * ================================================== */}
-
           <nav
-            className="hidden h-full items-center gap-8 md:flex"
+            className={cx(
+              "hidden h-full min-w-0 flex-1",
+              "items-center justify-center",
+              "md:flex",
+            )}
             aria-label="Navigasi utama"
           >
-            {navItems.map((item) => (
-              <NavItem key={item.to} to={item.to}>
-                {item.label}
-              </NavItem>
-            ))}
+            <ul
+              className={cx(
+                "flex h-full items-center",
+                "gap-5 lg:gap-7 xl:gap-8",
+              )}
+            >
+              {navItems.map((item) => (
+                <li key={item.to} className="h-full">
+                  <NavItem to={item.to}>{item.label}</NavItem>
+                </li>
+              ))}
+            </ul>
           </nav>
 
-          {/* ==================================================
-           * ACTIONS
-           * ================================================== */}
-
-          <div className="flex h-full items-center gap-1.5 sm:gap-2 md:gap-3">
+          <div className={cx("flex shrink-0 items-center", "gap-1.5 sm:gap-2")}>
             {isAuthenticated && (
-              <LogoutButton onClick={handleLogout} className="hidden md:flex" />
+              <LogoutButton
+                onClick={handleLogout}
+                className="hidden md:inline-flex"
+              />
             )}
 
             <button
-              type="button"
               ref={mobileMenu.buttonRef}
+              type="button"
               onClick={mobileMenu.toggle}
               className={cx(
-                "inline-flex h-10 w-10 shrink-0",
-                "items-center justify-center rounded-lg",
-                "transition-colors",
+                "inline-flex size-11 shrink-0",
+                "items-center justify-center",
+                "rounded-xl",
+                "text-text",
+                "transition-colors duration-(--token-transition-fast)",
                 "hover:bg-surface-muted",
+                "active:bg-surface-hover",
                 "focus-visible:outline-none",
                 "focus-visible:ring-2",
                 "focus-visible:ring-primary/30",
                 "focus-visible:ring-offset-2",
-                "focus-visible:ring-offset-background",
+                "focus-visible:ring-offset-surface",
                 "md:hidden",
               )}
-              aria-label={mobileMenu.isOpen ? "Tutup menu" : "Buka menu"}
+              aria-label={
+                mobileMenu.isOpen ? "Tutup menu navigasi" : "Buka menu navigasi"
+              }
               aria-expanded={mobileMenu.isOpen}
               aria-controls="mobile-navigation"
             >
@@ -419,67 +546,83 @@ const Header = () => {
         </div>
       </div>
 
-      {/* ======================================================
-       * MOBILE NAVIGATION
-       * ====================================================== */}
+      <div className="md:hidden">
+        <button
+          type="button"
+          className={cx(
+            "fixed inset-x-0 bottom-0 z-30",
+            MOBILE_MENU_TOP_CLASS,
+            "bg-slate-950/25",
+            "backdrop-blur-[1px]",
+            "transition-opacity duration-(--token-transition-base)",
 
-      <div
-        id="mobile-navigation"
-        ref={mobileMenu.menuRef}
-        className={cx(
-          "fixed inset-x-0 top-16 z-40 md:top-20 md:hidden",
-          "border-b border-border bg-surface",
-          "shadow-lg",
-          "overflow-y-auto overscroll-contain",
-          "max-h-[calc(100dvh-4rem)] md:max-h-[calc(100dvh-5rem)]",
-          "transition-[transform,opacity,visibility]",
-          "duration-(--token-transition-base)",
-          "ease-out",
-
-          mobileMenu.isOpen
-            ? "visible pointer-events-auto translate-y-0 opacity-100"
-            : "invisible pointer-events-none -translate-y-2 opacity-0",
-        )}
-        aria-hidden={!mobileMenu.isOpen}
-      >
-        <nav
-          className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-5 sm:px-6"
-          aria-label="Navigasi mobile"
-        >
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              onClick={mobileMenu.close}
-              tabIndex={mobileMenu.isOpen ? 0 : -1}
-              className={({ isActive }) =>
-                cx(
-                  "flex min-h-12 items-center rounded-xl px-4 py-3",
-                  "text-base font-medium transition-colors",
-                  "focus-visible:outline-none",
-                  "focus-visible:ring-2",
-                  "focus-visible:ring-primary/30",
-                  "focus-visible:ring-offset-2",
-                  "focus-visible:ring-offset-background",
-
-                  isActive
-                    ? "bg-primary-soft text-primary"
-                    : "text-muted hover:bg-surface-muted hover:text-text",
-                )
-              }
-            >
-              {item.label}
-            </NavLink>
-          ))}
-
-          {isAuthenticated && (
-            <LogoutButton
-              onClick={handleLogout}
-              tabIndex={mobileMenu.isOpen ? 0 : -1}
-              className="mt-2 min-h-12 rounded-xl px-4 py-3 text-base"
-            />
+            mobileMenu.isOpen
+              ? ["pointer-events-auto", "opacity-100"].join(" ")
+              : ["pointer-events-none", "opacity-0"].join(" "),
           )}
-        </nav>
+          onClick={mobileMenu.close}
+          tabIndex={mobileMenu.isOpen ? 0 : -1}
+          aria-label="Tutup menu navigasi"
+        />
+
+        <div
+          id="mobile-navigation"
+          ref={mobileMenu.menuRef}
+          className={cx(
+            "fixed inset-x-0 z-40",
+            MOBILE_MENU_TOP_CLASS,
+            MOBILE_MENU_HEIGHT_CLASS,
+
+            "overflow-y-auto",
+            "overscroll-contain",
+            "border-b border-border",
+            "bg-surface",
+            "shadow-lg",
+
+            "transition-[opacity,transform,visibility]",
+            "duration-(--token-transition-base)",
+            "ease-out",
+
+            mobileMenu.isOpen
+              ? ["visible", "translate-y-0", "opacity-100"].join(" ")
+              : ["invisible", "-translate-y-2", "opacity-0"].join(" "),
+          )}
+          aria-hidden={!mobileMenu.isOpen}
+        >
+          <div className={cx("page-container", "safe-area-bottom")}>
+            <nav className="py-4 sm:py-5" aria-label="Navigasi mobile">
+              <ul className="flex flex-col gap-1.5">
+                {navItems.map((item) => (
+                  <li key={item.to}>
+                    <MobileNavItem
+                      to={item.to}
+                      onNavigate={mobileMenu.close}
+                      tabIndex={mobileMenu.isOpen ? 0 : -1}
+                    >
+                      {item.label}
+                    </MobileNavItem>
+                  </li>
+                ))}
+              </ul>
+
+              {isAuthenticated && (
+                <div className={cx("mt-3", "border-t border-border", "pt-3")}>
+                  <LogoutButton
+                    onClick={handleLogout}
+                    tabIndex={mobileMenu.isOpen ? 0 : -1}
+                    className={cx(
+                      "w-full",
+                      "justify-start",
+                      "rounded-xl",
+                      "px-4 py-3",
+                      "text-base",
+                    )}
+                  />
+                </div>
+              )}
+            </nav>
+          </div>
+        </div>
       </div>
     </header>
   );

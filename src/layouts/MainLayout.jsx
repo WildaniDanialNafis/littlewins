@@ -8,19 +8,29 @@ export const MainLayout = ({ className = "" }) => {
   return (
     <div
       className={cx(
-        "flex min-h-screen flex-col bg-background text-text",
+        "flex min-h-svh w-full flex-col",
+        "bg-background text-text",
         className,
       )}
     >
       <a
         href="#main-content"
-        className={[
-          "sr-only focus:not-sr-only focus:absolute",
-          "focus:left-4 focus:top-4 focus:z-50",
-          "z-50 rounded-lg bg-surface px-4 py-2",
-          "text-primary shadow-md ring-2 ring-primary/30",
+        className={cx(
+          "sr-only",
+          "fixed left-4 top-4 z-(--token-z-toast)",
+          "rounded-lg",
+          "border border-border",
+          "bg-surface",
+          "px-4 py-2.5",
+          "text-sm font-medium text-text",
+          "shadow-md",
+          "focus:not-sr-only",
           "focus:outline-none",
-        ].join(" ")}
+          "focus:ring-2",
+          "focus:ring-primary/30",
+          "focus:ring-offset-2",
+          "focus:ring-offset-background",
+        )}
       >
         Langsung ke konten
       </a>
@@ -29,7 +39,8 @@ export const MainLayout = ({ className = "" }) => {
 
       <main
         id="main-content"
-        className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 md:py-8 lg:px-8 lg:py-10"
+        tabIndex={-1}
+        className={cx("min-w-0 flex-1", "focus:outline-none")}
       >
         <Outlet />
       </main>

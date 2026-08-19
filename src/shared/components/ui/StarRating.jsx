@@ -1,11 +1,23 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import { cx } from "@/shared/utils/cx";
+
+const STAR_VALUES = [1, 2, 3, 4, 5];
 
 const STAR_SIZES = {
   sm: "h-4 w-4",
   md: "h-6 w-6",
   lg: "h-8 w-8",
+};
+
+const normalizeRating = (value) => {
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue)) {
+    return 0;
+  }
+
+  return Math.min(5, Math.max(0, Math.round(numericValue)));
 };
 
 const StarIcon = ({ filled, size = "md" }) => {
@@ -31,16 +43,22 @@ export const StarRating = ({
   readonly = false,
   size = "md",
   className = "",
+  label = "Rating",
 }) => {
+  const groupId = useId();
+
   const [hovered, setHovered] = useState(0);
 
-  const numericRating = Number(rating) || 0;
+  const numericRating = normalizeRating(rating);
+
   const displayRating = hovered || numericRating;
 
   const handleChange = (value) => {
-    if (!readonly) {
-      onChange?.(value);
+    if (readonly) {
+      return;
     }
+
+    onChange?.(value);
   };
 
   const handleKeyDown = (event, value) => {
@@ -50,24 +68,47 @@ export const StarRating = ({
     }
   };
 
+  const handleGroupKeyDown = (event) => {
+    if (readonly) {
+      return;
+    }
+
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+      return;
+    }
+
+    event.preventDefault();
+
+    const current = numericRating || 1;
+
+    const next =
+      event.key === "ArrowRight"
+        ? Math.min(current + 1, 5)
+        : Math.max(current - 1, 1);
+
+    handleChange(next);
+  };
+
   return (
     <div
       className={cx("flex items-center gap-0.5", className)}
       role="radiogroup"
-      aria-label="Rating"
+      aria-label={label}
       onMouseLeave={() => {
         if (!readonly) {
           setHovered(0);
         }
       }}
+      onKeyDown={handleGroupKeyDown}
     >
-      {[1, 2, 3, 4, 5].map((star) => {
+      {STAR_VALUES.map((star) => {
         const isFilled = star <= displayRating;
+
         const isSelected = star === numericRating;
 
         return (
           <button
-            key={star}
+            key={`${groupId}-${star}`}
             type="button"
             role="radio"
             aria-checked={isSelected}
@@ -86,6 +127,7 @@ export const StarRating = ({
               "focus-visible:outline-none focus-visible:ring-2",
               "focus-visible:ring-primary/30 focus-visible:ring-offset-2",
               "focus-visible:ring-offset-background",
+              "disabled:cursor-default disabled:opacity-100",
               !readonly && "cursor-pointer hover:scale-110",
               readonly && "cursor-default",
             )}

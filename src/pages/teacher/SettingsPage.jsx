@@ -48,81 +48,159 @@ const getUserName = (user) => {
 };
 
 /* ============================================================
- * THEME OPTION
+ * THEME SELECTOR
  * ============================================================ */
 
-const ThemeOption = ({ option, isSelected, onSelect }) => {
-  const Icon = option.icon;
-
+const ThemeSelector = ({ preference, onSelect }) => {
   return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="lg"
-      role="radio"
-      aria-checked={isSelected}
-      onClick={() => onSelect(option.value)}
+    <div
+      role="radiogroup"
+      aria-label="Tema aplikasi"
       className={cx(
-        "h-auto min-h-28 w-full",
-        "flex-col items-start justify-between",
-        "gap-4 rounded-lg border",
-        "px-4 py-4 text-left",
-        "transition-[background-color,border-color,color,box-shadow]",
-        "duration-(--token-transition-fast)",
-        "ease-out",
-        "focus-visible:ring-offset-background",
-        isSelected
-          ? [
-              "border-primary",
-              "bg-primary-soft/40",
-              "ring-1 ring-primary/20",
-            ].join(" ")
-          : [
-              "border-border",
-              "bg-surface",
-              "hover:border-border-strong",
-              "hover:bg-surface-muted",
-              "active:bg-surface-muted",
-            ].join(" "),
+        "rounded-xl border border-border",
+        "bg-surface-muted/40",
+        "p-1.5 sm:p-2",
       )}
     >
-      <span className="flex w-full items-center justify-between">
-        <span
-          className={cx(
-            "flex h-10 w-10 items-center justify-center rounded-lg",
-            isSelected
-              ? "bg-primary-soft text-primary"
-              : "bg-surface-muted text-muted",
-          )}
-          aria-hidden="true"
-        >
-          <Icon className="h-5 w-5" />
-        </span>
+      <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+        {THEME_OPTIONS.map((option) => {
+          const Icon = option.icon;
+          const isSelected = preference === option.value;
 
-        {isSelected && (
-          <span
-            className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground"
-            aria-hidden="true"
-          >
-            <CheckIcon className="h-3 w-3" />
-          </span>
-        )}
-      </span>
+          return (
+            <Button
+              key={option.value}
+              type="button"
+              variant="ghost"
+              size="lg"
+              role="radio"
+              aria-checked={isSelected}
+              aria-label={`${option.label}: ${option.description}`}
+              onClick={() => onSelect(option.value)}
+              className={cx(
+                /* ==================================================
+                 * BASE
+                 * ================================================== */
 
-      <span className="min-w-0">
-        <span className="block text-sm font-semibold text-text">
-          {option.label}
-        </span>
+                "relative h-auto w-full",
+                "rounded-lg border",
+                "text-left",
+                "transition-[background-color,border-color,color,box-shadow,transform]",
+                "duration-(--token-transition-fast)",
+                "ease-out",
+                "focus-visible:z-10",
+                "focus-visible:outline-none",
+                "focus-visible:ring-2",
+                "focus-visible:ring-primary/30",
+                "focus-visible:ring-offset-0",
+                "active:scale-[0.98]",
+                "motion-reduce:transition-none",
+                "motion-reduce:active:scale-100",
 
-        <span className="mt-1 block text-xs leading-relaxed text-muted">
-          {option.description}
-        </span>
-      </span>
-    </Button>
+                /* ==================================================
+                 * MOBILE
+                 * ================================================== */
+
+                "min-h-20",
+                "flex-col items-center justify-center gap-2",
+                "px-2 py-3",
+                "text-center",
+
+                /* ==================================================
+                 * TABLET / DESKTOP
+                 * ================================================== */
+
+                "sm:min-h-28",
+                "sm:items-start sm:justify-between",
+                "sm:gap-4",
+                "sm:px-4 sm:py-4",
+                "sm:text-left",
+
+                /* ==================================================
+                 * STATE
+                 * ================================================== */
+
+                isSelected
+                  ? [
+                      "border-primary",
+                      "bg-surface",
+                      "text-text",
+                      "shadow-sm",
+                      "ring-1 ring-primary/10",
+                    ].join(" ")
+                  : [
+                      "border-border",
+                      "bg-surface",
+                      "text-text",
+                      "hover:border-border-strong",
+                      "hover:bg-surface",
+                      "hover:shadow-sm",
+                      "active:bg-surface-muted",
+                    ].join(" "),
+              )}
+            >
+              {/* ==================================================
+               * ICON / SELECTED STATE
+               * ================================================== */}
+
+              <span className="flex w-full items-center justify-center sm:justify-between">
+                <span
+                  className={cx(
+                    "flex shrink-0 items-center justify-center rounded-lg",
+                    "h-9 w-9 sm:h-10 sm:w-10",
+                    isSelected
+                      ? "bg-primary-soft text-primary"
+                      : "bg-surface-muted text-muted",
+                  )}
+                  aria-hidden="true"
+                >
+                  <Icon className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
+                </span>
+
+                {isSelected && (
+                  <span
+                    className="absolute right-2 top-2 hidden h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground sm:flex"
+                    aria-hidden="true"
+                  >
+                    <CheckIcon className="h-3 w-3" aria-hidden="true" />
+                  </span>
+                )}
+              </span>
+
+              {/* ==================================================
+               * CONTENT
+               * ================================================== */}
+
+              <span className="min-w-0">
+                <span className="block truncate text-xs font-semibold text-text sm:text-sm">
+                  {option.label}
+                </span>
+
+                <span className="mt-1 hidden text-xs leading-relaxed text-muted sm:block">
+                  {option.description}
+                </span>
+              </span>
+
+              {/* ==================================================
+               * MOBILE SELECTED INDICATOR
+               * ================================================== */}
+
+              <span
+                className={cx(
+                  "h-1.5 w-1.5 rounded-full transition-colors sm:hidden",
+                  isSelected ? "bg-primary" : "bg-transparent",
+                )}
+                aria-hidden="true"
+              />
+            </Button>
+          );
+        })}
+      </div>
+    </div>
   );
 };
 
-ThemeOption.displayName = "ThemeOption";
+ThemeSelector.displayName = "ThemeSelector";
 
 /* ============================================================
  * ACCOUNT INFORMATION
@@ -130,31 +208,25 @@ ThemeOption.displayName = "ThemeOption";
 
 const AccountInformation = ({ name }) => {
   return (
-    <dl className="divide-y divide-border">
-      <div
-        className={cx(
-          "flex flex-col gap-1.5 px-5 py-4",
-          "sm:flex-row sm:items-center sm:justify-between",
-          "sm:px-6",
-        )}
-      >
-        <dt className="text-sm text-muted">Nama</dt>
+    <div className="divide-y divide-border">
+      <div className="flex items-center justify-between gap-6 py-4">
+        <div className="min-w-0">
+          <p className="text-sm text-muted">Nama</p>
+        </div>
 
-        <dd className="text-sm font-medium text-text sm:text-right">{name}</dd>
+        <p className="min-w-0 truncate text-right text-sm font-medium text-text">
+          {name}
+        </p>
       </div>
 
-      <div
-        className={cx(
-          "flex flex-col gap-1.5 px-5 py-4",
-          "sm:flex-row sm:items-center sm:justify-between",
-          "sm:px-6",
-        )}
-      >
-        <dt className="text-sm text-muted">Peran</dt>
+      <div className="flex items-center justify-between gap-6 py-4">
+        <div className="min-w-0">
+          <p className="text-sm text-muted">Peran</p>
+        </div>
 
-        <dd className="text-sm font-medium text-text sm:text-right">Guru</dd>
+        <p className="text-right text-sm font-medium text-text">Guru</p>
       </div>
-    </dl>
+    </div>
   );
 };
 
@@ -171,63 +243,54 @@ const SettingsPage = () => {
 
   const userName = getUserName(user);
 
-  const breadcrumb = [
-    {
-      label: "Pengaturan",
-      path: ROUTES.teacher.settings,
-    },
-  ];
-
   return (
     <PageContainer
       title="Pengaturan"
       subtitle="Kelola preferensi dan informasi akun Anda."
-      breadcrumb={breadcrumb}
     >
-      <div className="space-y-8">
-        {/* ==================================================
-         * APPEARANCE
-         * ================================================== */}
+      {/* ======================================================
+       * OUTER CARD
+       * ====================================================== */}
 
-        <section aria-label="Tampilan">
-          <SectionTitle
-            title="Tampilan"
-            description="Pilih tema yang paling nyaman untuk digunakan."
-          />
+      <ContentBlock>
+        <div className="divide-y divide-border">
+          {/* ==================================================
+           * APPEARANCE
+           * ================================================== */}
 
-          <ContentBlock className="mt-4">
-            <div
-              role="radiogroup"
-              aria-label="Tema aplikasi"
-              className="grid grid-cols-1 gap-3 sm:grid-cols-3"
-            >
-              {THEME_OPTIONS.map((option) => (
-                <ThemeOption
-                  key={option.value}
-                  option={option}
-                  isSelected={preference === option.value}
-                  onSelect={setPreference}
-                />
-              ))}
+          <section aria-labelledby="appearance-title" className="pb-6">
+            <SectionTitle
+              title="Tampilan"
+              description="Pilih tema yang paling nyaman untuk digunakan."
+            />
+
+            <div className="mt-4">
+              <ThemeSelector preference={preference} onSelect={setPreference} />
             </div>
-          </ContentBlock>
-        </section>
+          </section>
 
-        {/* ==================================================
-         * ACCOUNT
-         * ================================================== */}
+          {/* ==================================================
+           * ACCOUNT
+           * ================================================== */}
 
-        <section aria-label="Akun">
-          <SectionTitle
-            title="Akun"
-            description="Informasi akun yang sedang digunakan."
-          />
+          <section aria-labelledby="account-title" className="pt-6">
+            <SectionTitle
+              title="Akun"
+              description="Informasi akun yang sedang digunakan."
+            />
 
-          <ContentBlock className="mt-4">
-            <AccountInformation name={userName} />
-          </ContentBlock>
-        </section>
-      </div>
+            <div
+              className={cx(
+                "mt-4 rounded-xl border border-border",
+                "bg-surface-muted/30",
+                "px-4 sm:px-5",
+              )}
+            >
+              <AccountInformation name={userName} />
+            </div>
+          </section>
+        </div>
+      </ContentBlock>
     </PageContainer>
   );
 };

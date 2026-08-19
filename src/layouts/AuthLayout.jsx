@@ -1,36 +1,35 @@
-// src/layouts/AuthLayout.jsx
-
 import { Outlet } from "react-router-dom";
 
-import { APP_NAME, APP_TAGLINE } from "@/shared/constants";
-import { LogoIcon } from "@/shared/icons";
+import { APP_NAME } from "@/shared/constants";
 import { cx } from "@/shared/utils";
+
+const CURRENT_YEAR = new Date().getFullYear();
 
 export const AuthLayout = ({ children, className = "" }) => {
   const content = children ?? <Outlet />;
 
   return (
-    <div
+    <main
       className={cx(
-        "flex min-h-screen flex-col items-center justify-center",
-        "bg-background p-4 sm:p-6",
+        "flex min-h-svh w-full",
+        "items-center justify-center",
+        "bg-background",
+        "px-(--token-layout-gutter)",
+        "py-6 sm:py-8 lg:py-10",
+        "safe-area-top safe-area-bottom",
         className,
       )}
     >
-      <div className="w-full max-w-md space-y-6">
-        <div className="text-center">
-          <LogoIcon className="mx-auto h-12 w-12" aria-hidden="true" />
+      <div className="w-full min-w-0">
+        {content}
 
-          <h1 className="mt-4 text-2xl font-bold text-text">{APP_NAME}</h1>
-
-          <p className="mt-1 text-sm text-muted">{APP_TAGLINE}</p>
-        </div>
-
-        <div className="rounded-2xl bg-surface p-6 shadow-md sm:p-8">
-          {content}
-        </div>
+        <footer className="mt-5 text-center sm:mt-6">
+          <p className="text-xs leading-5 text-muted">
+            &copy; {CURRENT_YEAR} {APP_NAME}
+          </p>
+        </footer>
       </div>
-    </div>
+    </main>
   );
 };
 

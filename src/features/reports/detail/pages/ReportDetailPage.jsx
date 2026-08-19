@@ -18,6 +18,7 @@ import { EmptyState, ErrorState, LoadingState } from "@/shared/components/ui";
 import { ArrowLeftIcon, EditIcon } from "@/shared/icons";
 
 import { ROUTES } from "@/shared/constants";
+
 import { cx } from "@/shared/utils";
 
 import { PageContainer } from "@/layouts/components";
@@ -25,8 +26,7 @@ import { PageContainer } from "@/layouts/components";
 const ACTION_BASE_CLASS = [
   "inline-flex shrink-0 items-center justify-center gap-2",
   "rounded-xl",
-  "font-medium leading-none",
-  "select-none",
+  "font-medium leading-none select-none",
   "transition-[background-color,border-color,color,box-shadow]",
   "duration-(--token-transition-fast)",
   "ease-out",
@@ -42,24 +42,21 @@ const ACTION_VARIANTS = {
   primary: [
     ACTION_BASE_CLASS,
     "min-h-10 px-4 py-2.5 text-sm",
-    "bg-primary text-primary-foreground shadow-sm",
+    "bg-primary text-primary-foreground",
+    "shadow-sm",
     "hover:bg-primary-hover",
     "active:bg-primary-active",
   ].join(" "),
 
   secondary: [
     ACTION_BASE_CLASS,
-    "min-h-10 px-4 py-2.5 text-sm",
-    "border border-border bg-surface text-text",
-    "hover:border-border-strong hover:bg-surface-muted",
-    "active:bg-surface-muted",
-  ].join(" "),
-
-  ghost: [
-    ACTION_BASE_CLASS,
     "min-h-10 px-3 py-2 text-sm",
-    "text-muted",
-    "hover:bg-surface-muted hover:text-text",
+    "border border-border",
+    "bg-surface",
+    "text-text",
+    "shadow-sm",
+    "hover:bg-surface-muted",
+    "hover:border-border",
     "active:bg-surface-muted",
   ].join(" "),
 };
@@ -69,24 +66,61 @@ const ROLE_CONFIG = {
     reportsRoute: ROUTES.teacher.reports,
 
     getEditRoute: (id) => ROUTES.teacher.reportEdit(id),
-
-    canEdit: true,
   },
 
   student: {
     reportsRoute: ROUTES.student.reports,
-
-    canEdit: false,
   },
 };
+
+const getRoleConfig = (role) => {
+  return ROLE_CONFIG[role] ?? ROLE_CONFIG.teacher;
+};
+
+const ReportActions = ({ role, reportId, canEdit }) => {
+  const roleConfig = getRoleConfig(role);
+
+  return (
+    <nav
+      aria-label="Aksi laporan"
+      className="flex items-center justify-end gap-2"
+    >
+      <Link to={roleConfig.reportsRoute} className={ACTION_VARIANTS.secondary}>
+        <ArrowLeftIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+
+        <span>Kembali</span>
+      </Link>
+
+      {canEdit && typeof roleConfig.getEditRoute === "function" && (
+        <Link
+          to={roleConfig.getEditRoute(reportId)}
+          className={ACTION_VARIANTS.primary}
+        >
+          <EditIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+
+          <span>Edit Laporan</span>
+        </Link>
+      )}
+    </nav>
+  );
+};
+
+ReportActions.displayName = "ReportActions";
 
 const ReportDetailPage = ({ role = "teacher" }) => {
   const { id } = useParams();
 
-  const roleConfig = ROLE_CONFIG[role] ?? ROLE_CONFIG.teacher;
+  const roleConfig = getRoleConfig(role);
 
-  const { viewData, nilaiStyle, isLoading, error, refresh, lightbox } =
-    useReportDetail(id);
+  const {
+    viewData,
+    nilaiStyle,
+    capabilities,
+    isLoading,
+    error,
+    refresh,
+    lightbox,
+  } = useReportDetail(id);
 
   if (isLoading) {
     return (
@@ -115,7 +149,7 @@ const ReportDetailPage = ({ role = "teacher" }) => {
               to={roleConfig.reportsRoute}
               className={cx(ACTION_VARIANTS.primary, "w-full sm:w-auto")}
             >
-              <ArrowLeftIcon className="h-4 w-4" aria-hidden="true" />
+              <ArrowLeftIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
 
               <span>Kembali ke Laporan</span>
             </Link>
@@ -130,64 +164,44 @@ const ReportDetailPage = ({ role = "teacher" }) => {
       title="Detail Laporan"
       subtitle={`${viewData.studentName} · ${viewData.programName}`}
     >
+      <div className={cx("mb-6", "flex justify-end", "print:hidden")}>
+        <ReportActions
+          role={role}
+          reportId={viewData.id}
+          canEdit={capabilities?.canEdit === true}
+        />
+      </div>
+
       <div className="space-y-6">
-        <nav
-          aria-label="Aksi laporan"
-          className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between print:hidden"
-        >
-          <Link
-            to={roleConfig.reportsRoute}
-            className={cx(ACTION_VARIANTS.ghost, "w-full sm:w-auto")}
-          >
-            <ArrowLeftIcon className="h-4 w-4" aria-hidden="true" />
-
-            <span>Kembali ke Laporan</span>
-          </Link>
-
-          {roleConfig.canEdit && (
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-              <Link
-                to={roleConfig.getEditRoute(viewData.id)}
-                className={cx(ACTION_VARIANTS.primary, "w-full sm:w-auto")}
-              >
-                <EditIcon className="h-4 w-4" aria-hidden="true" />
-
-                <span>Edit Laporan</span>
-              </Link>
-            </div>
-          )}
-        </nav>
-
         <article
           aria-label={`Detail laporan ${viewData.studentName}`}
           className={cx(
             "mx-auto max-w-7xl overflow-hidden",
-            "rounded-2xl border border-border bg-surface shadow-sm",
-            "print:rounded-none print:border-0 print:shadow-none",
+            "rounded-2xl",
+            "border border-border",
+            "bg-surface",
+            "shadow-sm",
+            "print:rounded-none",
+            "print:border-0",
+            "print:shadow-none",
           )}
         >
           <ReportHeader report={viewData} />
 
           <div className="px-4 py-6 sm:px-6 md:px-8 md:py-8">
             <div className="space-y-8 md:space-y-10">
-              {/* 1. Informasi Sesi */}
               <ReportSummary report={viewData} />
 
-              {/* 2. Pembelajaran */}
               <ReportLearning report={viewData} />
 
-              {/* 3. Penilaian */}
               <ReportScore report={viewData} style={nilaiStyle} />
 
               <ReportProgress report={viewData} />
 
-              {/* 4. Catatan Pengajar */}
               <ReportTeacherNote report={viewData} />
 
-              {/* 5. Rekomendasi */}
               <ReportRecommendation report={viewData} />
 
-              {/* 6. Dokumentasi */}
               <ReportPhotos report={viewData} onOpen={lightbox.open} />
 
               <footer className="border-t border-border pt-6 text-center">

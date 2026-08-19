@@ -1,9 +1,20 @@
 import { REPORT } from "@/shared/constants";
-
 import { formatDate } from "@/shared/utils";
+
+import { getReportTimestamp, normalizeId } from "../../domain/reportSelectors";
 
 export const hasValue = (value) => {
   return value !== null && value !== undefined && value !== "";
+};
+
+const toFiniteNumber = (value) => {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const number = Number(value);
+
+  return Number.isFinite(number) ? number : null;
 };
 
 export const getStatusLabel = (status) => {
@@ -38,59 +49,79 @@ export const getStatusBadgeClass = (status) => {
   }
 };
 
-export const getScoreColor = (score) => {
-  if (!hasValue(score)) {
-    return "text-muted";
+const getScoreBand = (score) => {
+  const value = toFiniteNumber(score);
+
+  if (value === null) {
+    return "empty";
   }
 
-  const value = Number(score);
-
   if (value >= 90) {
-    return "text-success";
+    return "excellent";
   }
 
   if (value >= 80) {
-    return "text-info";
+    return "good";
   }
 
   if (value >= 70) {
-    return "text-warning";
+    return "fair";
   }
 
-  return "text-danger";
+  return "low";
+};
+
+export const getScoreColor = (score) => {
+  switch (getScoreBand(score)) {
+    case "excellent":
+      return "text-success";
+
+    case "good":
+      return "text-info";
+
+    case "fair":
+      return "text-warning";
+
+    case "low":
+      return "text-danger";
+
+    default:
+      return "text-muted";
+  }
 };
 
 export const getScoreBackground = (score) => {
-  if (!hasValue(score)) {
-    return "bg-surface-muted ring-border";
+  switch (getScoreBand(score)) {
+    case "excellent":
+      return "bg-success-soft ring-success/20";
+
+    case "good":
+      return "bg-info-soft ring-info/20";
+
+    case "fair":
+      return "bg-warning-soft ring-warning/20";
+
+    case "low":
+      return "bg-danger-soft ring-danger/20";
+
+    default:
+      return "bg-surface-muted ring-border";
   }
-
-  const value = Number(score);
-
-  if (value >= 90) {
-    return "bg-success-soft ring-success/20";
-  }
-
-  if (value >= 80) {
-    return "bg-info-soft ring-info/20";
-  }
-
-  if (value >= 70) {
-    return "bg-warning-soft ring-warning/20";
-  }
-
-  return "bg-danger-soft ring-danger/20";
 };
 
 export const getAverageRating = (report) => {
+  if (!report) {
+    return "0.0";
+  }
+
   const ratings = [
-    report?.rating_understanding,
-    report?.rating_activity,
-    report?.rating_discipline,
-    report?.rating_communication,
+    report.rating_understanding,
+    report.rating_activity,
+    report.rating_discipline,
+    report.rating_communication,
   ]
-    .map(Number)
-    .filter((rating) => Number.isFinite(rating) && rating > 0);
+    .map(toFiniteNumber)
+    .filter((rating) => rating !== null && rating > 0);
 
   if (ratings.length === 0) {
     return "0.0";
@@ -102,11 +133,17 @@ export const getAverageRating = (report) => {
 };
 
 export const filterReportsBySearch = (reports, query, role) => {
-  if (!Array.isArray(reports) || !query?.trim()) {
-    return reports;
+  if (!Array.isArray(reports)) {
+    return [];
   }
 
-  const search = query.trim().toLowerCase();
+  const search = String(query ?? "")
+    .trim()
+    .toLowerCase();
+
+  if (!search) {
+    return reports;
+  }
 
   const personField = role === "teacher" ? "student_name" : "teacher_name";
 
@@ -119,6 +156,30 @@ export const filterReportsBySearch = (reports, query, role) => {
   });
 };
 
+const compareNullable = (first, second, direction) => {
+  if (first === second) {
+    return 0;
+  }
+
+  if (first === null) {
+    return 1 * direction;
+  }
+
+  if (second === null) {
+    return -1 * direction;
+  }
+
+  if (first < second) {
+    return -1 * direction;
+  }
+
+  if (first > second) {
+    return 1 * direction;
+  }
+
+  return 0;
+};
+
 export const sortReports = (reports, sortKey, sortDirection) => {
   if (!Array.isArray(reports)) {
     return [];
@@ -126,48 +187,56 @@ export const sortReports = (reports, sortKey, sortDirection) => {
 
   const direction = sortDirection === "asc" ? 1 : -1;
 
-  return [...reports].sort((a, b) => {
-    let aValue = a?.[sortKey];
-    let bValue = b?.[sortKey];
+  return [...reports].sort((first, second) => {
+    let firstValue;
+    let secondValue;
 
     switch (sortKey) {
       case "report_date":
-        aValue = new Date(aValue).getTime() || 0;
-        bValue = new Date(bValue).getTime() || 0;
+        firstValue = getReportTimestamp(first);
+
+        secondValue = getReportTimestamp(second);
+
         break;
 
       case "program_name":
-        aValue = String(aValue ?? "").toLowerCase();
+        firstValue = String(first?.program_name ?? "")
+          .trim()
+          .toLowerCase();
 
-        bValue = String(bValue ?? "").toLowerCase();
+        secondValue = String(second?.program_name ?? "")
+          .trim()
+          .toLowerCase();
+
         break;
 
       case "score":
       case "rating_understanding":
       default:
-        aValue = Number(aValue) || 0;
-        bValue = Number(bValue) || 0;
+        firstValue = toFiniteNumber(first?.[sortKey]);
+
+        secondValue = toFiniteNumber(second?.[sortKey]);
+
         break;
     }
 
-    if (aValue < bValue) {
-      return -1 * direction;
-    }
-
-    if (aValue > bValue) {
-      return 1 * direction;
-    }
-
-    return 0;
+    return compareNullable(firstValue, secondValue, direction);
   });
 };
 
 export const paginateReports = (reports, page, pageSize) => {
   const safeReports = Array.isArray(reports) ? reports : [];
 
-  const safePage = Math.max(1, Number(page) || 1);
+  const numericPage = Number(page);
+  const numericPageSize = Number(pageSize);
 
-  const safePageSize = Math.max(1, Number(pageSize) || 1);
+  const safePage =
+    Number.isInteger(numericPage) && numericPage > 0 ? numericPage : 1;
+
+  const safePageSize =
+    Number.isInteger(numericPageSize) && numericPageSize > 0
+      ? numericPageSize
+      : 1;
 
   const start = (safePage - 1) * safePageSize;
 
@@ -192,4 +261,16 @@ export const formatReportDate = (value) => {
   }
 
   return formatDate(value);
+};
+
+export const isOwnedByAccount = (report, role, accountId) => {
+  const normalizedAccountId = normalizeId(accountId);
+
+  if (normalizedAccountId === null) {
+    return false;
+  }
+
+  const field = role === "teacher" ? "teacher_id" : "student_id";
+
+  return normalizeId(report?.[field]) === normalizedAccountId;
 };

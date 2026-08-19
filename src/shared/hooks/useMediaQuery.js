@@ -1,32 +1,65 @@
 import { useEffect, useState } from "react";
 
+const getMatchMedia = (query) => {
+  if (
+    typeof window === "undefined" ||
+    typeof window.matchMedia !== "function" ||
+    typeof query !== "string" ||
+    !query.trim()
+  ) {
+    return null;
+  }
+
+  return window.matchMedia(query);
+};
+
 export const useMediaQuery = (query) => {
   const [matches, setMatches] = useState(() => {
-    if (typeof window === "undefined") {
-      return false;
-    }
+    const mediaQuery = getMatchMedia(query);
 
-    return window.matchMedia(query).matches;
+    return Boolean(mediaQuery?.matches);
   });
 
   useEffect(() => {
-    if (typeof window === "undefined") {
+    const mediaQuery = getMatchMedia(query);
+
+    if (!mediaQuery) {
       return undefined;
     }
 
-    const mediaQuery = window.matchMedia(query);
-
     const handleChange = (event) => {
-      setMatches(event.matches);
+      const nextValue = Boolean(event.matches);
+
+      setMatches((current) => (current === nextValue ? current : nextValue));
     };
 
-    setMatches(mediaQuery.matches);
+    /*
+     * Sinkronisasi hanya jika
+     * nilai memang berbeda.
+     */
+    const currentValue = Boolean(mediaQuery.matches);
 
-    mediaQuery.addEventListener("change", handleChange);
+    setMatches((current) =>
+      current === currentValue ? current : currentValue,
+    );
 
-    return () => {
-      mediaQuery.removeEventListener("change", handleChange);
-    };
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", handleChange);
+
+      return () => {
+        mediaQuery.removeEventListener("change", handleChange);
+      };
+    }
+
+    if (typeof mediaQuery.addListener === "function") {
+      mediaQuery.addListener(handleChange);
+
+      return () => {
+        mediaQuery.removeListener(handleChange);
+      };
+    }
+
+    return undefined;
   }, [query]);
 
   return matches;

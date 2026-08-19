@@ -16,6 +16,10 @@ import {
   hasValue,
 } from "../utils/reportListUtils";
 
+/* ============================================================
+ * RATING ITEM
+ * ============================================================ */
+
 const RatingItem = memo(({ label, rating }) => {
   const value = Math.min(5, Math.max(0, Number(rating) || 0));
 
@@ -33,6 +37,10 @@ const RatingItem = memo(({ label, rating }) => {
 });
 
 RatingItem.displayName = "RatingItem";
+
+/* ============================================================
+ * REPORT CARD
+ * ============================================================ */
 
 const ReportCard = memo(
   ({ report, role = "teacher", onPreview, onEdit, onDelete }) => {
@@ -68,11 +76,16 @@ const ReportCard = memo(
         className={cx(
           "flex h-full flex-col overflow-hidden rounded-2xl",
           "bg-surface shadow-md ring-1 ring-border",
-          "transition-[box-shadow,transform] duration-(--token-transition-fast)",
+          "transition-[box-shadow,transform]",
+          "duration-(--token-transition-fast)",
           "hover:-translate-y-0.5 hover:shadow-lg",
           "motion-reduce:transition-none",
         )}
       >
+        {/* ==================================================
+         * HEADER
+         * ================================================== */}
+
         <header
           className={cx(
             "border-b border-border",
@@ -115,6 +128,10 @@ const ReportCard = memo(
           </div>
         </header>
 
+        {/* ==================================================
+         * SCORE
+         * ================================================== */}
+
         <section className="px-5 pt-5" aria-label="Ringkasan nilai">
           <div className={cx("rounded-2xl p-4 ring-1", scoreBackground)}>
             <div className="flex items-center justify-between gap-4">
@@ -154,6 +171,10 @@ const ReportCard = memo(
           </div>
         </section>
 
+        {/* ==================================================
+         * RATINGS
+         * ================================================== */}
+
         <section className="px-5 py-5" aria-label="Penilaian perkembangan">
           <div className="grid grid-cols-2 gap-3">
             <RatingItem
@@ -175,12 +196,23 @@ const ReportCard = memo(
           </div>
         </section>
 
+        {/* ==================================================
+         * ACTIONS
+         *
+         * Mobile:
+         * Preview
+         * Edit / Hapus
+         *
+         * Tablet/Desktop:
+         * Preview / Edit / Hapus dalam satu baris.
+         * ================================================== */}
+
         <footer className="mt-auto border-t border-border p-4">
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
             <Button
               type="button"
               variant="primarySoft"
-              className="min-w-20 flex-1"
+              className="col-span-2 w-full sm:col-span-1 sm:min-w-20 sm:flex-1"
               onClick={handlePreview}
               aria-label={`Preview laporan ${report.program_name || ""}`}
             >
@@ -193,7 +225,7 @@ const ReportCard = memo(
               <Button
                 type="button"
                 variant="infoSoft"
-                className="min-w-20 flex-1"
+                className="w-full sm:min-w-20 sm:flex-1"
                 onClick={handleEdit}
                 aria-label={`Edit laporan ${report.program_name || ""}`}
               >
@@ -207,7 +239,7 @@ const ReportCard = memo(
               <Button
                 type="button"
                 variant="dangerSoft"
-                className="min-w-20 flex-1"
+                className="w-full sm:min-w-20 sm:flex-1"
                 onClick={handleDelete}
                 aria-label={`Hapus laporan ${report.program_name || ""}`}
               >

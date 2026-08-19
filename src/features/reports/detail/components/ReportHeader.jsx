@@ -5,6 +5,10 @@ import { cx } from "@/shared/utils";
 
 import { formatReportDate } from "../utils/reportDetailUtils";
 
+/* ============================================================
+ * STATUS CONFIG
+ * ============================================================ */
+
 const STATUS_CONFIG = {
   completed: {
     label: "Selesai",
@@ -22,6 +26,10 @@ const STATUS_CONFIG = {
   },
 };
 
+/* ============================================================
+ * REPORT HEADER
+ * ============================================================ */
+
 const ReportHeader = memo(({ report }) => {
   if (!report) {
     return null;
@@ -32,23 +40,37 @@ const ReportHeader = memo(({ report }) => {
   return (
     <header
       className={cx(
-        "relative border-b border-border",
+        "border-b border-border",
         "bg-linear-to-r from-primary/5 via-primary/5 to-transparent",
-        "px-4 py-6 sm:px-6 md:px-8 md:py-8",
+        "px-4 py-5",
+        "sm:px-6 sm:py-6",
+        "md:px-8 md:py-7",
         "print:border-0 print:bg-white",
       )}
     >
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-4 sm:gap-6">
+        {/* ==================================================
+         * REPORT INFO
+         * ================================================== */}
+
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wider text-primary">
             Laporan Perkembangan Belajar
           </p>
 
-          <h1 className="mt-2 wrap-break-word text-2xl font-bold leading-tight tracking-tight text-text sm:text-3xl md:text-4xl">
+          <h1
+            className={cx(
+              "mt-1.5",
+              "wrap-break-word",
+              "text-xl font-bold leading-tight tracking-tight text-text",
+              "sm:text-2xl",
+              "md:text-3xl",
+            )}
+          >
             {report.programName}
           </h1>
 
-          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
+          <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-muted">
             <time dateTime={report.reportDate || undefined}>
               {formatReportDate(report.reportDate)}
             </time>
@@ -61,11 +83,16 @@ const ReportHeader = memo(({ report }) => {
           </div>
         </div>
 
+        {/* ==================================================
+         * STATUS
+         * ================================================== */}
+
         <span
           className={cx(
-            "inline-flex w-fit shrink-0 items-center gap-1.5",
-            "rounded-full px-3 py-1.5",
+            "inline-flex shrink-0 items-center gap-1.5",
+            "rounded-full px-2.5 py-1.5",
             "text-xs font-semibold",
+            "sm:px-3 sm:py-1.5",
             statusConfig.className,
           )}
           aria-label={`Status laporan: ${statusConfig.label}`}

@@ -4,6 +4,12 @@ import { Button } from "@/shared/components/ui";
 
 import { ChevronLeftIcon, ChevronRightIcon } from "@/shared/icons";
 
+const toSafePage = (value) => {
+  const numeric = Number(value);
+
+  return Number.isInteger(numeric) && numeric > 0 ? numeric : 1;
+};
+
 const ReportPagination = memo(
   ({
     currentPage,
@@ -13,12 +19,14 @@ const ReportPagination = memo(
     endItem,
     onPageChange,
   }) => {
+    const page = toSafePage(currentPage);
+
     const handlePrevious = () => {
       if (!hasPreviousPage) {
         return;
       }
 
-      onPageChange?.(currentPage - 1);
+      onPageChange?.(page - 1);
     };
 
     const handleNext = () => {
@@ -26,19 +34,27 @@ const ReportPagination = memo(
         return;
       }
 
-      onPageChange?.(currentPage + 1);
+      onPageChange?.(page + 1);
     };
+
+    const hasItems = Number(startItem) > 0 && Number(endItem) > 0;
 
     return (
       <nav
         className="flex flex-col gap-3 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between"
         aria-label="Pagination laporan"
       >
-        <p className="text-sm text-muted">
-          Menampilkan{" "}
-          <span className="font-semibold text-text">
-            {startItem} – {endItem}
-          </span>
+        <p className="text-sm text-muted" aria-live="polite">
+          {hasItems ? (
+            <>
+              Menampilkan{" "}
+              <span className="font-semibold text-text">
+                {startItem} – {endItem}
+              </span>
+            </>
+          ) : (
+            "Tidak ada laporan"
+          )}
         </p>
 
         <div className="flex items-center gap-2">
@@ -58,9 +74,9 @@ const ReportPagination = memo(
           <span
             className="inline-flex h-10 min-w-10 items-center justify-center rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground"
             aria-current="page"
-            aria-label={`Halaman ${currentPage}`}
+            aria-label={`Halaman ${page}`}
           >
-            {currentPage}
+            {page}
           </span>
 
           <Button

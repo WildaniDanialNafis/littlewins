@@ -1,5 +1,16 @@
 /* ============================================================
    DESIGN TOKENS
+   Mobile-first • Fluid • Responsive • Accessible
+   Tailwind CSS v4
+
+   NOTE:
+   - Light/Dark theme values are preserved.
+   - Responsive behavior is improved through fluid tokens.
+   - No visual theme direction is changed.
+   ============================================================ */
+
+/* ============================================================
+   ROOT TOKENS
    ============================================================ */
 
 :root {
@@ -18,6 +29,7 @@
 
   --token-secondary: var(--color-violet-600);
   --token-secondary-hover: var(--color-violet-700);
+  --token-secondary-active: var(--color-violet-800);
   --token-secondary-soft: var(--color-violet-50);
   --token-secondary-soft-hover: var(--color-violet-100);
   --token-secondary-foreground: var(--color-white);
@@ -28,6 +40,7 @@
 
   --token-success: var(--color-green-600);
   --token-success-hover: var(--color-green-700);
+  --token-success-active: var(--color-green-800);
   --token-success-soft: var(--color-green-50);
   --token-success-soft-hover: var(--color-green-100);
   --token-success-foreground: var(--color-white);
@@ -41,12 +54,14 @@
 
   --token-warning: var(--color-amber-600);
   --token-warning-hover: var(--color-amber-700);
-  --token-warning-soft: var(--color-amber-100);
-  --token-warning-soft-hover: var(--color-amber-200);
+  --token-warning-active: var(--color-amber-800);
+  --token-warning-soft: var(--color-amber-50);
+  --token-warning-soft-hover: var(--color-amber-100);
   --token-warning-foreground: var(--color-white);
 
   --token-info: var(--color-sky-600);
   --token-info-hover: var(--color-sky-700);
+  --token-info-active: var(--color-sky-800);
   --token-info-soft: var(--color-sky-50);
   --token-info-soft-hover: var(--color-sky-100);
   --token-info-foreground: var(--color-white);
@@ -72,7 +87,7 @@
   --token-placeholder: var(--color-slate-400);
 
   /* ==========================================================
-     DARK THEME
+     DARK THEME VALUES
      ========================================================== */
 
   --token-background-dark: var(--color-slate-950);
@@ -100,7 +115,53 @@
     "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 
   --token-font-family-mono:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    monospace;
+
+  /*
+   * Fluid typography.
+   *
+   * Designed to scale gradually instead of jumping
+   * at breakpoints.
+   */
+
+  --token-font-size-xs: clamp(0.75rem, 0.735rem + 0.04vw, 0.8125rem);
+
+  --token-font-size-sm: clamp(0.875rem, 0.85rem + 0.06vw, 0.9375rem);
+
+  --token-font-size-base: clamp(0.9375rem, 0.91rem + 0.08vw, 1rem);
+
+  --token-font-size-lg: clamp(1rem, 0.96rem + 0.14vw, 1.125rem);
+
+  --token-font-size-xl: clamp(1.125rem, 1.05rem + 0.22vw, 1.25rem);
+
+  --token-font-size-2xl: clamp(1.25rem, 1.12rem + 0.35vw, 1.5rem);
+
+  --token-font-size-3xl: clamp(1.5rem, 1.3rem + 0.6vw, 1.875rem);
+
+  --token-font-size-4xl: clamp(1.875rem, 1.6rem + 0.85vw, 2.25rem);
+
+  /* ==========================================================
+     LINE HEIGHT
+     ========================================================== */
+
+  --token-leading-none: 1;
+  --token-leading-tight: 1.25;
+  --token-leading-snug: 1.375;
+  --token-leading-normal: 1.5;
+  --token-leading-relaxed: 1.625;
+  --token-leading-loose: 2;
+
+  /* ==========================================================
+     LETTER SPACING
+     ========================================================== */
+
+  --token-tracking-tighter: -0.025em;
+  --token-tracking-tight: -0.015em;
+  --token-tracking-normal: 0;
+  --token-tracking-wide: 0.025em;
+  --token-tracking-wider: 0.05em;
+  --token-tracking-widest: 0.1em;
 
   /* ==========================================================
      RADIUS
@@ -112,13 +173,16 @@
   --token-radius-lg: 1rem;
   --token-radius-xl: 1.25rem;
   --token-radius-2xl: 1.5rem;
+  --token-radius-3xl: 1.75rem;
   --token-radius-full: 9999px;
 
   /* ==========================================================
      SHADOW
      ========================================================== */
 
-  --token-shadow-sm: 0 1px 2px rgb(15 23 42 / 0.05);
+  --token-shadow-none: 0 0 #0000;
+
+  --token-shadow-sm: 0 1px 2px rgb(15 23 42 / 0.04);
 
   --token-shadow-md: 0 4px 12px rgb(15 23 42 / 0.06);
 
@@ -139,6 +203,163 @@
   --token-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
 
   /* ==========================================================
+     RESPONSIVE LAYOUT
+     ========================================================== */
+
+  /*
+   * Global page gutter.
+   *
+   * Narrow mobile:
+   *   ~0.875rem – 1rem
+   *
+   * Tablet:
+   *   ~1.25rem – 1.5rem
+   *
+   * Desktop:
+   *   up to 2rem
+   */
+
+  --token-layout-gutter: clamp(0.875rem, 0.65rem + 1.05vw, 2rem);
+
+  /*
+   * Vertical section rhythm.
+   */
+
+  --token-layout-section-gap: clamp(1.25rem, 0.9rem + 1.75vw, 3rem);
+
+  /*
+   * Card padding.
+   */
+
+  --token-layout-card-padding: clamp(1rem, 0.82rem + 0.85vw, 1.5rem);
+
+  /*
+   * Header / hero spacing.
+   */
+
+  --token-layout-header-gap: clamp(0.875rem, 0.7rem + 0.8vw, 1.5rem);
+
+  /*
+   * Content spacing inside cards and sections.
+   */
+
+  --token-layout-content-gap: clamp(0.75rem, 0.6rem + 0.6vw, 1.25rem);
+
+  /*
+   * Compact spacing for dense UI.
+   */
+
+  --token-layout-compact-gap: clamp(0.5rem, 0.4rem + 0.35vw, 0.875rem);
+
+  /*
+   * Large visual separation.
+   */
+
+  --token-layout-display-gap: clamp(1.5rem, 1rem + 2vw, 4rem);
+
+  /* ==========================================================
+     COMPONENT SIZING
+     ========================================================== */
+
+  /*
+   * Standard control heights.
+   *
+   * These are minimums, not mandatory dimensions.
+   */
+
+  --token-control-height-sm: 2.25rem;
+
+  --token-control-height-md: 2.5rem;
+
+  --token-control-height-lg: 2.75rem;
+
+  --token-control-height-xl: 3rem;
+
+  /*
+   * Standard icon sizes.
+   */
+
+  --token-icon-size-xs: 0.875rem;
+
+  --token-icon-size-sm: 1rem;
+
+  --token-icon-size-md: 1.25rem;
+
+  --token-icon-size-lg: 1.5rem;
+
+  --token-icon-size-xl: 1.75rem;
+
+  /* ==========================================================
+     CONTAINER
+     ========================================================== */
+
+  --token-container-xs: 36rem;
+
+  --token-container-sm: 42rem;
+
+  --token-container-md: 48rem;
+
+  --token-container-lg: 64rem;
+
+  --token-container-xl: 80rem;
+
+  --token-container-2xl: 90rem;
+
+  /* ==========================================================
+     INTERACTION / ACCESSIBILITY
+     ========================================================== */
+
+  /*
+   * Recommended minimum touch targets.
+   */
+
+  --token-touch-target-sm: 2.5rem;
+
+  --token-touch-target-md: 2.75rem;
+
+  --token-touch-target-lg: 3rem;
+
+  --token-focus-ring-width: 3px;
+
+  --token-focus-ring-offset: 2px;
+
+  --token-focus-ring: rgb(99 102 241 / 0.28);
+
+  /* ==========================================================
+     BORDER
+     ========================================================== */
+
+  --token-border-width-0: 0;
+
+  --token-border-width-1: 1px;
+
+  --token-border-width-2: 2px;
+
+  --token-border-width-4: 4px;
+
+  --token-border-width-8: 8px;
+
+  /* ==========================================================
+     OPACITY
+     ========================================================== */
+
+  --token-opacity-0: 0;
+  --token-opacity-5: 0.05;
+  --token-opacity-10: 0.1;
+  --token-opacity-20: 0.2;
+  --token-opacity-25: 0.25;
+  --token-opacity-30: 0.3;
+  --token-opacity-40: 0.4;
+  --token-opacity-50: 0.5;
+  --token-opacity-60: 0.6;
+  --token-opacity-70: 0.7;
+  --token-opacity-75: 0.75;
+  --token-opacity-80: 0.8;
+  --token-opacity-90: 0.9;
+  --token-opacity-95: 0.95;
+  --token-opacity-100: 1;
+
+  /* ==========================================================
      Z-INDEX
      ========================================================== */
 
@@ -157,6 +378,7 @@
 
   --token-spacing-0: 0;
   --token-spacing-px: 1px;
+
   --token-spacing-0-5: 0.125rem;
   --token-spacing-1: 0.25rem;
   --token-spacing-1-5: 0.375rem;
@@ -190,46 +412,24 @@
   --token-spacing-72: 18rem;
   --token-spacing-80: 20rem;
   --token-spacing-96: 24rem;
-
-  /* ==========================================================
-     BORDER WIDTH
-     ========================================================== */
-
-  --token-border-width-0: 0;
-  --token-border-width-1: 1px;
-  --token-border-width-2: 2px;
-  --token-border-width-4: 4px;
-  --token-border-width-8: 8px;
-
-  /* ==========================================================
-     OPACITY
-     ========================================================== */
-
-  --token-opacity-0: 0;
-  --token-opacity-5: 0.05;
-  --token-opacity-10: 0.1;
-  --token-opacity-20: 0.2;
-  --token-opacity-25: 0.25;
-  --token-opacity-30: 0.3;
-  --token-opacity-40: 0.4;
-  --token-opacity-50: 0.5;
-  --token-opacity-60: 0.6;
-  --token-opacity-70: 0.7;
-  --token-opacity-75: 0.75;
-  --token-opacity-80: 0.8;
-  --token-opacity-90: 0.9;
-  --token-opacity-95: 0.95;
-  --token-opacity-100: 1;
 }
 
 /* ============================================================
-   DARK THEME OVERRIDES
+   DARK THEME
    ============================================================ */
 
 html.dark {
+  /* ==========================================================
+     BACKGROUND
+     ========================================================== */
+
   --token-background: var(--token-background-dark);
 
   --token-background-subtle: var(--token-background-subtle-dark);
+
+  /* ==========================================================
+     SURFACE
+     ========================================================== */
 
   --token-surface: var(--token-surface-dark);
 
@@ -237,11 +437,19 @@ html.dark {
 
   --token-surface-hover: var(--token-surface-hover-dark);
 
+  /* ==========================================================
+     BORDER
+     ========================================================== */
+
   --token-border: var(--token-border-dark);
 
   --token-border-hover: var(--token-border-hover-dark);
 
   --token-border-strong: var(--token-border-strong-dark);
+
+  /* ==========================================================
+     TEXT
+     ========================================================== */
 
   --token-text: var(--token-text-dark);
 
@@ -250,6 +458,10 @@ html.dark {
   --token-muted: var(--token-muted-dark);
 
   --token-placeholder: var(--token-placeholder-dark);
+
+  /* ==========================================================
+     PRIMARY
+     ========================================================== */
 
   --token-primary: var(--color-indigo-400);
 
@@ -261,11 +473,21 @@ html.dark {
 
   --token-primary-soft-hover: var(--color-indigo-900);
 
+  --token-primary-light: var(--color-indigo-300);
+
+  --token-primary-dark: var(--color-indigo-200);
+
   --token-primary-foreground: var(--color-slate-950);
+
+  /* ==========================================================
+     SECONDARY
+     ========================================================== */
 
   --token-secondary: var(--color-violet-400);
 
   --token-secondary-hover: var(--color-violet-300);
+
+  --token-secondary-active: var(--color-violet-200);
 
   --token-secondary-soft: var(--color-violet-950);
 
@@ -273,15 +495,25 @@ html.dark {
 
   --token-secondary-foreground: var(--color-slate-950);
 
+  /* ==========================================================
+     SUCCESS
+     ========================================================== */
+
   --token-success: var(--color-green-400);
 
   --token-success-hover: var(--color-green-300);
+
+  --token-success-active: var(--color-green-200);
 
   --token-success-soft: var(--color-green-950);
 
   --token-success-soft-hover: var(--color-green-900);
 
   --token-success-foreground: var(--color-slate-950);
+
+  /* ==========================================================
+     DANGER
+     ========================================================== */
 
   --token-danger: var(--color-red-400);
 
@@ -295,9 +527,15 @@ html.dark {
 
   --token-danger-foreground: var(--color-slate-950);
 
+  /* ==========================================================
+     WARNING
+     ========================================================== */
+
   --token-warning: var(--color-amber-400);
 
   --token-warning-hover: var(--color-amber-300);
+
+  --token-warning-active: var(--color-amber-200);
 
   --token-warning-soft: var(--color-amber-950);
 
@@ -305,15 +543,27 @@ html.dark {
 
   --token-warning-foreground: var(--color-slate-950);
 
+  /* ==========================================================
+     INFO
+     ========================================================== */
+
   --token-info: var(--color-sky-400);
 
   --token-info-hover: var(--color-sky-300);
+
+  --token-info-active: var(--color-sky-200);
 
   --token-info-soft: var(--color-sky-950);
 
   --token-info-soft-hover: var(--color-sky-900);
 
   --token-info-foreground: var(--color-slate-950);
+
+  /* ==========================================================
+     FOCUS
+     ========================================================== */
+
+  --token-focus-ring: rgb(129 140 248 / 0.38);
 }
 
 /* ============================================================
@@ -345,6 +595,8 @@ html.dark {
 
   --color-secondary-hover: var(--token-secondary-hover);
 
+  --color-secondary-active: var(--token-secondary-active);
+
   --color-secondary-soft: var(--token-secondary-soft);
 
   --color-secondary-soft-hover: var(--token-secondary-soft-hover);
@@ -358,6 +610,8 @@ html.dark {
   --color-success: var(--token-success);
 
   --color-success-hover: var(--token-success-hover);
+
+  --color-success-active: var(--token-success-active);
 
   --color-success-soft: var(--token-success-soft);
 
@@ -381,6 +635,8 @@ html.dark {
 
   --color-warning-hover: var(--token-warning-hover);
 
+  --color-warning-active: var(--token-warning-active);
+
   --color-warning-soft: var(--token-warning-soft);
 
   --color-warning-soft-hover: var(--token-warning-soft-hover);
@@ -390,6 +646,8 @@ html.dark {
   --color-info: var(--token-info);
 
   --color-info-hover: var(--token-info-hover);
+
+  --color-info-active: var(--token-info-active);
 
   --color-info-soft: var(--token-info-soft);
 
@@ -434,6 +692,30 @@ html.dark {
   --color-placeholder: var(--token-placeholder);
 
   /* ==========================================================
+     TYPOGRAPHY
+     ========================================================== */
+
+  --font-sans: var(--token-font-family-sans);
+
+  --font-mono: var(--token-font-family-mono);
+
+  --text-xs: var(--token-font-size-xs);
+
+  --text-sm: var(--token-font-size-sm);
+
+  --text-base: var(--token-font-size-base);
+
+  --text-lg: var(--token-font-size-lg);
+
+  --text-xl: var(--token-font-size-xl);
+
+  --text-2xl: var(--token-font-size-2xl);
+
+  --text-3xl: var(--token-font-size-3xl);
+
+  --text-4xl: var(--token-font-size-4xl);
+
+  /* ==========================================================
      RADIUS
      ========================================================== */
 
@@ -449,11 +731,15 @@ html.dark {
 
   --radius-2xl: var(--token-radius-2xl);
 
+  --radius-3xl: var(--token-radius-3xl);
+
   --radius-full: var(--token-radius-full);
 
   /* ==========================================================
      SHADOW
      ========================================================== */
+
+  --shadow-none: var(--token-shadow-none);
 
   --shadow-sm: var(--token-shadow-sm);
 
@@ -462,14 +748,6 @@ html.dark {
   --shadow-lg: var(--token-shadow-lg);
 
   --shadow-xl: var(--token-shadow-xl);
-
-  /* ==========================================================
-     FONT
-     ========================================================== */
-
-  --font-sans: var(--token-font-family-sans);
-
-  --font-mono: var(--token-font-family-mono);
 
   /* ==========================================================
      SPACING
@@ -546,6 +824,92 @@ html.dark {
   --spacing-96: var(--token-spacing-96);
 
   /* ==========================================================
+     RESPONSIVE LAYOUT
+     ========================================================== */
+
+  --spacing-layout-gutter: var(--token-layout-gutter);
+
+  --spacing-layout-section: var(--token-layout-section-gap);
+
+  --spacing-layout-card: var(--token-layout-card-padding);
+
+  --spacing-layout-header: var(--token-layout-header-gap);
+
+  --spacing-layout-content: var(--token-layout-content-gap);
+
+  --spacing-layout-compact: var(--token-layout-compact-gap);
+
+  --spacing-layout-display: var(--token-layout-display-gap);
+
+  /* ==========================================================
+     COMPONENT SIZING
+     ========================================================== */
+
+  --height-control-sm: var(--token-control-height-sm);
+
+  --height-control-md: var(--token-control-height-md);
+
+  --height-control-lg: var(--token-control-height-lg);
+
+  --height-control-xl: var(--token-control-height-xl);
+
+  --size-icon-xs: var(--token-icon-size-xs);
+
+  --size-icon-sm: var(--token-icon-size-sm);
+
+  --size-icon-md: var(--token-icon-size-md);
+
+  --size-icon-lg: var(--token-icon-size-lg);
+
+  --size-icon-xl: var(--token-icon-size-xl);
+
+  /* ==========================================================
+     CONTAINER
+     ========================================================== */
+
+  --container-xs: var(--token-container-xs);
+
+  --container-sm: var(--token-container-sm);
+
+  --container-md: var(--token-container-md);
+
+  --container-lg: var(--token-container-lg);
+
+  --container-xl: var(--token-container-xl);
+
+  --container-2xl: var(--token-container-2xl);
+
+  /* ==========================================================
+     INTERACTION
+     ========================================================== */
+
+  --size-touch-sm: var(--token-touch-target-sm);
+
+  --size-touch-md: var(--token-touch-target-md);
+
+  --size-touch-lg: var(--token-touch-target-lg);
+
+  --focus-ring-width: var(--token-focus-ring-width);
+
+  --focus-ring-offset: var(--token-focus-ring-offset);
+
+  --focus-ring-color: var(--token-focus-ring);
+
+  /* ==========================================================
+     BORDER WIDTH
+     ========================================================== */
+
+  --border-width-0: var(--token-border-width-0);
+
+  --border-width: var(--token-border-width-1);
+
+  --border-width-2: var(--token-border-width-2);
+
+  --border-width-4: var(--token-border-width-4);
+
+  --border-width-8: var(--token-border-width-8);
+
+  /* ==========================================================
      OPACITY
      ========================================================== */
 
@@ -578,4 +942,62 @@ html.dark {
   --opacity-95: var(--token-opacity-95);
 
   --opacity-100: var(--token-opacity-100);
+
+  /* ==========================================================
+     Z-INDEX
+     ========================================================== */
+
+  --z-index-dropdown: var(--token-z-dropdown);
+
+  --z-index-sticky: var(--token-z-sticky);
+
+  --z-index-fixed: var(--token-z-fixed);
+
+  --z-index-modal-backdrop: var(--token-z-modal-backdrop);
+
+  --z-index-modal: var(--token-z-modal);
+
+  --z-index-popover: var(--token-z-popover);
+
+  --z-index-tooltip: var(--token-z-tooltip);
+
+  --z-index-toast: var(--token-z-toast);
+}
+
+/* ============================================================
+   RESPONSIVE TOKEN OVERRIDES
+   ============================================================ */
+
+/*
+ * Very narrow devices.
+ *
+ * This does not alter the theme.
+ * It only slightly tightens layout density so that
+ * 320–375px screens do not feel cramped.
+ */
+
+@media (max-width: 374px) {
+  :root {
+    --token-layout-gutter: 0.875rem;
+
+    --token-layout-card-padding: 0.875rem;
+
+    --token-layout-content-gap: 0.75rem;
+  }
+}
+
+/*
+ * Large desktop.
+ *
+ * Prevents large displays from becoming visually too dense
+ * by allowing more breathing room while preserving the
+ * existing maximum container width.
+ */
+
+@media (min-width: 1280px) {
+  :root {
+    --token-layout-section-gap: clamp(2rem, 1.5rem + 1vw, 3rem);
+
+    --token-layout-display-gap: clamp(2rem, 1.5rem + 1.5vw, 4rem);
+  }
 }

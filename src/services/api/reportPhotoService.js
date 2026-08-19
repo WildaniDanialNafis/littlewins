@@ -7,48 +7,57 @@ class ReportPhotoService extends BaseService {
     super(API_ROUTES.reports);
   }
 
-  getAllPhotos(reportId) {
+  getAllPhotos(reportId, options = {}) {
     return this.request(this._photoCollectionPath(reportId), {
       method: "GET",
+      ...options,
     });
   }
 
-  getPhotoById(reportId, photoId) {
+  getPhotoById(reportId, photoId, options = {}) {
     return this.request(
       `${this._photoCollectionPath(reportId)}/${this._encodeId(photoId)}`,
       {
         method: "GET",
+        ...options,
       },
     );
   }
 
-  createPhoto(reportId, payload) {
+  createPhoto(reportId, payload, options = {}) {
     return this.request(this._photoCollectionPath(reportId), {
       method: "POST",
       body: payload,
+      ...options,
     });
   }
 
-  updatePhoto(reportId, photoId, payload) {
+  updatePhoto(reportId, photoId, payload, options = {}) {
     return this.request(
       `${this._photoCollectionPath(reportId)}/${this._encodeId(photoId)}`,
       {
         method: "PUT",
         body: payload,
+        ...options,
       },
     );
   }
 
-  removePhoto(reportId, photoId) {
+  removePhoto(reportId, photoId, options = {}) {
     return this.request(
       `${this._photoCollectionPath(reportId)}/${this._encodeId(photoId)}`,
       {
         method: "DELETE",
+        ...options,
       },
     );
   }
 
   _photoCollectionPath(reportId) {
+    if (reportId === null || reportId === undefined || reportId === "") {
+      throw new Error("Report ID wajib diisi.");
+    }
+
     const fullPath = API_ROUTES.reportPhotos(reportId);
 
     const basePath = API_ROUTES.reports;
@@ -59,7 +68,11 @@ class ReportPhotoService extends BaseService {
   }
 
   _encodeId(id) {
-    return encodeURIComponent(id);
+    if (id === null || id === undefined || id === "") {
+      throw new Error("Photo ID wajib diisi.");
+    }
+
+    return encodeURIComponent(String(id));
   }
 }
 

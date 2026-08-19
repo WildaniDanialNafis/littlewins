@@ -1,7 +1,6 @@
 import {
   createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useState,
@@ -19,12 +18,17 @@ const THEME_VALUES = new Set([
   THEME.values.system,
 ]);
 
+const DARK_MEDIA_QUERY = "(prefers-color-scheme: dark)";
+
 const getSystemTheme = () => {
-  if (typeof window === "undefined") {
+  if (
+    typeof window === "undefined" ||
+    typeof window.matchMedia !== "function"
+  ) {
     return THEME.values.light;
   }
 
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
+  return window.matchMedia(DARK_MEDIA_QUERY).matches
     ? THEME.values.dark
     : THEME.values.light;
 };
@@ -37,10 +41,36 @@ const getStoredTheme = () => {
       return storedTheme;
     }
   } catch {
-    // Ignore localStorage errors.
+    // Fallback ke default.
   }
 
   return THEME.default;
+};
+
+const persistTheme = (preference) => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.theme, preference);
+
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const applyThemeToDocument = (theme) => {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  const root = document.documentElement;
+
+  const isDark = theme === THEME.values.dark;
+
+  root.classList.toggle("dark", isDark);
+
+  root.setAttribute("data-theme", theme);
+
+  root.style.colorScheme = theme;
 };
 
 export const ThemeProvider = ({ children }) => {
@@ -49,56 +79,82 @@ export const ThemeProvider = ({ children }) => {
   const [systemTheme, setSystemTheme] = useState(getSystemTheme);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
+    if (
+      typeof window === "undefined" ||
+      typeof window.matchMedia !== "function"
+    ) {
       return undefined;
     }
 
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const mediaQuery = window.matchMedia(DARK_MEDIA_QUERY);
+
+    let active = true;
 
     const handleChange = (event) => {
+      if (!active) {
+        return;
+      }
+
       setSystemTheme(event.matches ? THEME.values.dark : THEME.values.light);
     };
 
     setSystemTheme(mediaQuery.matches ? THEME.values.dark : THEME.values.light);
 
-    mediaQuery.addEventListener("change", handleChange);
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", handleChange);
 
-    return () => {
-      mediaQuery.removeEventListener("change", handleChange);
-    };
+      return () => {
+        active = false;
+
+        mediaQuery.removeEventListener("change", handleChange);
+      };
+    }
+
+    if (typeof mediaQuery.addListener === "function") {
+      mediaQuery.addListener(handleChange);
+
+      return () => {
+        active = false;
+
+        mediaQuery.removeListener(handleChange);
+      };
+    }
+
+    return undefined;
   }, []);
 
   const theme = preference === THEME.values.system ? systemTheme : preference;
 
   useEffect(() => {
-    const root = document.documentElement;
-
-    root.classList.toggle("dark", theme === THEME.values.dark);
-
-    root.setAttribute("data-theme", theme);
-    root.style.colorScheme = theme;
+    applyThemeToDocument(theme);
   }, [theme]);
 
   const setPreference = useCallback((newPreference) => {
     if (!THEME_VALUES.has(newPreference)) {
-      return;
+      return false;
     }
 
     setPreferenceState(newPreference);
 
-    try {
-      localStorage.setItem(STORAGE_KEYS.theme, newPreference);
-    } catch {
-      // Ignore localStorage errors.
-    }
+    /*
+     * UI tetap berubah walaupun
+     * localStorage gagal.
+     */
+    persistTheme(newPreference);
+
+    return true;
   }, []);
 
   const value = useMemo(
     () => ({
       theme,
+
       preference,
+
       setPreference,
+
       isDark: theme === THEME.values.dark,
+
       isLight: theme === THEME.values.light,
     }),
     [theme, preference, setPreference],
@@ -112,3 +168,5 @@ export const ThemeProvider = ({ children }) => {
 ThemeProvider.displayName = "ThemeProvider";
 
 export { ThemeContext };
+
+export default ThemeContext;

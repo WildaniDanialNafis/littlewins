@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef } from "react";
+
 import { createPortal } from "react-dom";
 
 const MODAL_SIZES = {
@@ -45,8 +46,37 @@ const CLOSE_BUTTON_CLASS = [
   "motion-reduce:transition-none",
 ].join(" ");
 
+const getFocusableElements = (container) => {
+  if (!container) {
+    return [];
+  }
+
+  return Array.from(
+    container.querySelectorAll(
+      [
+        "a[href]",
+        "area[href]",
+        "button:not([disabled])",
+        "input:not([disabled])",
+        "select:not([disabled])",
+        "textarea:not([disabled])",
+        "iframe",
+        "object",
+        "embed",
+        "[contenteditable]",
+        "[tabindex]:not([tabindex='-1'])",
+      ].join(","),
+    ),
+  ).filter((element) => !element.hasAttribute("aria-hidden"));
+};
+
 export const Modal = ({ isOpen, onClose, title, children, size = "md" }) => {
   const overlayRef = useRef(null);
+
+  const modalRef = useRef(null);
+
+  const previousActiveElementRef = useRef(null);
+
   const titleId = useId();
 
   useEffect(() => {
@@ -54,20 +84,73 @@ export const Modal = ({ isOpen, onClose, title, children, size = "md" }) => {
       return undefined;
     }
 
-    const handleEscape = (event) => {
-      if (event.key === "Escape") {
-        onClose?.();
-      }
-    };
+    previousActiveElementRef.current = document.activeElement;
 
     const previousOverflow = document.body.style.overflow;
 
-    document.addEventListener("keydown", handleEscape);
     document.body.style.overflow = "hidden";
 
+    const focusTimer = window.setTimeout(() => {
+      const focusables = getFocusableElements(modalRef.current);
+
+      (focusables[0] ?? modalRef.current)?.focus?.();
+    }, 0);
+
+    const handleEscape = (event) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      event.preventDefault();
+
+      onClose?.();
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key !== "Tab") {
+        return;
+      }
+
+      const focusables = getFocusableElements(modalRef.current);
+
+      if (focusables.length === 0) {
+        event.preventDefault();
+        modalRef.current?.focus();
+        return;
+      }
+
+      const first = focusables[0];
+
+      const last = focusables[focusables.length - 1];
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+        return;
+      }
+
+      if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleEscape);
+
+    document.addEventListener("keydown", handleKeyDown);
+
     return () => {
+      window.clearTimeout(focusTimer);
+
       document.removeEventListener("keydown", handleEscape);
+
+      document.removeEventListener("keydown", handleKeyDown);
+
       document.body.style.overflow = previousOverflow;
+
+      previousActiveElementRef.current?.focus?.();
+
+      previousActiveElementRef.current = null;
     };
   }, [isOpen, onClose]);
 
@@ -90,10 +173,12 @@ export const Modal = ({ isOpen, onClose, title, children, size = "md" }) => {
       onMouseDown={handleOverlayMouseDown}
     >
       <div
+        ref={modalRef}
         className={`${MODAL_CLASS} ${modalSize}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? titleId : undefined}
+        tabIndex={-1}
       >
         {title && (
           <header className={HEADER_CLASS}>

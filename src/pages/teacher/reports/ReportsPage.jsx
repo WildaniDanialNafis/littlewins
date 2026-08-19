@@ -1,11 +1,13 @@
+import { ReportListPage } from "@/features/reports/list";
+
 import { useAuth } from "@/shared/hooks";
 
-import { ReportListPage } from "@/features/reports/list";
+import { normalizeId } from "@/features/reports/domain/reportSelectors";
 
 const ReportsPage = () => {
   const { user } = useAuth();
 
-  const teacherId = user?.profile?.id ? Number(user.profile.id) : null;
+  const teacherId = normalizeId(user?.profile?.id ?? user?.id);
 
   return <ReportListPage role="teacher" accountId={teacherId} />;
 };

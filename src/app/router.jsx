@@ -19,25 +19,21 @@ import {
 } from "@/pages";
 
 import { ROUTES } from "@/shared/constants";
-
 import { useAuth } from "@/shared/hooks";
 
 import GuestRoute from "./GuestRoute";
 import ProtectedRoute from "./ProtectedRoute";
 import RoleRoute from "./RoleRoute";
 
+const ROLE_DASHBOARDS = Object.freeze({
+  teacher: ROUTES.teacher.dashboard,
+  student: ROUTES.student.dashboard,
+});
+
 const RoleDashboardRedirect = () => {
-  const { user } = useAuth();
+  const { role } = useAuth();
 
-  if (user?.role === "teacher") {
-    return <Navigate to={ROUTES.teacher.dashboard} replace />;
-  }
-
-  if (user?.role === "student") {
-    return <Navigate to={ROUTES.student.dashboard} replace />;
-  }
-
-  return <Navigate to={ROUTES.login} replace />;
+  return <Navigate to={ROLE_DASHBOARDS[role] ?? ROUTES.login} replace />;
 };
 
 RoleDashboardRedirect.displayName = "RoleDashboardRedirect";

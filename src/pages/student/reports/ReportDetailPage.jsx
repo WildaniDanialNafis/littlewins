@@ -4,4 +4,6 @@ const ReportDetailPage = () => {
   return <BaseReportDetailPage role="student" />;
 };
 
+ReportDetailPage.displayName = "ReportDetailPage";
+
 export default ReportDetailPage;

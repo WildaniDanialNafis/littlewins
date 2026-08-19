@@ -1,4 +1,4 @@
-import { forwardRef, useState } from "react";
+import { forwardRef } from "react";
 
 import { cx } from "@/shared/utils/cx";
 
@@ -14,8 +14,8 @@ const getFieldClasses = (error) =>
       : "border-border focus:border-primary focus:ring-primary/20",
   );
 
-const FieldError = ({ id, error, show }) => {
-  if (!error || !show) {
+const FieldError = ({ id, error }) => {
+  if (!error) {
     return null;
   }
 
@@ -28,15 +28,7 @@ const FieldError = ({ id, error, show }) => {
 
 export const Textarea = forwardRef(
   ({ label, error, id, className = "", onBlur, ...props }, ref) => {
-    const [touched, setTouched] = useState(false);
-
     const errorId = id ? `${id}-error` : undefined;
-    const showError = touched && Boolean(error);
-
-    const handleBlur = (event) => {
-      setTouched(true);
-      onBlur?.(event);
-    };
 
     return (
       <div className="w-full">
@@ -59,17 +51,17 @@ export const Textarea = forwardRef(
           ref={ref}
           id={id}
           className={cx(
-            getFieldClasses(showError ? error : undefined),
+            getFieldClasses(Boolean(error)),
             "resize-y leading-relaxed",
             className,
           )}
-          aria-invalid={showError}
-          aria-describedby={showError ? errorId : undefined}
-          onBlur={handleBlur}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? errorId : undefined}
+          onBlur={onBlur}
           {...props}
         />
 
-        <FieldError id={errorId} error={error} show={showError} />
+        <FieldError id={errorId} error={error} />
       </div>
     );
   },

@@ -1,20 +1,27 @@
-const getToday = () => {
+import { REPORT } from "@/shared/constants";
+
+const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "gif", "heic", "heif"];
+
+export const getToday = () => {
   const date = new Date();
 
   const year = date.getFullYear();
+
   const month = String(date.getMonth() + 1).padStart(2, "0");
+
   const day = String(date.getDate()).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
 };
 
-export const EMPTY_REPORT_FORM = Object.freeze({
+export const createEmptyReportForm = () => ({
   student_id: "",
   teacher_id: "",
   program_id: "",
   class_id: "",
 
   report_date: getToday(),
+
   duration: "",
   score: "",
 
@@ -33,12 +40,9 @@ export const EMPTY_REPORT_FORM = Object.freeze({
   photos: [],
 });
 
-export const cloneEmptyForm = () => ({
-  ...EMPTY_REPORT_FORM,
-  materials: [""],
-  activities: [],
-  photos: [],
-});
+export const EMPTY_REPORT_FORM = Object.freeze(createEmptyReportForm());
+
+export const cloneEmptyForm = () => createEmptyReportForm();
 
 export const normalizeString = (value) => {
   if (value === null || value === undefined) {
@@ -49,7 +53,7 @@ export const normalizeString = (value) => {
 };
 
 export const normalizeId = (value) => {
-  if (value === null || value === undefined) {
+  if (value === null || value === undefined || value === "") {
     return null;
   }
 
@@ -70,6 +74,26 @@ export const normalizeId = (value) => {
 
 export const normalizeArray = (value) => {
   return Array.isArray(value) ? value : [];
+};
+
+export const normalizeNullableNumber = (value) => {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const number = Number(value);
+
+  return Number.isFinite(number) ? number : null;
+};
+
+export const normalizeInteger = (value) => {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const number = Number(value);
+
+  return Number.isInteger(number) ? number : null;
 };
 
 export const clampRating = (value) => {
@@ -136,6 +160,10 @@ export const normalizeRelationValues = (items) => {
   return normalizeArray(items).map(normalizeString).filter(Boolean);
 };
 
+export const normalizeRelationComparisonValue = (value) => {
+  return normalizeString(value).toLowerCase();
+};
+
 export const getPhotoUrl = (photo) => {
   if (!photo) {
     return null;
@@ -161,11 +189,11 @@ export const buildReportPayload = (form) => ({
 
   class_id: normalizeId(form.class_id),
 
-  report_date: normalizeString(form.report_date),
+  report_date: normalizeString(form.report_date) || null,
 
-  duration: form.duration === "" ? null : Number(form.duration),
+  duration: normalizeNullableNumber(form.duration),
 
-  score: form.score === "" ? null : Number(form.score),
+  score: normalizeNullableNumber(form.score),
 
   rating_understanding: clampRating(form.rating_understanding),
 
@@ -181,49 +209,45 @@ export const buildReportPayload = (form) => ({
 
   recommendation: normalizeString(form.recommendation) || null,
 
-  status: "completed",
+  status: REPORT.status.COMPLETED,
 });
 
-export const getFormErrors = (form) => {
-  const errors = {};
+const validateRequiredId = (value, message, errors, field) => {
+  if (normalizeId(value) === null) {
+    errors[field] = message;
+  }
+};
 
-  if (normalizeId(form.student_id) === null) {
-    errors.student_id = "Siswa wajib dipilih.";
+const validateDuration = (value, errors) => {
+  if (value === null || value === undefined || value === "") {
+    return;
   }
 
-  if (normalizeId(form.teacher_id) === null) {
-    errors.teacher_id = "Pengajar wajib dipilih.";
+  const duration = normalizeInteger(value);
+
+  /*
+   * Keep the existing form contract:
+   * 1–1440 minutes.
+   */
+  if (duration === null || duration <= 0 || duration > 1440) {
+    errors.duration =
+      "Durasi harus berupa angka bulat antara 1 sampai 1440 menit.";
+  }
+};
+
+const validateScore = (value, errors) => {
+  if (value === null || value === undefined || value === "") {
+    return;
   }
 
-  if (normalizeId(form.program_id) === null) {
-    errors.program_id = "Program wajib dipilih.";
+  const score = normalizeNullableNumber(value);
+
+  if (score === null || score < 0 || score > 100) {
+    errors.score = "Nilai harus berada di antara 0 sampai 100.";
   }
+};
 
-  if (normalizeId(form.class_id) === null) {
-    errors.class_id = "Kelas wajib dipilih.";
-  }
-
-  if (!normalizeString(form.report_date)) {
-    errors.report_date = "Tanggal pembelajaran wajib diisi.";
-  }
-
-  if (form.duration !== "") {
-    const duration = Number(form.duration);
-
-    if (!Number.isInteger(duration) || duration <= 0 || duration > 1440) {
-      errors.duration =
-        "Durasi harus berupa angka bulat antara 1 sampai 1440 menit.";
-    }
-  }
-
-  if (form.score !== "") {
-    const score = Number(form.score);
-
-    if (!Number.isFinite(score) || score < 0 || score > 100) {
-      errors.score = "Nilai harus berada di antara 0 sampai 100.";
-    }
-  }
-
+const validateRatings = (form, errors) => {
   const ratingFields = [
     "rating_understanding",
     "rating_activity",
@@ -231,24 +255,149 @@ export const getFormErrors = (form) => {
     "rating_communication",
   ];
 
-  const invalidRating = ratingFields.some((field) => {
-    const rating = Number(form[field]);
+  const hasInvalidRating = ratingFields.some((field) => {
+    const rating = Number(form?.[field]);
 
     return !Number.isInteger(rating) || rating < 1 || rating > 5;
   });
 
-  if (invalidRating) {
+  if (hasInvalidRating) {
     errors.rating = "Semua rating harus diisi dari 1 sampai 5.";
   }
+};
+
+export const getFormErrors = (form = {}) => {
+  const errors = {};
+
+  validateRequiredId(
+    form.student_id,
+    "Siswa wajib dipilih.",
+    errors,
+    "student_id",
+  );
+
+  validateRequiredId(
+    form.teacher_id,
+    "Pengajar wajib dipilih.",
+    errors,
+    "teacher_id",
+  );
+
+  validateRequiredId(
+    form.program_id,
+    "Program wajib dipilih.",
+    errors,
+    "program_id",
+  );
+
+  validateRequiredId(form.class_id, "Kelas wajib dipilih.", errors, "class_id");
+
+  if (!normalizeString(form.report_date)) {
+    errors.report_date = "Tanggal pembelajaran wajib diisi.";
+  }
+
+  validateDuration(form.duration, errors);
+
+  validateScore(form.score, errors);
+
+  validateRatings(form, errors);
 
   return errors;
 };
 
 /* ============================================================
- * FILE / IMAGE HELPERS
+ * FORM OPTIONS
  * ============================================================ */
 
-const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "gif", "heic", "heif"];
+export const getDisplayName = (item, fallback = "-") => {
+  if (!item) {
+    return fallback;
+  }
+
+  const value =
+    item.full_name ?? item.nama_lengkap ?? item.name ?? item.nama ?? "";
+
+  return normalizeString(value) || fallback;
+};
+
+export const mapOptions = (items, fallback) => {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+
+  return items
+    .map((item) => {
+      const id = normalizeId(item?.id);
+
+      if (id === null) {
+        return null;
+      }
+
+      return {
+        value: String(id),
+        label: getDisplayName(item, `${fallback} ${id}`),
+      };
+    })
+    .filter(Boolean);
+};
+
+/* ============================================================
+ * EDIT FORM
+ * ============================================================ */
+
+export const buildEditForm = ({ report, materials, activities } = {}) => {
+  const materialValues = normalizeExistingRelations(materials, "material", [
+    "material_id",
+    "report_material_id",
+  ]).map((item) => item.value);
+
+  const activityValues = normalizeExistingRelations(activities, "activity", [
+    "activity_id",
+    "report_activity_id",
+  ]).map((item) => item.value);
+
+  return {
+    ...cloneEmptyForm(),
+
+    student_id: report?.student_id != null ? String(report.student_id) : "",
+
+    teacher_id: report?.teacher_id != null ? String(report.teacher_id) : "",
+
+    program_id: report?.program_id != null ? String(report.program_id) : "",
+
+    class_id: report?.class_id != null ? String(report.class_id) : "",
+
+    report_date: report?.report_date ?? "",
+
+    duration: report?.duration != null ? String(report.duration) : "",
+
+    score: report?.score != null ? String(report.score) : "",
+
+    rating_understanding: clampRating(report?.rating_understanding),
+
+    rating_activity: clampRating(report?.rating_activity),
+
+    rating_discipline: clampRating(report?.rating_discipline),
+
+    rating_communication: clampRating(report?.rating_communication),
+
+    materials: materialValues.length > 0 ? materialValues : [""],
+
+    activities: activityValues,
+
+    homework: report?.homework ?? "",
+
+    teacher_note: report?.teacher_note ?? "",
+
+    recommendation: report?.recommendation ?? "",
+
+    photos: [],
+  };
+};
+
+/* ============================================================
+ * IMAGE HELPERS
+ * ============================================================ */
 
 const getFileExtension = (fileName = "") => {
   const value = String(fileName).toLowerCase();
@@ -273,9 +422,7 @@ export const isImageFile = (file) => {
     return true;
   }
 
-  const extension = getFileExtension(file.name);
-
-  return IMAGE_EXTENSIONS.includes(extension);
+  return IMAGE_EXTENSIONS.includes(getFileExtension(file.name));
 };
 
 export const normalizeImageFiles = (files) => {
@@ -388,21 +535,22 @@ export const processImageFile = async (
 
   const extension = getFileExtension(file.name);
 
-  /*
-   * Browser tertentu belum bisa decode HEIC/HEIF
-   * melalui Canvas dengan konsisten.
-   *
-   * Untuk file tersebut kita pertahankan file asli.
-   */
   const isHeic = extension === "heic" || extension === "heif";
 
+  /*
+   * Browser tidak selalu dapat decode HEIC/HEIF
+   * melalui Canvas.
+   *
+   * Untuk menjaga kompatibilitas,
+   * file tersebut dikirim apa adanya.
+   */
   if (isHeic) {
     return file;
   }
 
-  const originalDataUrl = await readFileAsDataUrl(file);
+  const dataUrl = await readFileAsDataUrl(file);
 
-  const image = await loadImage(originalDataUrl);
+  const image = await loadImage(dataUrl);
 
   const originalWidth = image.naturalWidth || image.width;
 
@@ -446,18 +594,22 @@ export const fileToBase64 = async (file, options = {}) => {
   return readFileAsDataUrl(processedFile);
 };
 
+/* ============================================================
+ * PHOTO SORT ORDER
+ * ============================================================ */
+
 export const getNextPhotoSortOrder = (photos) => {
   if (!Array.isArray(photos) || photos.length === 0) {
     return 0;
   }
 
-  return (
-    Math.max(
-      ...photos.map((photo, index) => {
-        const sort = Number(photo?.sort_order);
+  const maxSortOrder = Math.max(
+    ...photos.map((photo, index) => {
+      const sort = Number(photo?.sort_order);
 
-        return Number.isFinite(sort) ? sort : index;
-      }),
-    ) + 1
+      return Number.isFinite(sort) ? sort : index;
+    }),
   );
+
+  return maxSortOrder + 1;
 };

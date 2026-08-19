@@ -22,5 +22,9 @@ export {
   formatReportDate,
   getName,
   getNilaiStyle,
+  getNilaiBand,
+  getReportNames,
   hasValue,
+  normalizeId,
+  normalizeReportView,
 } from "./utils/reportDetailUtils";

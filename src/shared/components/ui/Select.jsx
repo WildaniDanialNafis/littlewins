@@ -1,6 +1,11 @@
-// src/shared/components/ui/Select.jsx
-
-import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { cx } from "@/shared/utils/cx";
 
@@ -85,154 +90,271 @@ export const Select = forwardRef(
     ref,
   ) => {
     const [isOpen, setIsOpen] = useState(false);
+
     const [searchQuery, setSearchQuery] = useState("");
+
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
+
     const [touched, setTouched] = useState(false);
 
     const containerRef = useRef(null);
+
     const inputRef = useRef(null);
+
     const listboxRef = useRef(null);
 
+    const blurTimerRef = useRef(null);
+
     const isDisabled = disabled || loading;
+
     const errorId = id ? `${id}-error` : undefined;
+
     const listboxId = id ? `${id}-listbox` : undefined;
 
-    const selectedOption = options.find(
-      (option) => String(option.value) === String(value),
+    const selectedOption = useMemo(
+      () => options.find((option) => String(option.value) === String(value)),
+      [options, value],
     );
 
     const selectedLabel = selectedOption?.label ?? "";
 
-    const filteredOptions = options.filter((option) =>
-      String(option.label).toLowerCase().includes(searchQuery.toLowerCase()),
-    );
+    const filteredOptions = useMemo(() => {
+      const query = String(searchQuery ?? "")
+        .trim()
+        .toLowerCase();
 
-    const showError = touched && Boolean(error);
+      if (!query) {
+        return options;
+      }
+
+      return options.filter((option) =>
+        String(option.label).toLowerCase().includes(query),
+      );
+    }, [options, searchQuery]);
+
+    const showError = Boolean(error) && (touched || Boolean(error));
 
     const handleClose = useCallback(() => {
       setIsOpen(false);
       setHighlightedIndex(-1);
     }, []);
 
-    const handleFocus = () => {
+    const handleOpen = useCallback(() => {
       if (isDisabled) {
         return;
       }
 
       setIsOpen(true);
-    };
 
-    const handleBlur = () => {
-      setTouched(true);
-
-      window.setTimeout(() => {
-        handleClose();
-      }, 200);
-    };
-
-    const handleSelect = (selectedValue) => {
-      const selected = options.find(
-        (option) => String(option.value) === String(selectedValue),
-      );
-
-      onChange?.(selectedValue);
-      setSearchQuery(selected?.label ?? "");
-      handleClose();
-
-      inputRef.current?.focus();
-    };
-
-    const handleInputChange = (event) => {
-      setSearchQuery(event.target.value);
-      setIsOpen(true);
-      setHighlightedIndex(-1);
-    };
-
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        handleClose();
-        inputRef.current?.blur();
-        return;
-      }
-
-      if (event.key === "ArrowDown") {
-        event.preventDefault();
-
-        if (!isOpen) {
-          setIsOpen(true);
-          return;
+      setHighlightedIndex((current) => {
+        if (current >= 0 && current < filteredOptions.length) {
+          return current;
         }
 
-        setHighlightedIndex((current) =>
-          current < filteredOptions.length - 1 ? current + 1 : current,
+        const selectedIndex = filteredOptions.findIndex(
+          (option) => String(option.value) === String(value),
         );
 
-        return;
-      }
+        return selectedIndex >= 0 ? selectedIndex : 0;
+      });
+    }, [filteredOptions, isDisabled, value]);
 
-      if (event.key === "ArrowUp") {
-        event.preventDefault();
+    const handleBlur = useCallback(() => {
+      setTouched(true);
 
-        if (!isOpen) {
-          setIsOpen(true);
+      window.clearTimeout(blurTimerRef.current);
+
+      blurTimerRef.current = window.setTimeout(() => {
+        handleClose();
+        setSearchQuery(selectedLabel);
+      }, 0);
+    }, [handleClose, selectedLabel]);
+
+    const handleSelect = useCallback(
+      (selectedValue) => {
+        const selected = options.find(
+          (option) => String(option.value) === String(selectedValue),
+        );
+
+        if (!selected) {
           return;
         }
 
-        setHighlightedIndex((current) => (current > 0 ? current - 1 : -1));
+        onChange?.(selected.value);
 
-        return;
-      }
+        setSearchQuery(selected.label);
 
-      if (event.key === "Enter" && isOpen && highlightedIndex >= 0) {
-        event.preventDefault();
+        handleClose();
 
-        const selected = filteredOptions[highlightedIndex];
+        requestAnimationFrame(() => {
+          inputRef.current?.focus();
+        });
+      },
+      [handleClose, onChange, options],
+    );
 
-        if (selected) {
-          handleSelect(selected.value);
+    const handleInputChange = useCallback((event) => {
+      setSearchQuery(event.target.value);
+
+      setIsOpen(true);
+      setHighlightedIndex(0);
+    }, []);
+
+    const handleKeyDown = useCallback(
+      (event) => {
+        if (isDisabled) {
+          return;
         }
 
-        return;
-      }
-    };
+        switch (event.key) {
+          case "Escape": {
+            if (!isOpen) {
+              return;
+            }
 
-    const handleToggle = () => {
+            event.preventDefault();
+
+            handleClose();
+
+            setSearchQuery(selectedLabel);
+
+            return;
+          }
+
+          case "ArrowDown": {
+            event.preventDefault();
+
+            if (!isOpen) {
+              handleOpen();
+              return;
+            }
+
+            setHighlightedIndex((current) => {
+              if (filteredOptions.length === 0) {
+                return -1;
+              }
+
+              return Math.min(current + 1, filteredOptions.length - 1);
+            });
+
+            return;
+          }
+
+          case "ArrowUp": {
+            event.preventDefault();
+
+            if (!isOpen) {
+              handleOpen();
+              return;
+            }
+
+            setHighlightedIndex((current) => Math.max(current - 1, 0));
+
+            return;
+          }
+
+          case "Home": {
+            if (!isOpen) {
+              return;
+            }
+
+            event.preventDefault();
+
+            setHighlightedIndex(filteredOptions.length > 0 ? 0 : -1);
+
+            return;
+          }
+
+          case "End": {
+            if (!isOpen) {
+              return;
+            }
+
+            event.preventDefault();
+
+            setHighlightedIndex(
+              filteredOptions.length > 0 ? filteredOptions.length - 1 : -1,
+            );
+
+            return;
+          }
+
+          case "Enter": {
+            if (!isOpen || highlightedIndex < 0) {
+              return;
+            }
+
+            event.preventDefault();
+
+            const selected = filteredOptions[highlightedIndex];
+
+            if (selected) {
+              handleSelect(selected.value);
+            }
+
+            return;
+          }
+
+          default:
+            return;
+        }
+      },
+      [
+        filteredOptions,
+        handleClose,
+        handleOpen,
+        handleSelect,
+        highlightedIndex,
+        isDisabled,
+        isOpen,
+        selectedLabel,
+      ],
+    );
+
+    const handleToggle = useCallback(() => {
       if (isDisabled) {
         return;
       }
 
-      setIsOpen((current) => {
-        const next = !current;
+      if (isOpen) {
+        handleClose();
+        return;
+      }
 
-        if (next) {
-          window.requestAnimationFrame(() => {
-            inputRef.current?.focus();
-          });
-        }
+      handleOpen();
 
-        return next;
+      requestAnimationFrame(() => {
+        inputRef.current?.focus();
       });
-    };
+    }, [handleClose, handleOpen, isDisabled, isOpen]);
 
     useEffect(() => {
-      const handleClickOutside = (event) => {
-        if (!containerRef.current) {
-          return;
-        }
+      return () => {
+        window.clearTimeout(blurTimerRef.current);
+      };
+    }, []);
 
-        if (!containerRef.current.contains(event.target)) {
+    useEffect(() => {
+      if (!isOpen) {
+        return undefined;
+      }
+
+      const handlePointerDown = (event) => {
+        if (
+          containerRef.current &&
+          !containerRef.current.contains(event.target)
+        ) {
           handleClose();
           setSearchQuery(selectedLabel);
         }
       };
 
-      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("pointerdown", handlePointerDown);
 
       return () => {
-        document.removeEventListener("mousedown", handleClickOutside);
+        document.removeEventListener("pointerdown", handlePointerDown);
       };
-    }, [handleClose, selectedLabel]);
+    }, [handleClose, isOpen, selectedLabel]);
 
     useEffect(() => {
       if (!isOpen) {
@@ -285,7 +407,7 @@ export const Select = forwardRef(
               type="text"
               value={searchQuery}
               onChange={handleInputChange}
-              onFocus={handleFocus}
+              onFocus={handleOpen}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
               placeholder={loading ? loadingText : placeholder}

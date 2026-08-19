@@ -1,163 +1,64 @@
-import { useCallback, useEffect, useState } from "react";
-
 import { reportActivityService } from "@/services/api";
 
-const normalizeError = (error, fallbackMessage) => {
-  return error instanceof Error ? error : new Error(fallbackMessage);
-};
+import useReportRelationResource from "./useReportRelationResource";
+
+const METHODS = Object.freeze({
+  getAll: (reportId, options = {}) =>
+    reportActivityService.getAllActivities(reportId, options),
+
+  create: (reportId, payload, options = {}) =>
+    reportActivityService.createActivity(reportId, payload, options),
+
+  update: (reportId, id, payload, options = {}) =>
+    reportActivityService.updateActivity(reportId, id, payload, options),
+
+  remove: (reportId, id, options = {}) =>
+    reportActivityService.removeActivity(reportId, id, options),
+});
+
+const MESSAGES = Object.freeze({
+  fetch: "Gagal memuat aktivitas laporan.",
+
+  create: "Gagal membuat aktivitas.",
+
+  update: "Gagal memperbarui aktivitas.",
+
+  delete: "Gagal menghapus aktivitas.",
+});
 
 export const useReportActivities = (reportId, options = {}) => {
-  const { autoFetch = true, initialData = [] } = options;
+  const { initialData, autoFetch = true, staleTime } = options;
 
-  const [activities, setActivities] = useState(initialData);
-  const [loading, setLoading] = useState(autoFetch && Boolean(reportId));
-  const [error, setError] = useState(null);
+  const resource = useReportRelationResource({
+    reportId,
 
-  const fetchActivities = useCallback(async () => {
-    if (!reportId) {
-      setActivities([]);
-      setLoading(false);
+    methods: METHODS,
 
-      return [];
-    }
+    messages: MESSAGES,
 
-    setLoading(true);
-    setError(null);
+    initialData,
 
-    try {
-      const result = await reportActivityService.getAllActivities(reportId);
+    autoFetch,
 
-      const nextActivities = Array.isArray(result) ? result : [];
-
-      setActivities(nextActivities);
-
-      return nextActivities;
-    } catch (error) {
-      const normalizedError = normalizeError(
-        error,
-        "Gagal memuat aktivitas laporan.",
-      );
-
-      setError(normalizedError);
-      throw normalizedError;
-    } finally {
-      setLoading(false);
-    }
-  }, [reportId]);
-
-  const createActivity = useCallback(
-    async (payload) => {
-      if (!reportId) {
-        throw new Error("Report ID wajib diisi.");
-      }
-
-      setError(null);
-
-      try {
-        const activity = await reportActivityService.createActivity(
-          reportId,
-          payload,
-        );
-
-        if (activity !== null) {
-          setActivities((current) => [...current, activity]);
-        }
-
-        return activity;
-      } catch (error) {
-        const normalizedError = normalizeError(
-          error,
-          "Gagal membuat aktivitas.",
-        );
-
-        setError(normalizedError);
-        throw normalizedError;
-      }
-    },
-    [reportId],
-  );
-
-  const updateActivity = useCallback(
-    async (id, payload) => {
-      if (!reportId) {
-        throw new Error("Report ID wajib diisi.");
-      }
-
-      setError(null);
-
-      try {
-        const activity = await reportActivityService.updateActivity(
-          reportId,
-          id,
-          payload,
-        );
-
-        if (activity !== null) {
-          setActivities((current) =>
-            current.map((item) =>
-              String(item.id) === String(id) ? activity : item,
-            ),
-          );
-        }
-
-        return activity;
-      } catch (error) {
-        const normalizedError = normalizeError(
-          error,
-          "Gagal memperbarui aktivitas.",
-        );
-
-        setError(normalizedError);
-        throw normalizedError;
-      }
-    },
-    [reportId],
-  );
-
-  const deleteActivity = useCallback(
-    async (id) => {
-      if (!reportId) {
-        throw new Error("Report ID wajib diisi.");
-      }
-
-      setError(null);
-
-      try {
-        await reportActivityService.removeActivity(reportId, id);
-
-        setActivities((current) =>
-          current.filter((item) => String(item.id) !== String(id)),
-        );
-
-        return true;
-      } catch (error) {
-        const normalizedError = normalizeError(
-          error,
-          "Gagal menghapus aktivitas.",
-        );
-
-        setError(normalizedError);
-        throw normalizedError;
-      }
-    },
-    [reportId],
-  );
-
-  useEffect(() => {
-    if (autoFetch) {
-      fetchActivities();
-    }
-  }, [autoFetch, fetchActivities]);
+    staleTime,
+  });
 
   return {
-    activities,
-    loading,
-    error,
-    fetchActivities,
-    createActivity,
-    updateActivity,
-    deleteActivity,
-    refresh: fetchActivities,
+    activities: resource.data,
+
+    loading: resource.loading,
+
+    error: resource.error,
+
+    fetchActivities: resource.fetchItems,
+
+    createActivity: resource.create,
+
+    updateActivity: resource.update,
+
+    deleteActivity: resource.remove,
+
+    refresh: resource.refresh,
   };
 };
 

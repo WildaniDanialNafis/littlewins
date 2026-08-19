@@ -18,6 +18,10 @@ import { ReportFilter, ReportList } from "../components";
 
 import useReportList from "../hooks/useReportList";
 
+/* ============================================================
+ * PAGE
+ * ============================================================ */
+
 const ReportListPage = ({ role = "teacher", accountId = null }) => {
   const navigate = useNavigate();
 
@@ -58,6 +62,10 @@ const ReportListPage = ({ role = "teacher", accountId = null }) => {
 
   const isTeacher = role === "teacher";
 
+  /* ==========================================================
+   * NAVIGATION
+   * ========================================================== */
+
   const goToCreate = useCallback(() => {
     if (!isTeacher) {
       return;
@@ -88,35 +96,33 @@ const ReportListPage = ({ role = "teacher", accountId = null }) => {
     [isTeacher, navigate],
   );
 
-  const breadcrumb = [
-    {
-      label: "Riwayat Laporan",
-    },
-  ];
+  /* ==========================================================
+   * LOADING
+   * ========================================================== */
 
   if (isLoading) {
     return (
-      <PageContainer
-        title="Riwayat Laporan"
-        subtitle="Memuat data laporan..."
-        breadcrumb={breadcrumb}
-      >
+      <PageContainer title="Riwayat Laporan" subtitle="Memuat data laporan...">
         <LoadingState message="Memuat data laporan..." />
       </PageContainer>
     );
   }
 
+  /* ==========================================================
+   * ERROR
+   * ========================================================== */
+
   if (hasError) {
     return (
-      <PageContainer
-        title="Riwayat Laporan"
-        subtitle="Gagal memuat data."
-        breadcrumb={breadcrumb}
-      >
+      <PageContainer title="Riwayat Laporan" subtitle="Gagal memuat data.">
         <ErrorState error={error} onRetry={refresh} />
       </PageContainer>
     );
   }
+
+  /* ==========================================================
+   * VIEW
+   * ========================================================== */
 
   return (
     <PageContainer
@@ -126,7 +132,6 @@ const ReportListPage = ({ role = "teacher", accountId = null }) => {
           ? "Belum ada laporan belajar"
           : `${allReports.length} laporan belajar`
       }
-      breadcrumb={breadcrumb}
       actions={
         isTeacher ? (
           <Button
@@ -134,7 +139,6 @@ const ReportListPage = ({ role = "teacher", accountId = null }) => {
             variant="primary"
             size="md"
             onClick={goToCreate}
-            className="w-full sm:w-auto"
           >
             <PlusIcon className="h-4 w-4" aria-hidden="true" />
 
@@ -144,6 +148,10 @@ const ReportListPage = ({ role = "teacher", accountId = null }) => {
       }
     >
       <div className="space-y-5">
+        {/* ======================================================
+         * FILTER
+         * ====================================================== */}
+
         <ReportFilter
           role={role}
           searchQuery={searchQuery}
@@ -153,6 +161,10 @@ const ReportListPage = ({ role = "teacher", accountId = null }) => {
           onSortChange={handleSort}
           onToggleSort={toggleSortDirection}
         />
+
+        {/* ======================================================
+         * LIST
+         * ====================================================== */}
 
         <ReportList
           role={role}
@@ -171,6 +183,10 @@ const ReportListPage = ({ role = "teacher", accountId = null }) => {
           onCreate={isTeacher ? goToCreate : undefined}
         />
       </div>
+
+      {/* ========================================================
+       * DELETE CONFIRMATION
+       * ======================================================== */}
 
       {isTeacher && (
         <ConfirmDialog

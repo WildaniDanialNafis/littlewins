@@ -72,10 +72,25 @@ export const Dialog = ({
       return;
     }
 
+    setIsConfirming(true);
+
     try {
-      setIsConfirming(true);
-      await onConfirm?.();
-      onClose?.();
+      /*
+       * Convention:
+       *
+       * undefined / true
+       *   → confirmation sukses
+       *   → dialog ditutup
+       *
+       * false
+       *   → confirmation gagal / tidak selesai
+       *   → dialog tetap terbuka
+       */
+      const result = await onConfirm?.();
+
+      if (result !== false) {
+        onClose?.();
+      }
     } finally {
       setIsConfirming(false);
     }

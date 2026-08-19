@@ -1,4 +1,18 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+const normalizeIndex = (index, total) => {
+  const numericIndex = Number(index);
+
+  if (!Number.isInteger(numericIndex)) {
+    return null;
+  }
+
+  if (numericIndex < 0 || numericIndex >= total) {
+    return null;
+  }
+
+  return numericIndex;
+};
 
 const useLightbox = (photos = []) => {
   const safePhotos = Array.isArray(photos) ? photos : [];
@@ -7,13 +21,37 @@ const useLightbox = (photos = []) => {
 
   const [selectedIndex, setSelectedIndex] = useState(null);
 
+  const previousActiveElementRef = useRef(null);
+
+  useEffect(() => {
+    if (selectedIndex === null) {
+      return;
+    }
+
+    previousActiveElementRef.current = document.activeElement;
+
+    const previousOverflow = document.body.style.overflow;
+
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+
+      previousActiveElementRef.current?.focus?.();
+
+      previousActiveElementRef.current = null;
+    };
+  }, [selectedIndex]);
+
   const open = useCallback(
     (index) => {
-      if (index < 0 || index >= total) {
+      const normalizedIndex = normalizeIndex(index, total);
+
+      if (normalizedIndex === null) {
         return;
       }
 
-      setSelectedIndex(index);
+      setSelectedIndex(normalizedIndex);
     },
     [total],
   );
@@ -53,21 +91,28 @@ const useLightbox = (photos = []) => {
   }, [selectedIndex, total]);
 
   useEffect(() => {
-    if (selectedIndex === null) {
+    if (selectedIndex === null || typeof document === "undefined") {
       return undefined;
     }
 
     const handleKeyDown = (event) => {
+      if (event.defaultPrevented) {
+        return;
+      }
+
       switch (event.key) {
         case "Escape":
+          event.preventDefault();
           close();
           break;
 
         case "ArrowLeft":
+          event.preventDefault();
           goPrev();
           break;
 
         case "ArrowRight":
+          event.preventDefault();
           goNext();
           break;
 
@@ -81,7 +126,7 @@ const useLightbox = (photos = []) => {
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [selectedIndex, close, goPrev, goNext]);
+  }, [close, goNext, goPrev, selectedIndex]);
 
   return {
     selectedIndex,

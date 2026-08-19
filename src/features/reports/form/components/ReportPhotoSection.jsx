@@ -10,21 +10,25 @@ const ReportPhotoSection = ({
   onRemoveExisting,
   disabled = false,
 }) => {
-  const newPhotos = Array.isArray(photos)
-    ? photos.filter((photo) => photo instanceof File)
-    : [];
+  const { newPhotos, newPhotoPreviews, savedPhotos } = useMemo(() => {
+    const normalizedPhotos = Array.isArray(photos)
+      ? photos.filter((photo) => photo instanceof File)
+      : [];
 
-  const savedPhotos = Array.isArray(existingPhotos) ? existingPhotos : [];
+    const previews = normalizedPhotos.map((file) =>
+      URL.createObjectURL(file),
+    );
 
-  const newPhotoPreviews = useMemo(() => {
-    return newPhotos.map((file) => URL.createObjectURL(file));
-  }, [newPhotos]);
+    return {
+      newPhotos: normalizedPhotos,
+      newPhotoPreviews: previews,
+      savedPhotos: Array.isArray(existingPhotos) ? existingPhotos : [],
+    };
+  }, [photos, existingPhotos]);
 
   useEffect(() => {
     return () => {
-      newPhotoPreviews.forEach((url) => {
-        URL.revokeObjectURL(url);
-      });
+      newPhotoPreviews.forEach((url) => URL.revokeObjectURL(url));
     };
   }, [newPhotoPreviews]);
 
