@@ -11,6 +11,7 @@ export { default as ToastContainer } from "./ToastContainer";
 
 export { default as Spinner } from "./Spinner";
 export { default as StarRating } from "./StarRating";
+export { default as Skeleton, SkeletonBase, SkeletonText, SkeletonCircle, SkeletonRectangle, SkeletonAvatar, SkeletonCard, SkeletonList, SkeletonTable, SkeletonDashboard, SkeletonForm } from "./Skeleton";
 
 export { default as EmptyState } from "./EmptyState";
 export { default as ErrorState } from "./ErrorState";

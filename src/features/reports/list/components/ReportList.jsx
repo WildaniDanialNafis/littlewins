@@ -1,9 +1,27 @@
 import { memo } from "react";
 
-import { Button, EmptyState } from "@/shared/components/ui";
+import { Button, EmptyState, SkeletonCard } from "@/shared/components/ui";
 
 import ReportCard from "./ReportCard";
 import ReportPagination from "./ReportPagination";
+
+/* ============================================================
+ * REPORT LIST SKELETON
+ * ============================================================ */
+
+const ReportListSkeleton = ({ count = 6 }) => {
+  return (
+    <div className="min-w-0 space-y-5">
+      <div className="grid min-w-0 grid-cols-1 gap-3.5 md:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: count }).map((_, index) => (
+          <SkeletonCard key={index} variant="report" />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+ReportListSkeleton.displayName = "ReportListSkeleton";
 
 /* ============================================================
  * REPORT LIST
@@ -25,6 +43,7 @@ const ReportList = memo(
     onPageChange,
     onClearSearch,
     onCreate,
+    isLoading = false,
   }) => {
     const isTeacher = role === "teacher";
 
@@ -33,6 +52,14 @@ const ReportList = memo(
     const emptyDescription = isTeacher
       ? "Belum ada laporan. Buat laporan pertama."
       : "Belum ada laporan untuk Anda.";
+
+    /* ==========================================================
+     * LOADING SKELETON
+     * ========================================================== */
+
+    if (isLoading) {
+      return <ReportListSkeleton count={6} />;
+    }
 
     /* ==========================================================
      * EMPTY
