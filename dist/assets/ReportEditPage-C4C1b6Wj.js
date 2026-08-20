@@ -1,1 +1,0 @@
-import{I as e,at as t}from"./icons-B-pQSomD.js";import{t as n}from"./form-BkVLRvnB.js";var r=t(),i=e(),a=()=>{let e=(0,r.c)(1),t;return e[0]===Symbol.for(`react.memo_cache_sentinel`)?(t=(0,i.jsx)(n,{mode:`edit`}),e[0]=t):t=e[0],t};a.displayName=`ReportEditPage`;export{a as default};
