@@ -3,13 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import { PageContainer } from "@/layouts/components";
 
-import {
-  Button,
-  ConfirmDialog,
-  ErrorState,
-  LoadingState,
-  SkeletonList,
-} from "@/shared/components/ui";
+import { Button, ConfirmDialog, ErrorState, SkeletonList } from "@/shared/components/ui";
 
 import { PlusIcon } from "@/shared/icons";
 
@@ -112,7 +106,7 @@ const ReportListPage = ({ role = "teacher", accountId = null }) => {
 
   if (isLoading) {
     return (
-      <PageContainer title="Laporan" subtitle="Memuat...">
+      <PageContainer title="Laporan" subtitle="Memuat laporan...">
         <div className="min-w-0 space-y-5 sm:space-y-6">
           <ReportFilter
             role={role}
