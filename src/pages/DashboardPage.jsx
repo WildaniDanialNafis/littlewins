@@ -4,7 +4,7 @@ import { PageContainer } from "@/layouts/components";
 
 import { ContentBlock, SectionTitle } from "@/shared/components/layout";
 
-import { EmptyState, ErrorState, LoadingState } from "@/shared/components/ui";
+import { EmptyState, ErrorState, LoadingState, SkeletonDashboard } from "@/shared/components/ui";
 
 import { CalendarIcon, EyeIcon, PlusIcon, UserIcon } from "@/shared/icons";
 
@@ -370,7 +370,7 @@ const DashboardLoading = ({ title }) => {
   return (
     <PageContainer title={title} subtitle={`Selamat datang di ${APP_NAME}.`}>
       <ContentBlock>
-        <LoadingState message="Memuat dashboard..." />
+        <SkeletonDashboard />
       </ContentBlock>
     </PageContainer>
   );
