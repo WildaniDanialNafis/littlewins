@@ -1,6 +1,6 @@
 const DEFAULT_STALE_TIME = 30_000;
 
-const DEFAULT_MAX_ENTRIES = 150;
+const DEFAULT_MAX_ENTRIES = 300;
 
 const cache = new Map();
 

@@ -22,6 +22,7 @@ import {
 } from "../../domain/reportSelectors";
 
 import {
+  createSearchableFields,
   filterReportsBySearch,
   paginateReports,
   sortReports,
@@ -30,6 +31,8 @@ import {
 const VALID_ROLES = new Set(["teacher", "student"]);
 
 const EMPTY_ARRAY = Object.freeze([]);
+
+const EMPTY_MAP = Object.freeze(new Map());
 
 const normalizeRole = (role) => {
   if (typeof role !== "string") {
@@ -68,23 +71,27 @@ const enrichReports = ({ reports, studentMap, teacherMap, programMap }) => {
     return EMPTY_ARRAY;
   }
 
-  return reports
-    .map((report) => {
-      if (!report || typeof report !== "object") {
-        return null;
-      }
+  const enriched = new Array(reports.length);
 
-      return {
-        ...report,
+  for (let i = 0; i < reports.length; i++) {
+    const report = reports[i];
 
-        student_name: getReportStudentName(report, studentMap),
+    if (!report || typeof report !== "object") {
+      continue;
+    }
 
-        teacher_name: getReportTeacherName(report, teacherMap),
+    enriched[i] = {
+      ...report,
 
-        program_name: getReportProgramName(report, programMap),
-      };
-    })
-    .filter(Boolean);
+      student_name: getReportStudentName(report, studentMap),
+
+      teacher_name: getReportTeacherName(report, teacherMap),
+
+      program_name: getReportProgramName(report, programMap),
+    };
+  }
+
+  return enriched.filter(Boolean);
 };
 
 const getFirstError = (...errors) =>
@@ -159,11 +166,15 @@ const useReportList = (options = {}) => {
     refresh,
   } = reportsResource;
 
-  const studentMap = useMemo(() => createLookupMap(students), [students]);
+  const lookupMaps = useMemo(() => {
+    const studentMap = createLookupMap(students);
+    const teacherMap = createLookupMap(teachers);
+    const programMap = createLookupMap(programs);
 
-  const teacherMap = useMemo(() => createLookupMap(teachers), [teachers]);
+    return { studentMap, teacherMap, programMap };
+  }, [students, teachers, programs]);
 
-  const programMap = useMemo(() => createLookupMap(programs), [programs]);
+  const { studentMap, teacherMap, programMap } = lookupMaps;
 
   const enrichedReports = useMemo(
     () =>
