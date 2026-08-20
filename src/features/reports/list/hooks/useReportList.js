@@ -22,7 +22,6 @@ import {
 } from "../../domain/reportSelectors";
 
 import {
-  createSearchableFields,
   filterReportsBySearch,
   paginateReports,
   sortReports,
@@ -31,8 +30,6 @@ import {
 const VALID_ROLES = new Set(["teacher", "student"]);
 
 const EMPTY_ARRAY = Object.freeze([]);
-
-const EMPTY_MAP = Object.freeze(new Map());
 
 const normalizeRole = (role) => {
   if (typeof role !== "string") {
