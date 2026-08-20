@@ -8,7 +8,7 @@ export const SkeletonBase = ({ className = "", ...props }) => {
   return (
     <div
       className={cx(
-        "animate-pulse rounded-lg bg-surface-muted",
+        "animate-pulse rounded-lg bg-gray-200 dark:bg-gray-700",
         "motion-reduce:animate-none",
         className
       )}

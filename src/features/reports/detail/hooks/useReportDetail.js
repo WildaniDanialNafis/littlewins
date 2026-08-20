@@ -270,16 +270,9 @@ const useReportDetail = (reportId) => {
     photosError ||
     null;
 
-  const isLoading = Boolean(
-    reportLoading ||
-    teachersLoading ||
-    programsLoading ||
-    classesLoading ||
-    studentsLoading ||
-    materialsLoading ||
-    activitiesLoading ||
-    photosLoading,
-  );
+  // Only use reportLoading as the primary loading state for detail page
+  // Other resources are supporting data and should not block skeleton
+  const isLoading = Boolean(reportLoading);
 
   const refresh = useCallback(async () => {
     if (normalizedReportId === null) {

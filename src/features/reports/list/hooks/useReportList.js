@@ -285,9 +285,10 @@ const useReportList = (options = {}) => {
     getFirstError(studentsError, teachersError, programsError, reportsError),
   );
 
-  const isLoading = Boolean(
-    studentsLoading || teachersLoading || programsLoading || reportsLoading,
-  );
+  // Only use reportsLoading as the primary loading state for the list
+  // Other resources (students, teachers, programs) are supporting data
+  // and should not block the skeleton from showing
+  const isLoading = Boolean(reportsLoading);
 
   return {
     searchQuery,
