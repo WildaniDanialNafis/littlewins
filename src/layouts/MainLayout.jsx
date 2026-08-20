@@ -39,7 +39,12 @@ export const MainLayout = ({ className = "" }) => {
       <main
         id="main-content"
         tabIndex={-1}
-        className="min-w-0 flex-1 focus:outline-none"
+        className={cx(
+          "min-w-0 flex-1",
+          "min-h-0", // memungkinkan main menyusut
+          "overflow-y-auto", // scroll vertikal jika konten melebihi tinggi
+          "focus:outline-none",
+        )}
       >
         <Outlet />
       </main>
