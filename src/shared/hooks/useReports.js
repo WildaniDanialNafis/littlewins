@@ -131,6 +131,9 @@ export const useReports = (options = {}) => {
    * STATE
    * ========================================================== */
 
+  // Track whether we've ever started loading to prevent flash
+  const hasStartedLoadingRef = useRef(false);
+
   const [reports, setReports] = useState(() => {
     if (!listCacheKey) {
       return EMPTY_ARRAY;
@@ -152,7 +155,17 @@ export const useReports = (options = {}) => {
   });
 
   const [loading, setLoading] = useState(() => {
-    return Boolean(autoFetch && listCacheKey);
+    // Only start with loading=true if we have a valid cacheKey AND no fresh cache
+    if (!autoFetch || !listCacheKey) {
+      return false;
+    }
+
+    const cached = getCachedResource(listCacheKey, staleTime);
+    if (cached !== null) {
+      return false;
+    }
+
+    return true;
   });
 
   const [error, setError] = useState(null);
@@ -227,7 +240,11 @@ export const useReports = (options = {}) => {
         if (mountedRef.current) {
           setReports(EMPTY_ARRAY);
 
-          setLoading(false);
+          // Don't set loading to false if we haven't started loading yet
+          // This prevents flash when cacheKey is null due to auth not ready
+          if (hasStartedLoadingRef.current) {
+            setLoading(false);
+          }
         }
 
         return EMPTY_ARRAY;
@@ -262,6 +279,8 @@ export const useReports = (options = {}) => {
       const requestVersion = getResourceVersion(listCacheKey);
 
       if (mountedRef.current) {
+        hasStartedLoadingRef.current = true;
+
         setLoading(true);
 
         setError(null);
