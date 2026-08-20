@@ -150,6 +150,8 @@ const ReportDetailPage = ({ role = "teacher" }) => {
 
   const location = useLocation();
 
+  const navigationReport = location.state?.report ?? null;
+
   const navigate = useNavigate();
 
   const {
@@ -168,55 +170,54 @@ const ReportDetailPage = ({ role = "teacher" }) => {
    * POST-EDIT AUTHORITATIVE REFRESH
    * ========================================================== */
 
-  useEffect(() => {
-    const state = location.state;
+  //   const state = location.state;
 
-    if (!state?.reportUpdated) {
-      return;
-    }
+  //   if (!state?.reportUpdated) {
+  //     return;
+  //   }
 
-    const stateReportId = String(state.reportId ?? id ?? "");
+  //   const stateReportId = String(state.reportId ?? id ?? "");
 
-    const currentId = String(id ?? "");
+  //   const currentId = String(id ?? "");
 
-    if (!stateReportId || stateReportId !== currentId) {
-      return;
-    }
+  //   if (!stateReportId || stateReportId !== currentId) {
+  //     return;
+  //   }
 
-    const refreshRequestKey = getRefreshRequestKey(currentId, state);
+  //   const refreshRequestKey = getRefreshRequestKey(currentId, state);
 
-    if (refreshRequestKey === null) {
-      return;
-    }
+  //   if (refreshRequestKey === null) {
+  //     return;
+  //   }
 
-    if (handledRefreshKeyRef.current === refreshRequestKey) {
-      return;
-    }
+  //   if (handledRefreshKeyRef.current === refreshRequestKey) {
+  //     return;
+  //   }
 
-    handledRefreshKeyRef.current = refreshRequestKey;
+  //   handledRefreshKeyRef.current = refreshRequestKey;
 
-    navigate(
-      {
-        pathname: location.pathname,
-        search: location.search,
-        hash: location.hash,
-      },
-      {
-        replace: true,
-        state: null,
-      },
-    );
+  //   navigate(
+  //     {
+  //       pathname: location.pathname,
+  //       search: location.search,
+  //       hash: location.hash,
+  //     },
+  //     {
+  //       replace: true,
+  //       state: null,
+  //     },
+  //   );
 
-    void refresh().catch(() => {});
-  }, [
-    id,
-    location.pathname,
-    location.search,
-    location.hash,
-    location.state,
-    navigate,
-    refresh,
-  ]);
+  //   void refresh().catch(() => {});
+  // }, [
+  //   id,
+  //   location.pathname,
+  //   location.search,
+  //   location.hash,
+  //   location.state,
+  //   navigate,
+  //   refresh,
+  // ]);
 
   const roleConfig = ROLE_CONFIG[role] ?? ROLE_CONFIG.teacher;
 

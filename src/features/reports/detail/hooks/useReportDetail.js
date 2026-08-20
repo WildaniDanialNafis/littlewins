@@ -52,6 +52,7 @@ const getRefreshError = (results) => {
 };
 
 const useReportDetail = (reportId) => {
+  
   const { user } = useAuth();
 
   const normalizedReportId = normalizeId(reportId);

@@ -90,9 +90,7 @@ const ReportFormPage = ({ mode = "create" }) => {
       navigate(ROUTES.teacher.reportDetail(savedReportId), {
         replace: true,
         state: {
-          reportUpdated: true,
-          reportId: savedReportId,
-          updatedAt: Date.now(),
+          report,
         },
       });
     },

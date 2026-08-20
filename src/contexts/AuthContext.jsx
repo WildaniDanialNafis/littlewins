@@ -13,7 +13,7 @@ import { ROUTES, STORAGE_KEYS } from "@/shared/constants";
 
 import authService from "@/services/api/authService";
 
-import { clearResourceCache } from "@/shared/cache";
+import { clearResourceCache, createRequestDeduper } from "@/shared/cache";
 
 const AuthContext = createContext(null);
 
@@ -460,8 +460,9 @@ export const AuthProvider = ({ children }) => {
       }
 
       try {
-        const response = await authService.me({
-          signal: undefined,
+        const response = await createRequestDeduper({
+          key: "auth:me",
+          request: () => authService.me(),
         });
 
         if (
