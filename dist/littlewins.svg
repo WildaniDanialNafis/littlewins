@@ -1,0 +1,181 @@
+<svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 512 512"
+    fill="none"
+>
+    <defs>
+        <style>
+      /* ========================================================
+         LIGHT MODE (default)
+         ======================================================== */
+
+      .bg { fill: #EEF2FF; }
+      .bg-stop1 { stop-color: #EEF2FF; }
+      .bg-stop2 { stop-color: #E0E7FF; }
+      .hill-stop1 { stop-color: #6366F1; }
+      .hill-stop2 { stop-color: #4F46E5; }
+      .sparkle-blue { fill: #38BDF8; }
+      .sparkle-pink { fill: #FB7185; }
+      .sparkle-yellow { fill: #FBBF24; }
+      .sparkle-green { fill: #4ADE80; }
+      .flag-pole { stroke: #4338CA; }
+      .flag { fill: #6366F1; }
+      .check { stroke: #FFFFFF; }
+      .star { fill: #FBBF24; }
+      .star-highlight { stroke: #F59E0B; }
+      .eye { fill: #172554; }
+      .smile { stroke: #172554; }
+      .cheek { fill: #FB7185; }
+      .celebration { stroke: #7C3AED; }
+
+      /* ========================================================
+         DARK MODE — Otomatis mengikuti preferensi sistem
+         ======================================================== */
+
+      @media (prefers-color-scheme: dark) {
+        .bg { fill: #1E293B; }
+        .bg-stop1 { stop-color: #1E293B; }
+        .bg-stop2 { stop-color: #0F172A; }
+        .hill-stop1 { stop-color: #818CF8; }
+        .hill-stop2 { stop-color: #6366F1; }
+        .sparkle-blue { fill: #7DD3FC; }
+        .sparkle-pink { fill: #FDA4AF; }
+        .sparkle-yellow { fill: #FCD34D; }
+        .sparkle-green { fill: #86EFAC; }
+        .flag-pole { stroke: #818CF8; }
+        .flag { fill: #818CF8; }
+        .check { stroke: #0F172A; }
+        .star { fill: #FCD34D; }
+        .star-highlight { stroke: #F59E0B; }
+        .eye { fill: #F1F5F9; }
+        .smile { stroke: #F1F5F9; }
+        .cheek { fill: #FDA4AF; }
+        .celebration { stroke: #A78BFA; }
+      }
+    </style>
+
+        <linearGradient id="bg" x1="72" y1="64" x2="440" y2="448">
+            <stop offset="0" class="bg-stop1" />
+            <stop offset="1" class="bg-stop2" />
+        </linearGradient>
+
+        <linearGradient id="hill" x1="80" y1="380" x2="440" y2="380">
+            <stop offset="0" class="hill-stop1" />
+            <stop offset="1" class="hill-stop2" />
+        </linearGradient>
+    </defs>
+
+    <!-- ======================================================
+       BACKGROUND
+       ====================================================== -->
+
+    <rect x="32" y="32" width="448" height="448" rx="112" class="bg" fill="url(#bg)" />
+
+    <!-- ======================================================
+       SPARKLES
+       ====================================================== -->
+
+    <path
+        d="M104 108 L114 132 L138 142 L114 152 L104 176 L94 152 L70 142 L94 132Z"
+        class="sparkle-blue"
+    />
+
+    <circle cx="140" cy="202" r="9" class="sparkle-yellow" />
+    <circle cx="404" cy="172" r="9" class="sparkle-green" />
+
+    <path
+        d="M394 220 L402 240 L422 248 L402 256 L394 276 L386 256 L366 248 L386 240Z"
+        class="sparkle-pink"
+    />
+
+    <!-- ======================================================
+       ACHIEVEMENT FLAG
+       ====================================================== -->
+
+    <path
+        d="M340 82V258"
+        class="flag-pole"
+        stroke-width="14"
+        stroke-linecap="round"
+    />
+
+    <path
+        d="M344 86 C370 96 390 96 414 88 C434 82 452 86 468 94 L464 172 C442 164 424 166 404 172 C384 180 366 178 344 170Z"
+        class="flag"
+    />
+
+    <!-- Check -->
+    <path
+        d="M376 124L391 140L424 106"
+        class="check"
+        stroke-width="13"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+    />
+
+    <!-- ======================================================
+       STAR
+       ====================================================== -->
+
+    <path
+        d="M256 102 L281 166 L350 171 L296 212 L313 280 L256 242 L199 280 L216 212 L162 171 L231 166Z"
+        class="star"
+    />
+
+    <!-- Star highlight -->
+    <path
+        d="M256 108 L280 166 L348 171 L295 211 L311 274"
+        class="star-highlight"
+        stroke-width="6"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        opacity=".3"
+    />
+
+    <!-- ======================================================
+       STAR FACE
+       ====================================================== -->
+
+    <!-- Eye -->
+    <ellipse cx="233" cy="193" rx="7" ry="10" class="eye" />
+
+    <!-- Winking eye -->
+    <path
+        d="M280 193Q288 182 298 191"
+        class="smile"
+        stroke-width="6"
+        stroke-linecap="round"
+    />
+
+    <!-- Smile -->
+    <path
+        d="M243 213Q256 226 269 213"
+        class="smile"
+        stroke-width="6"
+        stroke-linecap="round"
+    />
+
+    <!-- Cheeks -->
+    <ellipse cx="222" cy="216" rx="9" ry="6" class="cheek" opacity=".8" />
+    <ellipse cx="290" cy="216" rx="9" ry="6" class="cheek" opacity=".8" />
+
+    <!-- ======================================================
+       HILL
+       ====================================================== -->
+
+    <path
+        d="M32 368 C92 316 148 310 202 330 C260 352 294 350 334 340 C374 330 426 342 480 374 V480 H32Z"
+        fill="url(#hill)"
+    />
+
+    <!-- ======================================================
+       CELEBRATION MARKS
+       ====================================================== -->
+
+    <path
+        d="M94 210L108 224 M84 234L104 236 M96 258L110 246"
+        class="celebration"
+        stroke-width="7"
+        stroke-linecap="round"
+    />
+</svg>
