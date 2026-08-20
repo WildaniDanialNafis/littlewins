@@ -419,7 +419,7 @@ export const AuthProvider = ({ children }) => {
     setError(null);
 
     setLoading(false);
-  }, [invalidateSessionOperations]);
+  }, [invalidateSessionOperations, resetSessionCache]);
 
   /* ==========================================================
    * SESSION RESTORE
