@@ -12,6 +12,7 @@ import {
   EmptyState,
   ErrorState,
   LoadingState,
+  SkeletonForm,
 } from "@/shared/components/ui";
 
 import { ArrowLeftIcon } from "@/shared/icons";
@@ -214,7 +215,7 @@ const ReportFormPage = ({ mode = "create" }) => {
         subtitle={pageSubtitle}
         breadcrumb={breadcrumb}
       >
-        <LoadingState message="Memuat formulir..." />
+        <SkeletonForm sections={3} />
       </PageContainer>
     );
   }

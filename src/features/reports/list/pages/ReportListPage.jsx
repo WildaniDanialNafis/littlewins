@@ -8,6 +8,7 @@ import {
   ConfirmDialog,
   ErrorState,
   LoadingState,
+  SkeletonList,
 } from "@/shared/components/ui";
 
 import { PlusIcon } from "@/shared/icons";
@@ -112,7 +113,18 @@ const ReportListPage = ({ role = "teacher", accountId = null }) => {
   if (isLoading) {
     return (
       <PageContainer title="Laporan" subtitle="Memuat...">
-        <LoadingState message="Memuat laporan..." />
+        <div className="min-w-0 space-y-5 sm:space-y-6">
+          <ReportFilter
+            role={role}
+            searchQuery={searchQuery}
+            sortKey={sortKey}
+            sortDirection={sortDirection}
+            onSearchChange={() => {}}
+            onSortChange={() => {}}
+            onToggleSort={() => {}}
+          />
+          <SkeletonList count={6} variant="report" />
+        </div>
       </PageContainer>
     );
   }
