@@ -100,6 +100,25 @@ const useCrudResource = ({
    * STATE
    * ========================================================== */
 
+  // Check if we have cached data on mount
+  const hasCachedData = useMemo(() => {
+    if (!cacheKey) {
+      return false;
+    }
+
+    const cached = getCachedResource(cacheKey, staleTime);
+    if (cached !== null) {
+      return true;
+    }
+
+    const snapshot = getResourceSnapshot(cacheKey);
+    if (snapshot?.data !== undefined) {
+      return true;
+    }
+
+    return false;
+  }, [cacheKey, staleTime]);
+
   const [data, setData] = useState(() => {
     if (!cacheKey) {
       return initial;
@@ -120,9 +139,21 @@ const useCrudResource = ({
     return initial;
   });
 
-  const [loading, setLoading] = useState(() => {
-    return Boolean(autoFetch && service && cacheKey);
+  /**
+   * CRITICAL FIX: Separate initialLoading from refreshing
+   * 
+   * initialLoading: Only true on first fetch when no data exists
+   * refreshing: True when user explicitly refreshes existing data
+   */
+  const [initialLoading, setInitialLoading] = useState(() => {
+    // Only start as loading if:
+    // 1. autoFetch is enabled
+    // 2. We have a valid cacheKey
+    // 3. We don't already have cached data
+    return Boolean(autoFetch && service && cacheKey && !hasCachedData);
   });
+
+  const [refreshing, setRefreshing] = useState(false);
 
   const [error, setError] = useState(null);
 
@@ -141,6 +172,9 @@ const useCrudResource = ({
   const updatePromisesRef = useRef(new Map());
 
   const removePromisesRef = useRef(new Map());
+
+  // Track whether initial fetch has completed at least once
+  const initialFetchCompleteRef = useRef(false);
 
   /* ==========================================================
    * LIFECYCLE
@@ -190,11 +224,15 @@ const useCrudResource = ({
     async ({ force = false } = {}) => {
       if (!service || !cacheKey) {
         if (mountedRef.current) {
-          setLoading(false);
+          setInitialLoading(false);
+          setRefreshing(false);
         }
 
         return EMPTY_ARRAY;
       }
+
+      // Check if this is a refresh (data already exists) or initial fetch
+      const hasExistingData = data.length > 0 || getCachedResource(cacheKey, staleTime) !== null;
 
       if (!force) {
         const cached = getCachedResource(cacheKey, staleTime);
@@ -207,7 +245,8 @@ const useCrudResource = ({
 
             setError(null);
 
-            setLoading(false);
+            setInitialLoading(false);
+            setRefreshing(false);
           }
 
           return nextData;
@@ -225,7 +264,13 @@ const useCrudResource = ({
       const requestVersion = getResourceVersion(cacheKey);
 
       if (mountedRef.current) {
-        setLoading(true);
+        // CRITICAL FIX: Use refreshing for refreshes, initialLoading for first load
+        if (hasExistingData || initialFetchCompleteRef.current) {
+          setRefreshing(true);
+          // Don't set initialLoading here - preserve existing data display
+        } else {
+          setInitialLoading(true);
+        }
 
         setError(null);
       }
@@ -256,13 +301,18 @@ const useCrudResource = ({
 
         setError(null);
 
-        setLoading(false);
+        // Mark initial fetch as complete
+        initialFetchCompleteRef.current = true;
+
+        setInitialLoading(false);
+        setRefreshing(false);
 
         return nextData;
       } catch (fetchError) {
         if (isAbortError(fetchError)) {
           if (mountedRef.current) {
-            setLoading(false);
+            setInitialLoading(false);
+            setRefreshing(false);
           }
 
           return EMPTY_ARRAY;
@@ -280,13 +330,14 @@ const useCrudResource = ({
         ) {
           setError(normalizedError);
 
-          setLoading(false);
+          setInitialLoading(false);
+          setRefreshing(false);
         }
 
         throw normalizedError;
       }
     },
-    [cacheKey, messages?.fetch, service, staleTime],
+    [cacheKey, data.length, messages?.fetch, service, staleTime],
   );
 
   /* ==========================================================
