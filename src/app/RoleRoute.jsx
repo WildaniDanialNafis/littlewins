@@ -2,6 +2,8 @@ import { Navigate, Outlet } from "react-router-dom";
 
 import { ROUTES } from "@/shared/constants";
 
+import { Spinner } from "@/shared/components/ui";
+
 import { useAuth } from "@/shared/hooks";
 
 const ROLE_DASHBOARDS = Object.freeze({
@@ -11,15 +13,19 @@ const ROLE_DASHBOARDS = Object.freeze({
 
 const VALID_ROLES = new Set(["teacher", "student"]);
 
-const RoleLoading = () => {
+const RoleLoading = ({ label = "Memeriksa akses..." }) => {
   return (
     <div
-      className="flex min-h-screen items-center justify-center px-4"
+      className="flex min-h-svh items-center justify-center px-4"
       role="status"
       aria-live="polite"
-      aria-label="Memeriksa akses"
+      aria-label={label}
     >
-      <p className="text-sm text-muted">Memeriksa akses...</p>
+      <div className="flex flex-col items-center gap-3">
+        <Spinner size="md" aria-hidden="true" />
+
+        <p className="text-sm text-muted">{label}</p>
+      </div>
     </div>
   );
 };
@@ -45,17 +51,13 @@ const RoleRoute = ({ role }) => {
     return <Navigate to={ROUTES.login} replace />;
   }
 
-  if (currentRole !== role) {
-    const dashboard = ROLE_DASHBOARDS[currentRole];
-
-    if (dashboard) {
-      return <Navigate to={dashboard} replace />;
-    }
-
-    return <Navigate to={ROUTES.login} replace />;
+  if (currentRole === role) {
+    return <Outlet />;
   }
 
-  return <Outlet />;
+  const dashboard = ROLE_DASHBOARDS[currentRole];
+
+  return <Navigate to={dashboard ?? ROUTES.login} replace />;
 };
 
 RoleRoute.displayName = "RoleRoute";

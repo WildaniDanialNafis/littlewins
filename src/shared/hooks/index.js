@@ -25,3 +25,5 @@ export { default as useReportMaterials } from "./useReportMaterials";
 export { default as useReportActivities } from "./useReportActivities";
 
 export { default as useReportPhotos } from "./useReportPhotos";
+
+export { default as useDelayedLoading } from "./useDelayedLoading";

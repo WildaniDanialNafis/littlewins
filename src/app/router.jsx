@@ -5,6 +5,8 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import AuthLayout from "@/layouts/AuthLayout";
 import MainLayout from "@/layouts/MainLayout";
 
+import { Spinner } from "@/shared/components/ui";
+
 import { ROUTES } from "@/shared/constants";
 
 import { useAuth } from "@/shared/hooks";
@@ -50,7 +52,7 @@ const StudentReportDetailPage = lazy(
 );
 
 /* ============================================================
- * LOADING
+ * ROUTE LOADING
  * ============================================================ */
 
 const RouteLoading = () => {
@@ -61,17 +63,10 @@ const RouteLoading = () => {
       aria-live="polite"
       aria-label="Memuat halaman"
     >
-      <div className="text-center">
-        <span
-          className={[
-            "mx-auto block size-6 rounded-full border-2",
-            "border-border border-t-primary",
-            "animate-spin motion-reduce:animate-none",
-          ].join(" ")}
-          aria-hidden="true"
-        />
+      <div className="flex flex-col items-center gap-3">
+        <Spinner size="md" aria-hidden="true" />
 
-        <p className="mt-3 text-sm text-muted">Memuat halaman...</p>
+        <p className="text-sm text-muted">Memuat halaman...</p>
       </div>
     </div>
   );
@@ -91,7 +86,6 @@ LazyPage.displayName = "LazyPage";
 
 const ROLE_DASHBOARDS = Object.freeze({
   teacher: ROUTES.teacher.dashboard,
-
   student: ROUTES.student.dashboard,
 });
 
