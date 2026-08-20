@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { Link } from "react-router-dom";
 
 import {
-  Button,
   EmptyState,
   ErrorState,
   LoadingState,
