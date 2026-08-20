@@ -81,6 +81,9 @@
   --token-border-hover: var(--color-slate-300);
   --token-border-strong: var(--color-slate-300);
 
+  /* Skeleton loading state */
+  --token-skeleton: var(--color-slate-200);
+
   --token-text: var(--color-slate-900);
   --token-text-secondary: var(--color-slate-700);
   --token-muted: var(--color-slate-500);
@@ -105,6 +108,9 @@
   --token-text-secondary-dark: var(--color-slate-300);
   --token-muted-dark: var(--color-slate-400);
   --token-placeholder-dark: var(--color-slate-500);
+
+  /* Skeleton for dark mode */
+  --token-skeleton-dark: var(--color-slate-800);
 
   /* ==========================================================
      TYPOGRAPHY
@@ -458,6 +464,9 @@ html.dark {
   --token-muted: var(--token-muted-dark);
 
   --token-placeholder: var(--token-placeholder-dark);
+
+  /* Skeleton */
+  --token-skeleton: var(--token-skeleton-dark);
 
   /* ==========================================================
      PRIMARY
