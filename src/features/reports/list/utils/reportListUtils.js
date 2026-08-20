@@ -15,6 +15,34 @@ const getRatingValue = (report, nestedKey, flatKey) => {
   return ratings?.[nestedKey] ?? report?.[flatKey] ?? null;
 };
 
+const createSearchableFieldsCache = new WeakMap();
+
+export const createSearchableFields = (report, role) => {
+  if (!report || typeof report !== "object") {
+    return [];
+  }
+
+  if (createSearchableFieldsCache.has(report)) {
+    return createSearchableFieldsCache.get(report);
+  }
+
+  const personField = role === "teacher" ? "student_name" : "teacher_name";
+
+  const fields = [
+    report?.[personField],
+    report?.program_name,
+    report?.status,
+    report?.report_date,
+    report?.score,
+  ]
+    .map(normalizeText)
+    .filter(Boolean);
+
+  createSearchableFieldsCache.set(report, fields);
+
+  return fields;
+};
+
 export const hasValue = (value) => {
   if (value === null || value === undefined) {
     return false;
@@ -176,35 +204,16 @@ export const filterReportsBySearch = (reports, query, role) => {
 
     const searchable = [
       report?.[personField],
-
-      report?.student_name,
-
-      report?.studentName,
-
-      report?.teacher_name,
-
-      report?.teacherName,
-
       report?.program_name,
-
       report?.programName,
-
       report?.class_name,
-
       report?.className,
-
       report?.status,
-
       getStatusLabel(report?.status),
-
       report?.report_date,
-
       report?.reportDate,
-
       report?.date,
-
       report?.created_at,
-
       report?.score,
     ];
 
