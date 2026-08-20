@@ -15,7 +15,7 @@ import {
   useReportDetail,
 } from "@/features/reports/detail";
 
-import { EmptyState, ErrorState, LoadingState } from "@/shared/components/ui";
+import { EmptyState, ErrorState, SkeletonCard } from "@/shared/components/ui";
 
 import { ArrowLeftIcon, EditIcon } from "@/shared/icons";
 
@@ -242,7 +242,9 @@ const ReportDetailPage = ({ role = "teacher" }) => {
         subtitle="Memuat..."
         breadcrumb={breadcrumb}
       >
-        <LoadingState message="Memuat laporan..." />
+        <div className="min-w-0 space-y-6">
+          <SkeletonCard variant="report" />
+        </div>
       </PageContainer>
     );
   }

@@ -199,6 +199,7 @@ const ReportListPage = ({ role = "teacher", accountId = null }) => {
           onPageChange={handlePageChange}
           onClearSearch={clearSearch}
           onCreate={isTeacher ? goToCreate : undefined}
+          isLoading={isLoading}
         />
       </div>
 
