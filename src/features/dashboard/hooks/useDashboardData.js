@@ -1,15 +1,30 @@
 import { useCallback, useMemo } from "react";
 
-import { useAuth, usePrograms, useReports, useStudents } from "@/shared/hooks";
+import {
+  useAuth,
+  useClasses,
+  usePrograms,
+  useReports,
+  useStudents,
+  useTeachers,
+} from "@/shared/hooks";
 
 import {
   createLookupMap,
   filterReportsByAccount,
   getLatestReport,
+  getReportClassName,
   getReportProgramName,
   getReportStudentName,
+  getReportTeacherName,
   normalizeId,
 } from "@/features/reports/domain/reportSelectors";
+
+/* ============================================================
+ * CONSTANTS
+ * ============================================================ */
+
+const EMPTY_ARRAY = Object.freeze([]);
 
 /* ============================================================
  * HELPERS
@@ -32,15 +47,9 @@ const normalizeRole = (role) => {
 
   const normalized = role.trim().toLowerCase();
 
-  if (normalized === "teacher") {
-    return "teacher";
-  }
-
-  if (normalized === "student") {
-    return "student";
-  }
-
-  return null;
+  return normalized === "teacher" || normalized === "student"
+    ? normalized
+    : null;
 };
 
 const normalizeError = (error) => {
@@ -59,6 +68,10 @@ const normalizeError = (error) => {
   return new Error("Gagal memuat dashboard.");
 };
 
+const toArray = (value) => {
+  return Array.isArray(value) ? value : EMPTY_ARRAY;
+};
+
 /* ============================================================
  * HOOK
  * ============================================================ */
@@ -74,46 +87,109 @@ const useDashboardData = (role = "teacher") => {
 
   const isStudent = normalizedRole === "student";
 
+  /* ==========================================================
+   * REPORTS
+   * ========================================================== */
+
   const reportsResource = useReports({
-    autoFetch: Boolean(normalizedRole && accountId),
+    autoFetch: Boolean(normalizedRole && accountId !== null),
   });
+
+  /* ==========================================================
+   * LOOKUPS
+   * ========================================================== */
 
   const studentsResource = useStudents({
     autoFetch: isTeacher,
   });
 
-  const programsResource = usePrograms({
-    autoFetch: Boolean(normalizedRole && accountId),
+  const teachersResource = useTeachers({
+    autoFetch: isStudent,
   });
 
-  const reports = Array.isArray(reportsResource.reports)
-    ? reportsResource.reports
-    : [];
+  const programsResource = usePrograms({
+    autoFetch: Boolean(normalizedRole && accountId !== null),
+  });
 
-  const students = Array.isArray(studentsResource.data)
-    ? studentsResource.data
-    : [];
+  const classesResource = useClasses({
+    autoFetch: Boolean(normalizedRole && accountId !== null),
+  });
 
-  const programs = Array.isArray(programsResource.data)
-    ? programsResource.data
-    : [];
+  /* ==========================================================
+   * DATA
+   * ========================================================== */
+
+  /*
+   * Important:
+   *
+   * toArray() sekarang mengembalikan shared EMPTY_ARRAY
+   * ketika resource belum mempunyai array.
+   *
+   * Jadi useMemo di bawah tidak kehilangan referential
+   * stability hanya karena resource sedang undefined/null.
+   */
+  const reports = toArray(reportsResource.reports);
+
+  const students = toArray(studentsResource.data);
+
+  const teachers = toArray(teachersResource.data);
+
+  const programs = toArray(programsResource.data);
+
+  const classes = toArray(classesResource.data);
+
+  /* ==========================================================
+   * LOOKUP MAPS
+   * ========================================================== */
+
+  const studentMap = useMemo(() => createLookupMap(students), [students]);
+
+  const teacherMap = useMemo(() => createLookupMap(teachers), [teachers]);
+
+  const programMap = useMemo(() => createLookupMap(programs), [programs]);
+
+  const classMap = useMemo(() => createLookupMap(classes), [classes]);
+
+  /* ==========================================================
+   * ACCOUNT SCOPE
+   * ========================================================== */
 
   const scopedReports = useMemo(() => {
-    if (!normalizedRole || accountId === null) {
-      return [];
+    if (normalizedRole === null || accountId === null) {
+      return EMPTY_ARRAY;
     }
 
     return filterReportsByAccount(reports, normalizedRole, accountId);
   }, [reports, normalizedRole, accountId]);
 
-  const latestReport = useMemo(
-    () => getLatestReport(scopedReports),
-    [scopedReports],
+  /* ==========================================================
+   * ENRICH
+   * ========================================================== */
+
+  const enrichedReports = useMemo(
+    () =>
+      scopedReports.map((report) => ({
+        ...report,
+
+        student_name: getReportStudentName(report, studentMap),
+
+        teacher_name: getReportTeacherName(report, teacherMap),
+
+        program_name: getReportProgramName(report, programMap),
+
+        class_name: getReportClassName(report, classMap),
+      })),
+    [scopedReports, studentMap, teacherMap, programMap, classMap],
   );
 
-  const studentMap = useMemo(() => createLookupMap(students), [students]);
+  /* ==========================================================
+   * LATEST REPORT
+   * ========================================================== */
 
-  const programMap = useMemo(() => createLookupMap(programs), [programs]);
+  const latestReport = useMemo(
+    () => getLatestReport(enrichedReports),
+    [enrichedReports],
+  );
 
   const latestReportData = useMemo(() => {
     if (!latestReport) {
@@ -123,9 +199,13 @@ const useDashboardData = (role = "teacher") => {
     return {
       id: latestReport.id,
 
-      studentName: getReportStudentName(latestReport, studentMap),
+      studentName: latestReport.student_name ?? "-",
 
-      programName: getReportProgramName(latestReport, programMap),
+      teacherName: latestReport.teacher_name ?? "-",
+
+      programName: latestReport.program_name ?? "-",
+
+      className: latestReport.class_name ?? "-",
 
       reportDate:
         latestReport.report_date ??
@@ -137,24 +217,48 @@ const useDashboardData = (role = "teacher") => {
 
       duration: latestReport.duration ?? null,
     };
-  }, [latestReport, studentMap, programMap]);
+  }, [latestReport]);
+
+  /* ==========================================================
+   * LOADING
+   * ========================================================== */
 
   const isLoading = Boolean(
     reportsResource.loading ||
     studentsResource.loading ||
-    programsResource.loading,
+    teachersResource.loading ||
+    programsResource.loading ||
+    classesResource.loading,
   );
+
+  /* ==========================================================
+   * ERROR
+   * ========================================================== */
 
   const error =
     normalizeError(reportsResource.error) ||
     normalizeError(studentsResource.error) ||
-    normalizeError(programsResource.error);
+    normalizeError(teachersResource.error) ||
+    normalizeError(programsResource.error) ||
+    normalizeError(classesResource.error);
+
+  /* ==========================================================
+   * REFRESH
+   * ========================================================== */
 
   const refresh = useCallback(async () => {
-    const tasks = [reportsResource.refresh(), programsResource.refresh()];
+    const tasks = [
+      reportsResource.refresh(),
+      programsResource.refresh(),
+      classesResource.refresh(),
+    ];
 
     if (isTeacher) {
       tasks.push(studentsResource.refresh());
+    }
+
+    if (isStudent) {
+      tasks.push(teachersResource.refresh());
     }
 
     const results = await Promise.allSettled(tasks);
@@ -166,24 +270,28 @@ const useDashboardData = (role = "teacher") => {
         ? failed.reason
         : new Error("Gagal memperbarui dashboard.");
     }
+
+    return true;
   }, [
     isTeacher,
-    reportsResource.refresh,
-    programsResource.refresh,
-    studentsResource.refresh,
+    isStudent,
+    reportsResource,
+    studentsResource,
+    teachersResource,
+    programsResource,
+    classesResource,
   ]);
 
-  const userName = useMemo(
-    () => getUserName(user, isTeacher ? "Guru" : "Siswa"),
-    [user, isTeacher],
-  );
+  /* ==========================================================
+   * RETURN
+   * ========================================================== */
 
   return {
     user,
 
     accountId,
 
-    userName,
+    userName: getUserName(user, isTeacher ? "Guru" : "Siswa"),
 
     role: normalizedRole,
 
@@ -191,7 +299,7 @@ const useDashboardData = (role = "teacher") => {
 
     isStudent,
 
-    reports: scopedReports,
+    reports: enrichedReports,
 
     latestReport,
 

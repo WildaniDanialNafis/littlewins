@@ -5,9 +5,9 @@ import { cx } from "@/shared/utils/cx";
 const STAR_VALUES = [1, 2, 3, 4, 5];
 
 const STAR_SIZES = {
-  sm: "h-4 w-4",
-  md: "h-6 w-6",
-  lg: "h-8 w-8",
+  sm: "size-4",
+  md: "size-6",
+  lg: "size-8",
 };
 
 const normalizeRating = (value) => {
@@ -123,13 +123,19 @@ export const StarRating = ({
               }
             }}
             className={cx(
-              "rounded-sm transition-transform",
-              "focus-visible:outline-none focus-visible:ring-2",
-              "focus-visible:ring-primary/30 focus-visible:ring-offset-2",
+              "rounded-sm",
+              "transition-transform",
+              "focus-visible:outline-none",
+              "focus-visible:ring-2",
+              "focus-visible:ring-primary/30",
+              "focus-visible:ring-offset-2",
               "focus-visible:ring-offset-background",
-              "disabled:cursor-default disabled:opacity-100",
+              "disabled:cursor-default",
+              "disabled:opacity-100",
               !readonly && "cursor-pointer hover:scale-110",
               readonly && "cursor-default",
+              "motion-reduce:transition-none",
+              "motion-reduce:hover:scale-100",
             )}
           >
             <StarIcon filled={isFilled} size={size} />

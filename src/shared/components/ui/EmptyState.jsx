@@ -10,8 +10,9 @@ export const EmptyState = ({
   return (
     <div
       className={cx(
-        "flex flex-col items-center justify-center px-4 py-12 text-center",
-        "sm:px-6 sm:py-16 lg:py-20",
+        "flex flex-col items-center justify-center",
+        "px-4 py-10 text-center",
+        "sm:px-6 sm:py-14",
         className,
       )}
       role="status"
@@ -19,21 +20,19 @@ export const EmptyState = ({
     >
       {icon && (
         <div
-          className={cx(
-            "mb-4 flex h-16 w-16 items-center justify-center rounded-full",
-            "bg-primary-soft text-primary",
-            "transition-colors duration-(--token-transition-base)",
-          )}
+          className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-primary-soft text-primary"
           aria-hidden="true"
         >
           {icon}
         </div>
       )}
 
-      <h3 className="text-lg font-semibold text-text">{title}</h3>
+      <h3 className="text-base font-semibold tracking-tight text-text sm:text-lg">
+        {title}
+      </h3>
 
       {description && (
-        <p className="mt-1 max-w-sm text-sm leading-relaxed text-muted">
+        <p className="mt-1.5 max-w-sm text-sm leading-6 text-muted">
           {description}
         </p>
       )}

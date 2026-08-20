@@ -1,21 +1,3 @@
-/**
- * Global application configuration.
- *
- * Berisi konfigurasi umum aplikasi:
- * - App metadata
- * - API configuration
- * - Default values
- * - Theme
- * - Toast
- * - Report configuration
- * - Environment helpers
- * - Storage keys
- */
-
-// ============================================================
-// APP INFO
-// ============================================================
-
 export const APP_NAME = "LittleWins";
 
 export const APP_DESCRIPTION =
@@ -139,6 +121,19 @@ export const IS_TEST = import.meta.env.MODE === "test";
 // ============================================================
 
 export const STORAGE_KEYS = Object.freeze({
+  /*
+   * Canonical session snapshot.
+   *
+   * User + token dibaca sebagai satu logical session.
+   *
+   * Legacy keys tetap dipertahankan untuk compatibility
+   * dengan data session yang sudah ada.
+   */
+  session: "littlewins-session",
+
+  /*
+   * Legacy / compatibility keys.
+   */
   theme: "littlewins-theme",
   authToken: "littlewins-auth-token",
   refreshToken: "littlewins-refresh-token",

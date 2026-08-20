@@ -1,4 +1,6 @@
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useRef } from "react";
+
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import {
   PhotoLightbox,
@@ -23,10 +25,18 @@ import { cx } from "@/shared/utils";
 
 import { PageContainer } from "@/layouts/components";
 
+/* ============================================================
+ * ACTION STYLES
+ * ============================================================ */
+
 const ACTION_BASE_CLASS = [
   "inline-flex shrink-0 items-center justify-center gap-2",
+  "min-h-11",
   "rounded-xl",
-  "font-medium leading-none select-none",
+  "border",
+  "px-4 py-2.5",
+  "text-sm font-semibold leading-none",
+  "select-none",
   "transition-[background-color,border-color,color,box-shadow]",
   "duration-(--token-transition-fast)",
   "ease-out",
@@ -41,7 +51,7 @@ const ACTION_BASE_CLASS = [
 const ACTION_VARIANTS = {
   primary: [
     ACTION_BASE_CLASS,
-    "min-h-10 px-4 py-2.5 text-sm",
+    "border-transparent",
     "bg-primary text-primary-foreground",
     "shadow-sm",
     "hover:bg-primary-hover",
@@ -50,21 +60,21 @@ const ACTION_VARIANTS = {
 
   secondary: [
     ACTION_BASE_CLASS,
-    "min-h-10 px-3 py-2 text-sm",
-    "border border-border",
-    "bg-surface",
-    "text-text",
-    "shadow-sm",
+    "border-border",
+    "bg-surface text-text",
+    "hover:border-border-strong",
     "hover:bg-surface-muted",
-    "hover:border-border",
     "active:bg-surface-muted",
   ].join(" "),
 };
 
+/* ============================================================
+ * ROLE CONFIG
+ * ============================================================ */
+
 const ROLE_CONFIG = {
   teacher: {
     reportsRoute: ROUTES.teacher.reports,
-
     getEditRoute: (id) => ROUTES.teacher.reportEdit(id),
   },
 
@@ -73,19 +83,43 @@ const ROLE_CONFIG = {
   },
 };
 
-const getRoleConfig = (role) => {
-  return ROLE_CONFIG[role] ?? ROLE_CONFIG.teacher;
+/* ============================================================
+ * HELPERS
+ * ============================================================ */
+
+const getRefreshRequestKey = (reportId, navigationState) => {
+  const normalizedId = String(reportId ?? "").trim();
+
+  if (!normalizedId) {
+    return null;
+  }
+
+  const updatedAt = navigationState?.updatedAt;
+
+  if (updatedAt !== null && updatedAt !== undefined && updatedAt !== "") {
+    return `${normalizedId}:${String(updatedAt)}`;
+  }
+
+  return `${normalizedId}:updated`;
 };
 
+/* ============================================================
+ * ACTIONS
+ * ============================================================ */
+
 const ReportActions = ({ role, reportId, canEdit }) => {
-  const roleConfig = getRoleConfig(role);
+  const roleConfig = ROLE_CONFIG[role] ?? ROLE_CONFIG.teacher;
 
   return (
     <nav
       aria-label="Aksi laporan"
-      className="flex items-center justify-end gap-2"
+      className="flex w-full items-center gap-2 sm:w-auto"
     >
-      <Link to={roleConfig.reportsRoute} className={ACTION_VARIANTS.secondary}>
+      <Link
+        to={roleConfig.reportsRoute}
+        className={cx(ACTION_VARIANTS.secondary, "min-w-0 flex-1 sm:flex-none")}
+        aria-label="Kembali ke laporan"
+      >
         <ArrowLeftIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
 
         <span>Kembali</span>
@@ -94,11 +128,11 @@ const ReportActions = ({ role, reportId, canEdit }) => {
       {canEdit && typeof roleConfig.getEditRoute === "function" && (
         <Link
           to={roleConfig.getEditRoute(reportId)}
-          className={ACTION_VARIANTS.primary}
+          className={cx(ACTION_VARIANTS.primary, "min-w-0 flex-1 sm:flex-none")}
         >
           <EditIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
 
-          <span>Edit Laporan</span>
+          <span>Edit</span>
         </Link>
       )}
     </nav>
@@ -107,10 +141,16 @@ const ReportActions = ({ role, reportId, canEdit }) => {
 
 ReportActions.displayName = "ReportActions";
 
+/* ============================================================
+ * PAGE
+ * ============================================================ */
+
 const ReportDetailPage = ({ role = "teacher" }) => {
   const { id } = useParams();
 
-  const roleConfig = getRoleConfig(role);
+  const location = useLocation();
+
+  const navigate = useNavigate();
 
   const {
     viewData,
@@ -122,28 +162,121 @@ const ReportDetailPage = ({ role = "teacher" }) => {
     lightbox,
   } = useReportDetail(id);
 
+  const handledRefreshKeyRef = useRef(null);
+
+  /* ==========================================================
+   * POST-EDIT AUTHORITATIVE REFRESH
+   * ========================================================== */
+
+  useEffect(() => {
+    const state = location.state;
+
+    if (!state?.reportUpdated) {
+      return;
+    }
+
+    const stateReportId = String(state.reportId ?? id ?? "");
+
+    const currentId = String(id ?? "");
+
+    if (!stateReportId || stateReportId !== currentId) {
+      return;
+    }
+
+    const refreshRequestKey = getRefreshRequestKey(currentId, state);
+
+    if (refreshRequestKey === null) {
+      return;
+    }
+
+    if (handledRefreshKeyRef.current === refreshRequestKey) {
+      return;
+    }
+
+    handledRefreshKeyRef.current = refreshRequestKey;
+
+    navigate(
+      {
+        pathname: location.pathname,
+        search: location.search,
+        hash: location.hash,
+      },
+      {
+        replace: true,
+        state: null,
+      },
+    );
+
+    void refresh().catch(() => {});
+  }, [
+    id,
+    location.pathname,
+    location.search,
+    location.hash,
+    location.state,
+    navigate,
+    refresh,
+  ]);
+
+  const roleConfig = ROLE_CONFIG[role] ?? ROLE_CONFIG.teacher;
+
+  const breadcrumb = [
+    {
+      label: "Laporan",
+      path: roleConfig.reportsRoute,
+    },
+    {
+      label: "Detail",
+      path: location.pathname,
+    },
+  ];
+
+  /* ==========================================================
+   * LOADING
+   * ========================================================== */
+
   if (isLoading) {
     return (
-      <PageContainer title="Detail Laporan" subtitle="Memuat laporan...">
-        <LoadingState message="Memuat detail laporan..." />
+      <PageContainer
+        title="Detail Laporan"
+        subtitle="Memuat..."
+        breadcrumb={breadcrumb}
+      >
+        <LoadingState message="Memuat laporan..." />
       </PageContainer>
     );
   }
 
+  /* ==========================================================
+   * ERROR
+   * ========================================================== */
+
   if (error) {
     return (
-      <PageContainer title="Detail Laporan" subtitle="Terjadi kesalahan">
+      <PageContainer
+        title="Detail Laporan"
+        subtitle="Gagal memuat."
+        breadcrumb={breadcrumb}
+      >
         <ErrorState error={error} onRetry={refresh} />
       </PageContainer>
     );
   }
 
+  /* ==========================================================
+   * EMPTY
+   * ========================================================== */
+
   if (!viewData) {
     return (
-      <PageContainer title="Detail Laporan" subtitle="Laporan tidak ditemukan">
+      <PageContainer
+        title="Detail Laporan"
+        subtitle="Laporan tidak ditemukan."
+        breadcrumb={breadcrumb}
+      >
         <EmptyState
           title="Laporan tidak ditemukan"
-          description="Laporan yang kamu cari tidak tersedia atau sudah tidak dapat diakses."
+          description="Laporan ini tidak tersedia."
           action={
             <Link
               to={roleConfig.reportsRoute}
@@ -159,28 +292,30 @@ const ReportDetailPage = ({ role = "teacher" }) => {
     );
   }
 
+  /* ==========================================================
+   * CONTENT
+   * ========================================================== */
+
   return (
     <PageContainer
       title="Detail Laporan"
       subtitle={`${viewData.studentName} · ${viewData.programName}`}
-    >
-      <div className={cx("mb-6", "flex justify-end", "print:hidden")}>
+      breadcrumb={breadcrumb}
+      actions={
         <ReportActions
           role={role}
           reportId={viewData.id}
           canEdit={capabilities?.canEdit === true}
         />
-      </div>
-
-      <div className="space-y-6">
+      }
+    >
+      <div className="min-w-0 space-y-6">
         <article
           aria-label={`Detail laporan ${viewData.studentName}`}
           className={cx(
-            "mx-auto max-w-7xl overflow-hidden",
-            "rounded-2xl",
-            "border border-border",
-            "bg-surface",
-            "shadow-sm",
+            "w-full min-w-0 overflow-hidden",
+            "rounded-2xl border border-border",
+            "bg-surface shadow-sm",
             "print:rounded-none",
             "print:border-0",
             "print:shadow-none",
@@ -205,9 +340,8 @@ const ReportDetailPage = ({ role = "teacher" }) => {
               <ReportPhotos report={viewData} onOpen={lightbox.open} />
 
               <footer className="border-t border-border pt-6 text-center">
-                <p className="text-xs leading-relaxed text-muted">
-                  Laporan ini merupakan catatan perkembangan belajar pada sesi
-                  tersebut.
+                <p className="text-xs leading-5 text-muted">
+                  Catatan perkembangan pada sesi ini.
                 </p>
               </footer>
             </div>

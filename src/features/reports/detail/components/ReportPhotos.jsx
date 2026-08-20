@@ -6,8 +6,16 @@ import { PhotoIcon } from "@/shared/icons";
 
 import PhotoThumbnail from "./PhotoThumbnail";
 
+/* ============================================================
+ * CONSTANTS
+ * ============================================================ */
+
 const MOBILE_LIMIT = 2;
 const DESKTOP_LIMIT = 3;
+
+/* ============================================================
+ * HELPERS
+ * ============================================================ */
 
 const getPhotoSource = (photo) => {
   if (!photo) {
@@ -30,6 +38,10 @@ const getPhotoKey = (photo, index) => {
 
   return `${String(photo)}-${index}`;
 };
+
+/* ============================================================
+ * REPORT PHOTOS
+ * ============================================================ */
 
 const ReportPhotos = memo(({ report, onOpen }) => {
   const photos = useMemo(() => {
@@ -65,7 +77,7 @@ const ReportPhotos = memo(({ report, onOpen }) => {
             showMoreOverlay
               ? {
                   count: remaining,
-                  label: `Lihat ${remaining} foto lainnya`,
+                  label: `Lihat ${remaining} foto lagi`,
                 }
               : null
           }
@@ -81,8 +93,8 @@ const ReportPhotos = memo(({ report, onOpen }) => {
       <section aria-labelledby="report-photos-title">
         <SectionTitle
           eyebrow="Dokumentasi"
-          title="Kegiatan belajar"
-          description="Pilih foto untuk melihat dokumentasi lebih besar."
+          title="Foto Kegiatan"
+          description="Pilih foto untuk melihat lebih besar."
           icon={<PhotoIcon className="h-5 w-5" aria-hidden="true" />}
         />
 

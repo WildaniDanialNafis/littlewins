@@ -3,9 +3,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { reportService } from "@/services/api";
 
 import {
+  createRequestDeduper,
   getCachedResource,
   getResourceKey,
   getResourceSnapshot,
+  getResourceVersion,
   invalidateResource,
   setCachedResource,
 } from "@/shared/cache";
@@ -14,11 +16,15 @@ import { useAuth } from "./useAuth";
 
 const EMPTY_ARRAY = Object.freeze([]);
 
+const LIST_STALE_TIME = 30_000;
+
+const DETAIL_STALE_TIME = 30_000;
+
 /* ============================================================
  * HELPERS
  * ============================================================ */
 
-const normalizeError = (error, fallbackMessage) => {
+const normalizeError = (error, fallback) => {
   if (error instanceof Error) {
     return error;
   }
@@ -31,7 +37,7 @@ const normalizeError = (error, fallbackMessage) => {
     return new Error(error);
   }
 
-  return new Error(fallbackMessage);
+  return new Error(fallback);
 };
 
 const isAbortError = (error) => {
@@ -80,15 +86,19 @@ const getUserScope = (user) => {
  * ============================================================ */
 
 export const useReports = (options = {}) => {
-  const { autoFetch = true, initialData, staleTime = 30_000 } = options;
+  const {
+    autoFetch = true,
 
-  const normalizedInitialData = Array.isArray(initialData)
-    ? initialData
-    : EMPTY_ARRAY;
+    staleTime = LIST_STALE_TIME,
+  } = options;
 
   const { user } = useAuth();
 
   const userScope = getUserScope(user);
+
+  /* ==========================================================
+   * CACHE KEYS
+   * ========================================================== */
 
   const listCacheKey = useMemo(() => {
     if (!userScope) {
@@ -97,47 +107,63 @@ export const useReports = (options = {}) => {
 
     return getResourceKey({
       scope: `user:${userScope}`,
+
       resource: "reports:list",
     });
   }, [userScope]);
 
+  const getDetailCacheKey = useCallback(
+    (id) => {
+      if (!userScope || !isValidId(id)) {
+        return null;
+      }
+
+      return getResourceKey({
+        scope: `user:${userScope}`,
+
+        resource: `reports:${String(id)}`,
+      });
+    },
+    [userScope],
+  );
+
+  /* ==========================================================
+   * STATE
+   * ========================================================== */
+
   const [reports, setReports] = useState(() => {
-    if (listCacheKey) {
-      const cached = getCachedResource(listCacheKey, staleTime);
-
-      if (cached !== null) {
-        return toArray(cached);
-      }
-
-      const snapshot = getResourceSnapshot(listCacheKey);
-
-      if (snapshot?.data !== undefined) {
-        return toArray(snapshot.data);
-      }
+    if (!listCacheKey) {
+      return EMPTY_ARRAY;
     }
 
-    return normalizedInitialData;
+    const cached = getCachedResource(listCacheKey, staleTime);
+
+    if (cached !== null) {
+      return toArray(cached);
+    }
+
+    const snapshot = getResourceSnapshot(listCacheKey);
+
+    if (snapshot?.data !== undefined) {
+      return toArray(snapshot.data);
+    }
+
+    return EMPTY_ARRAY;
   });
 
-  const [loading, setLoading] = useState(
-    Boolean(
-      autoFetch &&
-      listCacheKey &&
-      getCachedResource(listCacheKey, staleTime) === null,
-    ),
-  );
+  const [loading, setLoading] = useState(() => {
+    return Boolean(autoFetch && listCacheKey);
+  });
 
   const [error, setError] = useState(null);
 
+  /* ==========================================================
+   * REFS
+   * ========================================================== */
+
   const mountedRef = useRef(false);
 
-  const listControllerRef = useRef(null);
-
-  const detailControllerRef = useRef(null);
-
-  const listRequestIdRef = useRef(0);
-
-  const detailRequestIdRef = useRef(0);
+  const generationRef = useRef(0);
 
   const mutationVersionRef = useRef(0);
 
@@ -147,6 +173,8 @@ export const useReports = (options = {}) => {
 
   const deletePromisesRef = useRef(new Map());
 
+  const listIdentityRef = useRef(listCacheKey);
+
   /* ==========================================================
    * LIFECYCLE
    * ========================================================== */
@@ -154,133 +182,68 @@ export const useReports = (options = {}) => {
   useEffect(() => {
     mountedRef.current = true;
 
+    const updatePromises = updatePromisesRef.current;
+    const deletePromises = deletePromisesRef.current;
+
     return () => {
       mountedRef.current = false;
 
-      listRequestIdRef.current += 1;
-
-      detailRequestIdRef.current += 1;
+      generationRef.current += 1;
 
       mutationVersionRef.current += 1;
 
-      listControllerRef.current?.abort();
-      detailControllerRef.current?.abort();
-
-      listControllerRef.current = null;
-
-      detailControllerRef.current = null;
-
       createPromiseRef.current = null;
 
-      updatePromisesRef.current.clear();
-      deletePromisesRef.current.clear();
+      updatePromises.clear();
+
+      deletePromises.clear();
     };
   }, []);
 
   /* ==========================================================
-   * USER / CACHE CHANGE
-   *
-   * initialData intentionally omitted.
-   * It is an initial value, not a live
-   * synchronization source.
+   * IDENTITY CHANGE
    * ========================================================== */
 
   useEffect(() => {
-    if (!listCacheKey) {
-      if (!autoFetch) {
-        setLoading(false);
-      }
-
+    if (listIdentityRef.current === listCacheKey) {
       return;
     }
 
-    const cached = getCachedResource(listCacheKey, staleTime);
+    listIdentityRef.current = listCacheKey;
 
-    if (cached !== null) {
-      setReports(toArray(cached));
+    generationRef.current += 1;
 
-      setError(null);
-
-      if (!autoFetch) {
-        setLoading(false);
-      }
-
-      return;
-    }
-
-    const snapshot = getResourceSnapshot(listCacheKey);
-
-    if (snapshot?.data !== undefined) {
-      setReports(toArray(snapshot.data));
-    }
-
-    if (!autoFetch) {
-      setLoading(false);
-    }
+    mutationVersionRef.current += 1;
 
     setError(null);
-  }, [autoFetch, listCacheKey, staleTime]);
-
-  /* ==========================================================
-   * INVALIDATE
-   * ========================================================== */
-
-  const beginMutation = useCallback(
-    (id = null) => {
-      mutationVersionRef.current += 1;
-
-      listRequestIdRef.current += 1;
-
-      detailRequestIdRef.current += 1;
-
-      listControllerRef.current?.abort();
-      detailControllerRef.current?.abort();
-
-      listControllerRef.current = null;
-
-      detailControllerRef.current = null;
-
-      if (listCacheKey) {
-        invalidateResource(listCacheKey);
-      }
-
-      if (isValidId(id) && userScope) {
-        invalidateResource(
-          getResourceKey({
-            scope: `user:${userScope}`,
-
-            resource: `reports:${String(id)}`,
-          }),
-        );
-      }
-    },
-    [listCacheKey, userScope],
-  );
-
+  }, [listCacheKey]);
   /* ==========================================================
    * FETCH LIST
    * ========================================================== */
 
   const fetchReports = useCallback(
     async ({ force = false } = {}) => {
-      const requestId = ++listRequestIdRef.current;
+      if (!listCacheKey) {
+        if (mountedRef.current) {
+          setReports(EMPTY_ARRAY);
 
-      const mutationVersion = mutationVersionRef.current;
+          setLoading(false);
+        }
 
-      if (!force && listCacheKey) {
+        return EMPTY_ARRAY;
+      }
+
+      if (!force) {
         const cached = getCachedResource(listCacheKey, staleTime);
 
         if (cached !== null) {
           const nextReports = toArray(cached);
 
-          if (
-            mountedRef.current &&
-            requestId === listRequestIdRef.current &&
-            mutationVersion === mutationVersionRef.current
-          ) {
+          if (mountedRef.current) {
             setReports(nextReports);
 
             setError(null);
+
             setLoading(false);
           }
 
@@ -288,142 +251,179 @@ export const useReports = (options = {}) => {
         }
       }
 
-      listControllerRef.current?.abort();
+      if (force) {
+        invalidateResource(listCacheKey);
+      }
 
-      const controller = new AbortController();
+      const generation = generationRef.current;
 
-      listControllerRef.current = controller;
+      const mutationVersion = mutationVersionRef.current;
+
+      const requestVersion = getResourceVersion(listCacheKey);
 
       if (mountedRef.current) {
         setLoading(true);
+
         setError(null);
       }
 
       try {
-        const result = await reportService.getAll({
-          signal: controller.signal,
+        const result = await createRequestDeduper({
+          key: listCacheKey,
+
+          request: () => reportService.getAll(),
         });
 
         const nextReports = toArray(result);
 
-        const current =
+        setCachedResource(listCacheKey, nextReports, {
+          version: requestVersion,
+        });
+
+        const isCurrent =
           mountedRef.current &&
-          requestId === listRequestIdRef.current &&
+          generation === generationRef.current &&
           mutationVersion === mutationVersionRef.current;
 
-        if (!current) {
+        if (!isCurrent) {
           return nextReports;
         }
 
         setReports(nextReports);
 
-        if (listCacheKey) {
-          setCachedResource(listCacheKey, nextReports);
-        }
+        setError(null);
 
         setLoading(false);
 
         return nextReports;
       } catch (fetchError) {
         if (isAbortError(fetchError)) {
+          if (mountedRef.current) {
+            setLoading(false);
+          }
+
           return EMPTY_ARRAY;
         }
 
         const normalizedError = normalizeError(
           fetchError,
-          "Gagal memuat laporan.",
+          "Gagal memuat daftar laporan.",
         );
 
-        if (
-          mountedRef.current &&
-          requestId === listRequestIdRef.current &&
-          mutationVersion === mutationVersionRef.current
-        ) {
+        if (mountedRef.current && generation === generationRef.current) {
           setError(normalizedError);
 
           setLoading(false);
         }
 
         throw normalizedError;
-      } finally {
-        if (listControllerRef.current === controller) {
-          listControllerRef.current = null;
-        }
       }
     },
     [listCacheKey, staleTime],
   );
 
   /* ==========================================================
-   * FETCH DETAIL
+   * GET DETAIL
    * ========================================================== */
 
   const getReport = useCallback(
     async (id) => {
-      if (!isValidId(id)) {
-        throw new Error("Report ID wajib diisi.");
-      }
-
       const normalizedId = normalizeId(id);
 
-      const detailCacheKey = userScope
-        ? getResourceKey({
-            scope: `user:${userScope}`,
+      if (normalizedId === null) {
+        throw new Error("ID laporan wajib diisi.");
+      }
 
-            resource: `reports:${normalizedId}`,
-          })
-        : null;
+      const detailCacheKey = getDetailCacheKey(normalizedId);
 
       if (detailCacheKey) {
-        const cached = getCachedResource(detailCacheKey, staleTime);
+        const cached = getCachedResource(detailCacheKey, DETAIL_STALE_TIME);
 
         if (cached !== null) {
           return cached;
         }
       }
 
-      const requestId = ++detailRequestIdRef.current;
+      const generation = generationRef.current;
 
-      detailControllerRef.current?.abort();
+      const mutationVersion = mutationVersionRef.current;
 
-      const controller = new AbortController();
-
-      detailControllerRef.current = controller;
+      const requestVersion = detailCacheKey
+        ? getResourceVersion(detailCacheKey)
+        : null;
 
       try {
-        const result = await reportService.getById(normalizedId, {
-          signal: controller.signal,
+        const result = await createRequestDeduper({
+          key: detailCacheKey ?? `report:detail:${normalizedId}`,
+
+          request: () => reportService.getById(normalizedId),
         });
 
-        const current =
-          mountedRef.current && requestId === detailRequestIdRef.current;
+        const isCurrent =
+          mountedRef.current &&
+          generation === generationRef.current &&
+          mutationVersion === mutationVersionRef.current;
 
-        if (!current) {
-          return result;
-        }
-
-        if (detailCacheKey && result !== null && result !== undefined) {
-          setCachedResource(detailCacheKey, result);
+        if (detailCacheKey && isCurrent) {
+          setCachedResource(detailCacheKey, result, {
+            version: requestVersion,
+          });
         }
 
         return result;
-      } catch (detailError) {
-        if (isAbortError(detailError)) {
+      } catch (fetchError) {
+        if (isAbortError(fetchError)) {
           return null;
         }
 
-        throw normalizeError(detailError, "Gagal memuat laporan.");
-      } finally {
-        if (detailControllerRef.current === controller) {
-          detailControllerRef.current = null;
-        }
+        throw normalizeError(fetchError, "Gagal memuat detail laporan.");
       }
     },
-    [staleTime, userScope],
+    [getDetailCacheKey],
   );
 
   /* ==========================================================
-   * CREATE
+   * MUTATION HELPERS
+   * ========================================================== */
+
+  const invalidateList = useCallback(() => {
+    if (!listCacheKey) {
+      return null;
+    }
+
+    return invalidateResource(listCacheKey);
+  }, [listCacheKey]);
+
+  const invalidateDetail = useCallback(
+    (id) => {
+      const key = getDetailCacheKey(id);
+
+      if (!key) {
+        return null;
+      }
+
+      return invalidateResource(key);
+    },
+    [getDetailCacheKey],
+  );
+
+  const beginMutation = useCallback(
+    (id = null) => {
+      generationRef.current += 1;
+
+      mutationVersionRef.current += 1;
+
+      invalidateList();
+
+      if (isValidId(id)) {
+        invalidateDetail(id);
+      }
+    },
+    [invalidateDetail, invalidateList],
+  );
+
+  /* ==========================================================
+   * CREATE REPORT
    * ========================================================== */
 
   const createReport = useCallback(
@@ -434,28 +434,41 @@ export const useReports = (options = {}) => {
 
       beginMutation();
 
+      const mutationGeneration = generationRef.current;
+
       const promise = (async () => {
         try {
           const report = await reportService.create(payload);
 
-          mutationVersionRef.current += 1;
-
-          if (mountedRef.current && report !== null && report !== undefined) {
+          if (
+            mountedRef.current &&
+            mutationGeneration === generationRef.current
+          ) {
             setReports((current) => {
-              const nextReports = [...current, report];
+              const exists = current.some((item) =>
+                sameId(item?.id, report?.id),
+              );
 
-              if (listCacheKey) {
-                setCachedResource(listCacheKey, nextReports);
+              if (exists) {
+                return current;
               }
 
-              return nextReports;
+              const next = [...current, report];
+
+              if (listCacheKey) {
+                setCachedResource(listCacheKey, next, {
+                  version: getResourceVersion(listCacheKey),
+                });
+              }
+
+              return next;
             });
+
+            setError(null);
           }
 
           return report;
         } catch (mutationError) {
-          mutationVersionRef.current += 1;
-
           const normalizedError = normalizeError(
             mutationError,
             "Gagal membuat laporan.",
@@ -481,12 +494,18 @@ export const useReports = (options = {}) => {
   );
 
   /* ==========================================================
-   * UPDATE
+   * UPDATE REPORT
    * ========================================================== */
 
   const updateReport = useCallback(
     (id, payload) => {
-      const key = String(id);
+      const normalizedId = normalizeId(id);
+
+      if (normalizedId === null) {
+        return Promise.reject(new Error("ID laporan wajib diisi."));
+      }
+
+      const key = String(normalizedId);
 
       const existing = updatePromisesRef.current.get(key);
 
@@ -494,49 +513,48 @@ export const useReports = (options = {}) => {
         return existing;
       }
 
-      beginMutation(id);
+      beginMutation(normalizedId);
+
+      const mutationGeneration = generationRef.current;
 
       const promise = (async () => {
         try {
-          const report = await reportService.update(id, payload);
+          const report = await reportService.update(normalizedId, payload);
 
-          mutationVersionRef.current += 1;
-
-          if (mountedRef.current && report !== null && report !== undefined) {
+          if (
+            mountedRef.current &&
+            mutationGeneration === generationRef.current
+          ) {
             setReports((current) => {
-              const nextReports = current.map((item) =>
-                sameId(item?.id, id) ? report : item,
+              const next = current.map((item) =>
+                sameId(item?.id, normalizedId) ? report : item,
               );
 
               if (listCacheKey) {
-                setCachedResource(listCacheKey, nextReports);
+                setCachedResource(listCacheKey, next, {
+                  version: getResourceVersion(listCacheKey),
+                });
               }
 
-              return nextReports;
+              return next;
             });
+
+            setError(null);
           }
 
-          if (userScope) {
-            setCachedResource(
-              getResourceKey({
-                scope: `user:${userScope}`,
-
-                resource: `reports:${String(id)}`,
-              }),
-              report,
-            );
-          }
+          invalidateDetail(normalizedId);
 
           return report;
         } catch (mutationError) {
-          mutationVersionRef.current += 1;
-
           const normalizedError = normalizeError(
             mutationError,
             "Gagal memperbarui laporan.",
           );
 
-          if (mountedRef.current) {
+          if (
+            mountedRef.current &&
+            mutationGeneration === generationRef.current
+          ) {
             setError(normalizedError);
           }
 
@@ -552,16 +570,22 @@ export const useReports = (options = {}) => {
 
       return promise;
     },
-    [beginMutation, listCacheKey, userScope],
+    [beginMutation, invalidateDetail, listCacheKey],
   );
 
   /* ==========================================================
-   * DELETE
+   * DELETE REPORT
    * ========================================================== */
 
   const deleteReport = useCallback(
     (id) => {
-      const key = String(id);
+      const normalizedId = normalizeId(id);
+
+      if (normalizedId === null) {
+        return Promise.reject(new Error("ID laporan wajib diisi."));
+      }
+
+      const key = String(normalizedId);
 
       const existing = deletePromisesRef.current.get(key);
 
@@ -569,48 +593,48 @@ export const useReports = (options = {}) => {
         return existing;
       }
 
-      beginMutation(id);
+      beginMutation(normalizedId);
+
+      const mutationGeneration = generationRef.current;
 
       const promise = (async () => {
         try {
-          await reportService.remove(id);
+          await reportService.remove(normalizedId);
 
-          mutationVersionRef.current += 1;
-
-          if (mountedRef.current) {
+          if (
+            mountedRef.current &&
+            mutationGeneration === generationRef.current
+          ) {
             setReports((current) => {
-              const nextReports = current.filter(
-                (item) => !sameId(item?.id, id),
+              const next = current.filter(
+                (item) => !sameId(item?.id, normalizedId),
               );
 
               if (listCacheKey) {
-                setCachedResource(listCacheKey, nextReports);
+                setCachedResource(listCacheKey, next, {
+                  version: getResourceVersion(listCacheKey),
+                });
               }
 
-              return nextReports;
+              return next;
             });
+
+            setError(null);
           }
 
-          if (userScope) {
-            invalidateResource(
-              getResourceKey({
-                scope: `user:${userScope}`,
-
-                resource: `reports:${String(id)}`,
-              }),
-            );
-          }
+          invalidateDetail(normalizedId);
 
           return true;
         } catch (mutationError) {
-          mutationVersionRef.current += 1;
-
           const normalizedError = normalizeError(
             mutationError,
             "Gagal menghapus laporan.",
           );
 
-          if (mountedRef.current) {
+          if (
+            mountedRef.current &&
+            mutationGeneration === generationRef.current
+          ) {
             setError(normalizedError);
           }
 
@@ -626,23 +650,32 @@ export const useReports = (options = {}) => {
 
       return promise;
     },
-    [beginMutation, listCacheKey, userScope],
+    [beginMutation, invalidateDetail, listCacheKey],
   );
-
   /* ==========================================================
    * AUTO FETCH
    * ========================================================== */
 
   useEffect(() => {
     if (!autoFetch) {
-      setLoading(false);
-
       return undefined;
     }
 
-    void fetchReports().catch(() => {});
+    let cancelled = false;
 
-    return undefined;
+    const timer = setTimeout(() => {
+      if (cancelled) {
+        return;
+      }
+
+      void fetchReports().catch(() => {});
+    }, 0);
+
+    return () => {
+      cancelled = true;
+
+      clearTimeout(timer);
+    };
   }, [autoFetch, fetchReports]);
 
   /* ==========================================================
@@ -656,6 +689,10 @@ export const useReports = (options = {}) => {
       }),
     [fetchReports],
   );
+
+  /* ==========================================================
+   * RETURN
+   * ========================================================== */
 
   return {
     reports,

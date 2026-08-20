@@ -2,6 +2,10 @@ import { memo, useEffect, useMemo } from "react";
 
 import { PhotoIcon } from "@/shared/icons";
 
+/* ============================================================
+ * REPORT PHOTO SECTION
+ * ============================================================ */
+
 const ReportPhotoSection = ({
   photos = [],
   existingPhotos = [],
@@ -15,9 +19,7 @@ const ReportPhotoSection = ({
       ? photos.filter((photo) => photo instanceof File)
       : [];
 
-    const previews = normalizedPhotos.map((file) =>
-      URL.createObjectURL(file),
-    );
+    const previews = normalizedPhotos.map((file) => URL.createObjectURL(file));
 
     return {
       newPhotos: normalizedPhotos,
@@ -28,7 +30,9 @@ const ReportPhotoSection = ({
 
   useEffect(() => {
     return () => {
-      newPhotoPreviews.forEach((url) => URL.revokeObjectURL(url));
+      newPhotoPreviews.forEach((url) => {
+        URL.revokeObjectURL(url);
+      });
     };
   }, [newPhotoPreviews]);
 
@@ -78,33 +82,43 @@ const ReportPhotoSection = ({
   };
 
   return (
-    <div className="space-y-6">
-      {/* =====================================================
-          UPLOAD
-          ===================================================== */}
+    <div className="space-y-5">
+      {/* ======================================================
+       * UPLOAD
+       * ====================================================== */}
+
       <label
         htmlFor="report-photos"
         className={[
-          "flex min-h-32 cursor-pointer flex-col",
-          "items-center justify-center rounded-2xl",
+          "flex min-h-28 cursor-pointer flex-col",
+          "items-center justify-center",
+          "rounded-xl",
           "border-2 border-dashed border-border",
-          "bg-surface-muted/40 px-5 py-6 text-center",
-          "transition-colors",
+          "bg-surface-muted/40",
+          "px-4 py-5 text-center",
+          "transition-[background-color,border-color]",
+          "duration-(--token-transition-fast)",
           "hover:border-primary/50",
-          "hover:bg-primary-soft/30",
+          "hover:bg-primary-soft/20",
+          "focus-within:border-primary/60",
+          "focus-within:ring-2",
+          "focus-within:ring-primary/20",
           disabled ? "pointer-events-none opacity-50" : "",
         ].join(" ")}
       >
-        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-soft text-primary">
+        <span
+          className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-soft text-primary"
+          aria-hidden="true"
+        >
           <PhotoIcon className="h-5 w-5" aria-hidden="true" />
         </span>
 
-        <span className="mt-3 text-sm font-semibold text-text">
-          Tambahkan foto
+        <span className="mt-2.5 text-sm font-semibold text-text">
+          Tambah foto
         </span>
 
         <span className="mt-1 text-xs leading-5 text-muted">
-          Pilih satu atau beberapa foto kegiatan belajar.
+          Pilih satu atau beberapa foto.
         </span>
 
         <input
@@ -119,20 +133,17 @@ const ReportPhotoSection = ({
         />
       </label>
 
-      {/* =====================================================
-          FOTO LAMA
-          ===================================================== */}
+      {/* ======================================================
+       * SAVED PHOTOS
+       * ====================================================== */}
+
       {savedPhotos.length > 0 && (
         <section>
-          <div className="mb-3">
+          <div className="mb-2.5">
             <p className="text-sm font-semibold text-text">Foto tersimpan</p>
-
-            <p className="mt-0.5 text-xs text-muted">
-              Foto yang sudah tersimpan pada laporan.
-            </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4">
             {savedPhotos.map((photo, index) => {
               const src = getExistingPhotoSource(photo);
 
@@ -147,7 +158,7 @@ const ReportPhotoSection = ({
                 >
                   <img
                     src={src}
-                    alt={`Dokumentasi tersimpan ${index + 1}`}
+                    alt={`Foto ${index + 1}`}
                     className="aspect-4/3 w-full object-cover"
                     loading="lazy"
                     decoding="async"
@@ -157,19 +168,20 @@ const ReportPhotoSection = ({
                     type="button"
                     disabled={disabled}
                     onClick={() => onRemoveExisting?.(photo)}
-                    aria-label={`Hapus foto tersimpan ${index + 1}`}
+                    aria-label={`Hapus foto ${index + 1}`}
                     className={[
                       "absolute right-2 top-2",
-                      "inline-flex h-8 w-8 items-center justify-center",
+                      "inline-flex h-9 w-9 items-center justify-center",
                       "rounded-lg bg-black/60 text-white",
-                      "transition-opacity",
+                      "transition-[background-color,opacity]",
+                      "duration-(--token-transition-fast)",
                       "hover:bg-black/80",
                       "focus-visible:outline-none",
                       "focus-visible:ring-2",
                       "focus-visible:ring-white/70",
                       disabled
                         ? "pointer-events-none opacity-40"
-                        : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100",
+                        : "opacity-100",
                     ].join(" ")}
                   >
                     <svg
@@ -190,20 +202,17 @@ const ReportPhotoSection = ({
         </section>
       )}
 
-      {/* =====================================================
-          FOTO BARU / PREVIEW
-          ===================================================== */}
+      {/* ======================================================
+       * NEW PHOTOS
+       * ====================================================== */}
+
       {newPhotos.length > 0 && (
         <section>
-          <div className="mb-3">
+          <div className="mb-2.5">
             <p className="text-sm font-semibold text-text">Foto baru</p>
-
-            <p className="mt-0.5 text-xs text-muted">
-              Foto yang baru dipilih dan akan disimpan saat laporan disimpan.
-            </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4">
             {newPhotos.map((file, index) => {
               const preview = newPhotoPreviews[index];
 
@@ -220,6 +229,7 @@ const ReportPhotoSection = ({
                     src={preview}
                     alt={`Foto baru ${index + 1}`}
                     className="aspect-4/3 w-full object-cover"
+                    decoding="async"
                   />
 
                   <button
@@ -229,16 +239,17 @@ const ReportPhotoSection = ({
                     aria-label={`Hapus foto baru ${index + 1}`}
                     className={[
                       "absolute right-2 top-2",
-                      "inline-flex h-8 w-8 items-center justify-center",
+                      "inline-flex h-9 w-9 items-center justify-center",
                       "rounded-lg bg-black/60 text-white",
-                      "transition-opacity",
+                      "transition-[background-color,opacity]",
+                      "duration-(--token-transition-fast)",
                       "hover:bg-black/80",
                       "focus-visible:outline-none",
                       "focus-visible:ring-2",
                       "focus-visible:ring-white/70",
                       disabled
                         ? "pointer-events-none opacity-40"
-                        : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100",
+                        : "opacity-100",
                     ].join(" ")}
                   >
                     <svg
@@ -259,11 +270,12 @@ const ReportPhotoSection = ({
         </section>
       )}
 
-      {/* =====================================================
-          EMPTY STATE
-          ===================================================== */}
+      {/* ======================================================
+       * EMPTY
+       * ====================================================== */}
+
       {savedPhotos.length === 0 && newPhotos.length === 0 && (
-        <p className="text-sm text-muted">Belum ada foto yang ditambahkan.</p>
+        <p className="text-sm text-muted">Belum ada foto.</p>
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const normalizeIndex = (index, total) => {
   const numericIndex = Number(index);
@@ -23,9 +23,23 @@ const useLightbox = (photos = []) => {
 
   const previousActiveElementRef = useRef(null);
 
+  /*
+   * Jangan melakukan setState di effect hanya untuk
+   * mengoreksi index yang sudah tidak valid.
+   *
+   * Invalid index cukup dipresentasikan sebagai null.
+   */
+  const visibleIndex = useMemo(() => {
+    if (selectedIndex === null || total <= 0) {
+      return null;
+    }
+
+    return selectedIndex >= 0 && selectedIndex < total ? selectedIndex : null;
+  }, [selectedIndex, total]);
+
   useEffect(() => {
-    if (selectedIndex === null) {
-      return;
+    if (visibleIndex === null || typeof document === "undefined") {
+      return undefined;
     }
 
     previousActiveElementRef.current = document.activeElement;
@@ -37,11 +51,13 @@ const useLightbox = (photos = []) => {
     return () => {
       document.body.style.overflow = previousOverflow;
 
-      previousActiveElementRef.current?.focus?.();
+      const activeElement = previousActiveElementRef.current;
 
       previousActiveElementRef.current = null;
+
+      activeElement?.focus?.();
     };
-  }, [selectedIndex]);
+  }, [visibleIndex]);
 
   const open = useCallback(
     (index) => {
@@ -81,17 +97,7 @@ const useLightbox = (photos = []) => {
   }, [total]);
 
   useEffect(() => {
-    if (selectedIndex === null) {
-      return;
-    }
-
-    if (total === 0 || selectedIndex >= total) {
-      setSelectedIndex(null);
-    }
-  }, [selectedIndex, total]);
-
-  useEffect(() => {
-    if (selectedIndex === null || typeof document === "undefined") {
+    if (visibleIndex === null || typeof document === "undefined") {
       return undefined;
     }
 
@@ -103,17 +109,23 @@ const useLightbox = (photos = []) => {
       switch (event.key) {
         case "Escape":
           event.preventDefault();
+
           close();
+
           break;
 
         case "ArrowLeft":
           event.preventDefault();
+
           goPrev();
+
           break;
 
         case "ArrowRight":
           event.preventDefault();
+
           goNext();
+
           break;
 
         default:
@@ -126,13 +138,17 @@ const useLightbox = (photos = []) => {
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [close, goNext, goPrev, selectedIndex]);
+  }, [close, goNext, goPrev, visibleIndex]);
 
   return {
-    selectedIndex,
+    selectedIndex: visibleIndex,
+
     open,
+
     close,
+
     goPrev,
+
     goNext,
   };
 };

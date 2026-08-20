@@ -16,7 +16,7 @@ const ChevronDownIcon = ({ className = "" }) => {
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
-      className={cx("h-4 w-4 shrink-0", className)}
+      className={cx("size-4 shrink-0", className)}
       aria-hidden="true"
     >
       <path d="m6 9 6 6 6-6" />
@@ -33,7 +33,7 @@ const CheckIcon = ({ className = "" }) => {
       fill="none"
       stroke="currentColor"
       strokeWidth="2.5"
-      className={cx("h-3.5 w-3.5 shrink-0", className)}
+      className={cx("size-3.5 shrink-0", className)}
       aria-hidden="true"
     >
       <path d="m5 12 4 4L19 6" />
@@ -45,11 +45,15 @@ CheckIcon.displayName = "CheckIcon";
 
 const getFieldClasses = (error, isOpen) => {
   return cx(
-    "w-full rounded-xl border bg-surface px-3.5 py-2.5 text-sm text-text",
-    "transition-colors duration-[var(--token-transition-fast)]",
+    "w-full rounded-xl border bg-surface",
+    "px-3.5 py-2.5 pr-10",
+    "text-sm text-text",
+    "transition-[border-color,box-shadow]",
+    "duration-(--token-transition-fast)",
     "placeholder:text-placeholder",
     "focus:outline-none focus:ring-2",
-    "disabled:cursor-not-allowed disabled:opacity-60",
+    "disabled:cursor-not-allowed",
+    "disabled:opacity-60",
     error
       ? "border-danger focus:border-danger focus:ring-danger/20"
       : isOpen
@@ -64,7 +68,7 @@ const FieldError = ({ id, error, show = false }) => {
   }
 
   return (
-    <p id={id} role="alert" className="mt-1.5 text-xs text-danger">
+    <p id={id} role="alert" className="mt-1.5 text-xs leading-5 text-danger">
       {error}
     </p>
   );
@@ -85,6 +89,9 @@ export const Select = forwardRef(
       className = "",
       loading = false,
       loadingText = "Memuat...",
+      onBlur: consumerOnBlur,
+      onFocus: consumerOnFocus,
+      onKeyDown: consumerOnKeyDown,
       ...props
     },
     ref,
@@ -144,31 +151,46 @@ export const Select = forwardRef(
         return;
       }
 
+      setSearchQuery(selectedLabel);
+
       setIsOpen(true);
 
-      setHighlightedIndex((current) => {
-        if (current >= 0 && current < filteredOptions.length) {
-          return current;
-        }
-
+      setHighlightedIndex(() => {
         const selectedIndex = filteredOptions.findIndex(
           (option) => String(option.value) === String(value),
         );
 
-        return selectedIndex >= 0 ? selectedIndex : 0;
+        return selectedIndex >= 0
+          ? selectedIndex
+          : filteredOptions.length > 0
+            ? 0
+            : -1;
       });
-    }, [filteredOptions, isDisabled, value]);
+    }, [filteredOptions, isDisabled, selectedLabel, value]);
 
-    const handleBlur = useCallback(() => {
-      setTouched(true);
+    const handleBlur = useCallback(
+      (event) => {
+        setTouched(true);
 
-      window.clearTimeout(blurTimerRef.current);
+        consumerOnBlur?.(event);
 
-      blurTimerRef.current = window.setTimeout(() => {
-        handleClose();
-        setSearchQuery(selectedLabel);
-      }, 0);
-    }, [handleClose, selectedLabel]);
+        window.clearTimeout(blurTimerRef.current);
+
+        blurTimerRef.current = window.setTimeout(() => {
+          handleClose();
+        }, 0);
+      },
+      [consumerOnBlur, handleClose],
+    );
+
+    const handleFocus = useCallback(
+      (event) => {
+        consumerOnFocus?.(event);
+
+        handleOpen();
+      },
+      [consumerOnFocus, handleOpen],
+    );
 
     const handleSelect = useCallback(
       (selectedValue) => {
@@ -202,7 +224,9 @@ export const Select = forwardRef(
 
     const handleKeyDown = useCallback(
       (event) => {
-        if (isDisabled) {
+        consumerOnKeyDown?.(event);
+
+        if (event.defaultPrevented || isDisabled) {
           return;
         }
 
@@ -216,8 +240,6 @@ export const Select = forwardRef(
 
             handleClose();
 
-            setSearchQuery(selectedLabel);
-
             return;
           }
 
@@ -226,6 +248,7 @@ export const Select = forwardRef(
 
             if (!isOpen) {
               handleOpen();
+
               return;
             }
 
@@ -245,6 +268,7 @@ export const Select = forwardRef(
 
             if (!isOpen) {
               handleOpen();
+
               return;
             }
 
@@ -300,6 +324,7 @@ export const Select = forwardRef(
         }
       },
       [
+        consumerOnKeyDown,
         filteredOptions,
         handleClose,
         handleOpen,
@@ -307,7 +332,6 @@ export const Select = forwardRef(
         highlightedIndex,
         isDisabled,
         isOpen,
-        selectedLabel,
       ],
     );
 
@@ -318,6 +342,7 @@ export const Select = forwardRef(
 
       if (isOpen) {
         handleClose();
+
         return;
       }
 
@@ -345,7 +370,6 @@ export const Select = forwardRef(
           !containerRef.current.contains(event.target)
         ) {
           handleClose();
-          setSearchQuery(selectedLabel);
         }
       };
 
@@ -354,13 +378,7 @@ export const Select = forwardRef(
       return () => {
         document.removeEventListener("pointerdown", handlePointerDown);
       };
-    }, [handleClose, isOpen, selectedLabel]);
-
-    useEffect(() => {
-      if (!isOpen) {
-        setSearchQuery(selectedLabel);
-      }
-    }, [isOpen, selectedLabel]);
+    }, [handleClose, isOpen]);
 
     useEffect(() => {
       if (highlightedIndex < 0 || !listboxRef.current) {
@@ -373,6 +391,8 @@ export const Select = forwardRef(
         block: "nearest",
       });
     }, [highlightedIndex]);
+
+    const displayValue = isOpen ? searchQuery : selectedLabel;
 
     return (
       <div ref={containerRef} className={cx("w-full", className)}>
@@ -394,6 +414,7 @@ export const Select = forwardRef(
         <div className="relative">
           <div className="relative">
             <input
+              {...props}
               ref={(node) => {
                 inputRef.current = node;
 
@@ -405,18 +426,14 @@ export const Select = forwardRef(
               }}
               id={id}
               type="text"
-              value={searchQuery}
+              value={displayValue}
               onChange={handleInputChange}
-              onFocus={handleOpen}
+              onFocus={handleFocus}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
               placeholder={loading ? loadingText : placeholder}
               disabled={isDisabled}
-              className={cx(
-                getFieldClasses(showError ? error : undefined, isOpen),
-                "pr-10",
-                "cursor-text",
-              )}
+              className={getFieldClasses(showError ? error : undefined, isOpen)}
               aria-autocomplete="list"
               aria-expanded={isOpen}
               aria-controls={isOpen ? listboxId : undefined}
@@ -428,7 +445,6 @@ export const Select = forwardRef(
               aria-invalid={showError}
               aria-describedby={showError ? errorId : undefined}
               role="combobox"
-              {...props}
             />
 
             <button
@@ -436,12 +452,15 @@ export const Select = forwardRef(
               onClick={handleToggle}
               disabled={isDisabled}
               className={cx(
-                "absolute inset-y-0 right-0 flex items-center pr-3",
+                "absolute inset-y-0 right-0",
+                "flex items-center pr-3",
                 "text-muted transition-colors",
                 "hover:text-text",
-                "focus-visible:outline-none focus-visible:ring-2",
+                "focus-visible:outline-none",
+                "focus-visible:ring-2",
                 "focus-visible:ring-primary/30",
-                "disabled:cursor-not-allowed disabled:opacity-50",
+                "disabled:cursor-not-allowed",
+                "disabled:opacity-50",
               )}
               aria-label={isOpen ? "Sembunyikan pilihan" : "Tampilkan pilihan"}
               tabIndex={-1}
@@ -459,10 +478,12 @@ export const Select = forwardRef(
             <ul
               id={listboxId}
               ref={listboxRef}
-              className={[
+              className={cx(
                 "absolute z-50 mt-1 max-h-60 w-full overflow-auto",
-                "rounded-xl border border-border bg-surface shadow-lg",
-              ].join(" ")}
+                "rounded-xl border border-border",
+                "bg-surface shadow-lg",
+                "py-1",
+              )}
               role="listbox"
               aria-label={label}
             >
@@ -507,7 +528,7 @@ export const Select = forwardRef(
                     >
                       <span>{option.label}</span>
 
-                      {isSelected && <CheckIcon className="h-4 w-4 shrink-0" />}
+                      {isSelected && <CheckIcon className="size-4" />}
                     </li>
                   );
                 })

@@ -24,6 +24,10 @@ const DEFAULT_DURATION =
     ? Number(TOAST.defaultDuration)
     : 4000;
 
+/* ============================================================
+ * HELPERS
+ * ============================================================ */
+
 const normalizeMessage = (message) => {
   if (message === null || message === undefined) {
     return "";
@@ -48,18 +52,52 @@ const normalizeDuration = (duration) => {
   return Math.max(0, numericDuration);
 };
 
+/* ============================================================
+ * PROVIDER
+ * ============================================================ */
+
 export const ToastProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
+
+  /*
+   * Synchronous mirror of the current toast state.
+   *
+   * addToast/removeToast/timer callbacks all operate
+   * against this ref before scheduling React state.
+   *
+   * This avoids relying on mutation inside a setState updater.
+   */
+  const toastsRef = useRef([]);
 
   const sequenceRef = useRef(0);
 
   const timersRef = useRef(new Map());
+
+  /* ==========================================================
+   * STATE COMMIT
+   * ========================================================== */
+
+  const commitToasts = useCallback((nextToasts) => {
+    const normalized = Array.isArray(nextToasts) ? nextToasts : [];
+
+    toastsRef.current = normalized;
+
+    setToasts(normalized);
+  }, []);
+
+  /* ==========================================================
+   * ID
+   * ========================================================== */
 
   const createToastId = useCallback(() => {
     sequenceRef.current += 1;
 
     return `${Date.now()}-${sequenceRef.current}`;
   }, []);
+
+  /* ==========================================================
+   * TIMER
+   * ========================================================== */
 
   const clearTimer = useCallback((id) => {
     const timer = timersRef.current.get(id);
@@ -73,15 +111,6 @@ export const ToastProvider = ({ children }) => {
     timersRef.current.delete(id);
   }, []);
 
-  const removeToast = useCallback(
-    (id) => {
-      clearTimer(id);
-
-      setToasts((current) => current.filter((toast) => toast.id !== id));
-    },
-    [clearTimer],
-  );
-
   const scheduleRemoval = useCallback(
     (id, duration) => {
       if (duration <= 0) {
@@ -93,13 +122,46 @@ export const ToastProvider = ({ children }) => {
       const timer = window.setTimeout(() => {
         timersRef.current.delete(id);
 
-        setToasts((current) => current.filter((toast) => toast.id !== id));
+        const current = toastsRef.current;
+
+        const next = current.filter((toast) => toast.id !== id);
+
+        if (next.length === current.length) {
+          return;
+        }
+
+        commitToasts(next);
       }, duration);
 
       timersRef.current.set(id, timer);
     },
-    [clearTimer],
+    [clearTimer, commitToasts],
   );
+
+  /* ==========================================================
+   * REMOVE
+   * ========================================================== */
+
+  const removeToast = useCallback(
+    (id) => {
+      clearTimer(id);
+
+      const current = toastsRef.current;
+
+      const next = current.filter((toast) => toast.id !== id);
+
+      if (next.length === current.length) {
+        return;
+      }
+
+      commitToasts(next);
+    },
+    [clearTimer, commitToasts],
+  );
+
+  /* ==========================================================
+   * ADD
+   * ========================================================== */
 
   const addToast = useCallback(
     (message, type = "info", duration = DEFAULT_DURATION) => {
@@ -113,59 +175,88 @@ export const ToastProvider = ({ children }) => {
 
       const normalizedDuration = normalizeDuration(duration);
 
+      const current = toastsRef.current;
+
+      /*
+       * Detect duplicate BEFORE scheduling
+       * any new state update.
+       */
+      const existing = current.find(
+        (item) =>
+          item.message === normalizedMessage && item.type === normalizedType,
+      );
+
+      if (existing) {
+        /*
+         * Re-use the toast that actually exists.
+         */
+        scheduleRemoval(existing.id, normalizedDuration);
+
+        return existing.id;
+      }
+
       const id = createToastId();
 
       const toast = {
         id,
+
         message: normalizedMessage,
+
         type: normalizedType,
+
         duration: normalizedDuration,
       };
 
-      setToasts((current) => {
+      let next = [...current, toast];
+
+      if (next.length > MAX_TOASTS) {
+        const removed = next.slice(0, next.length - MAX_TOASTS);
+
         /*
-         * Identical toast yang baru
-         * muncul segera setelah toast
-         * yang sama tidak perlu
-         * menumpuk.
+         * Clear timers belonging to toasts that
+         * are evicted from the visible state.
          */
-        const existingIndex = current.findIndex(
-          (item) => item.message === toast.message && item.type === toast.type,
-        );
-
-        if (existingIndex >= 0) {
-          const existing = current[existingIndex];
-
-          /*
-           * Re-schedule existing toast
-           * daripada membuat duplicate.
-           */
-          scheduleRemoval(existing.id, normalizedDuration);
-
-          return current;
+        for (const removedToast of removed) {
+          clearTimer(removedToast.id);
         }
 
-        const next = [...current, toast];
+        next = next.slice(-MAX_TOASTS);
+      }
 
-        return next.slice(-MAX_TOASTS);
-      });
+      /*
+       * Commit the new state synchronously
+       * through the ref mirror.
+       */
+      commitToasts(next);
 
       scheduleRemoval(id, normalizedDuration);
 
       return id;
     },
-    [createToastId, scheduleRemoval],
+    [clearTimer, commitToasts, createToastId, scheduleRemoval],
   );
 
+  /* ==========================================================
+   * CLEANUP
+   * ========================================================== */
+
   useEffect(() => {
+    const timers = timersRef.current;
+
     return () => {
-      for (const timer of timersRef.current.values()) {
+      for (const timer of timers.values()) {
         window.clearTimeout(timer);
       }
 
-      timersRef.current.clear();
+      timers.clear();
+
+      toastsRef.current = [];
     };
   }, []);
+
+  /* ==========================================================
+   * CONTEXT
+   * ========================================================== */
 
   const value = useMemo(
     () => ({

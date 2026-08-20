@@ -7,7 +7,7 @@ const CheckIcon = () => {
       fill="none"
       stroke="currentColor"
       strokeWidth="2.5"
-      className="h-3.5 w-3.5 shrink-0"
+      className="size-3.5 shrink-0"
       aria-hidden="true"
     >
       <path d="m5 12 4 4L19 6" />
@@ -24,27 +24,36 @@ export const ItemList = ({
 }) => {
   if (items.length === 0) {
     return (
-      <p className={cx("text-sm leading-relaxed text-muted", className)}>
-        {emptyText}
-      </p>
+      <div
+        className={cx(
+          "rounded-xl border border-dashed border-border",
+          "bg-surface-muted/40",
+          "px-4 py-4",
+          className,
+        )}
+      >
+        <p className="text-sm leading-relaxed text-muted">{emptyText}</p>
+      </div>
     );
   }
 
   return (
-    <ul className={cx("space-y-3", className)} role="list">
+    <ul className={cx("divide-y divide-border", className)} role="list">
       {items.map((item, index) => (
         <li
           key={`${String(item)}-${index}`}
-          className="flex items-start gap-3 text-sm leading-relaxed text-text md:text-base"
+          className="flex items-start gap-3 py-3 first:pt-0 last:pb-0"
         >
           <span
-            className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary"
+            className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary"
             aria-hidden="true"
           >
             <CheckIcon />
           </span>
 
-          <span>{item}</span>
+          <span className="min-w-0 text-sm leading-relaxed text-text md:text-base">
+            {item}
+          </span>
         </li>
       ))}
     </ul>

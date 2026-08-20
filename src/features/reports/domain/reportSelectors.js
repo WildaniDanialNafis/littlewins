@@ -2,6 +2,10 @@ const isValidArray = (value) => {
   return Array.isArray(value);
 };
 
+/* ============================================================
+ * ID
+ * ============================================================ */
+
 export const normalizeId = (value) => {
   if (value === null || value === undefined || value === "") {
     return null;
@@ -22,12 +26,34 @@ export const normalizeId = (value) => {
   return number;
 };
 
+/* ============================================================
+ * ENTITY ID
+ * ============================================================ */
+
+const getEntityId = (entity) => {
+  if (!entity || typeof entity !== "object") {
+    return null;
+  }
+
+  return normalizeId(entity.id ?? entity.value ?? entity.entity_id);
+};
+
+/* ============================================================
+ * DATE
+ * ============================================================ */
+
 export const getReportDate = (report) => {
   if (!report || typeof report !== "object") {
     return null;
   }
 
-  return report.report_date ?? report.date ?? report.created_at ?? null;
+  return (
+    report.report_date ??
+    report.reportDate ??
+    report.date ??
+    report.created_at ??
+    null
+  );
 };
 
 const parseReportTimestamp = (value) => {
@@ -42,8 +68,10 @@ const parseReportTimestamp = (value) => {
   }
 
   /*
-   * Handle tanggal kalender YYYY-MM-DD secara eksplisit.
-   * Untuk timestamp penuh, biarkan Date menangani timezone/value.
+   * Calendar-only date.
+   *
+   * Use local midnight rather than depending
+   * on browser interpretation of YYYY-MM-DD.
    */
   const dateOnlyPattern = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -58,25 +86,87 @@ export const getReportTimestamp = (report) => {
   return parseReportTimestamp(getReportDate(report));
 };
 
+/* ============================================================
+ * LATEST
+ * ============================================================ */
+
 export const getLatestReport = (reports) => {
   if (!isValidArray(reports) || reports.length === 0) {
     return null;
   }
 
   let latest = null;
+
   let latestTimestamp = Number.NEGATIVE_INFINITY;
+
+  let latestId = 0;
 
   for (const report of reports) {
     const timestamp = getReportTimestamp(report);
 
-    if (latest === null || timestamp > latestTimestamp) {
+    const id = normalizeId(report?.id) ?? 0;
+
+    if (
+      latest === null ||
+      timestamp > latestTimestamp ||
+      (timestamp === latestTimestamp && id > latestId)
+    ) {
       latest = report;
+
       latestTimestamp = timestamp;
+
+      latestId = id;
     }
   }
 
   return latest;
 };
+
+/* ============================================================
+ * REPORT OWNER
+ * ============================================================ */
+
+export const getReportTeacherId = (report) => {
+  if (!report) {
+    return null;
+  }
+
+  return normalizeId(
+    report.teacher_id ?? report.teacherId ?? report.teacher?.id,
+  );
+};
+
+export const getReportStudentId = (report) => {
+  if (!report) {
+    return null;
+  }
+
+  return normalizeId(
+    report.student_id ?? report.studentId ?? report.student?.id,
+  );
+};
+
+export const getReportProgramId = (report) => {
+  if (!report) {
+    return null;
+  }
+
+  return normalizeId(
+    report.program_id ?? report.programId ?? report.program?.id,
+  );
+};
+
+export const getReportClassId = (report) => {
+  if (!report) {
+    return null;
+  }
+
+  return normalizeId(report.class_id ?? report.classId ?? report.class?.id);
+};
+
+/* ============================================================
+ * ACCOUNT FILTER
+ * ============================================================ */
 
 export const filterReportsByAccount = (reports, role, accountId) => {
   if (!isValidArray(reports)) {
@@ -89,25 +179,25 @@ export const filterReportsByAccount = (reports, role, accountId) => {
     return [];
   }
 
-  let accountField = null;
-
   switch (role) {
     case "teacher":
-      accountField = "teacher_id";
-      break;
+      return reports.filter(
+        (report) => getReportTeacherId(report) === normalizedAccountId,
+      );
 
     case "student":
-      accountField = "student_id";
-      break;
+      return reports.filter(
+        (report) => getReportStudentId(report) === normalizedAccountId,
+      );
 
     default:
       return [];
   }
-
-  return reports.filter(
-    (report) => normalizeId(report?.[accountField]) === normalizedAccountId,
-  );
 };
+
+/* ============================================================
+ * LOOKUP MAP
+ * ============================================================ */
 
 export const createLookupMap = (items = []) => {
   if (!isValidArray(items)) {
@@ -117,7 +207,7 @@ export const createLookupMap = (items = []) => {
   const map = new Map();
 
   for (const item of items) {
-    const id = normalizeId(item?.id);
+    const id = getEntityId(item);
 
     if (id === null) {
       continue;
@@ -129,111 +219,174 @@ export const createLookupMap = (items = []) => {
   return map;
 };
 
-export const findById = (items, id) => {
-  const normalizedId = normalizeId(id);
-
-  if (normalizedId === null || !isValidArray(items)) {
-    return null;
-  }
-
-  for (const item of items) {
-    if (normalizeId(item?.id) === normalizedId) {
-      return item;
-    }
-  }
-
-  return null;
-};
+/* ============================================================
+ * ENTITY NAME
+ * ============================================================ */
 
 export const getEntityName = (entity, fallback = "-") => {
   if (!entity || typeof entity !== "object") {
     return fallback;
   }
 
-  return (
-    entity.full_name?.trim?.() ||
-    entity.nama_lengkap?.trim?.() ||
-    entity.name?.trim?.() ||
-    entity.nama?.trim?.() ||
-    fallback
-  );
+  const candidates = [
+    entity.full_name,
+    entity.nama_lengkap,
+    entity.name,
+    entity.nama,
+    entity.title,
+    entity.label,
+  ];
+
+  for (const value of candidates) {
+    if (typeof value === "string") {
+      const normalized = value.trim();
+
+      if (normalized) {
+        return normalized;
+      }
+    }
+  }
+
+  return fallback;
 };
+
+/* ============================================================
+ * GENERIC REPORT NAME
+ * ============================================================ */
 
 const getReportName = (
   report,
-  directField,
-  nestedField,
+  directFields,
+  nestedFields,
   map,
-  idField,
+  id,
   fallback,
 ) => {
   if (!report) {
     return fallback;
   }
 
-  const directValue = report[directField];
+  for (const field of directFields) {
+    const directValue = report[field];
 
-  if (typeof directValue === "string" && directValue.trim()) {
-    return directValue.trim();
-  }
-
-  const nestedEntity = report[nestedField];
-
-  if (nestedEntity) {
-    const nestedName = getEntityName(nestedEntity, "");
-
-    if (nestedName) {
-      return nestedName;
+    if (typeof directValue === "string" && directValue.trim()) {
+      return directValue.trim();
     }
   }
 
-  const entity = map?.get(normalizeId(report[idField]));
+  for (const field of nestedFields) {
+    const nestedEntity = report[field];
 
-  return getEntityName(entity, fallback);
+    if (nestedEntity && typeof nestedEntity === "object") {
+      const nestedName = getEntityName(nestedEntity, "");
+
+      if (nestedName) {
+        return nestedName;
+      }
+    }
+  }
+
+  const normalizedId = normalizeId(id);
+
+  if (normalizedId !== null && map instanceof Map) {
+    return getEntityName(map.get(normalizedId), fallback);
+  }
+
+  return fallback;
 };
+
+/* ============================================================
+ * STUDENT
+ * ============================================================ */
 
 export const getReportStudentName = (report, studentMap) => {
   return getReportName(
     report,
-    "student_name",
-    "student",
+
+    ["student_name", "studentName"],
+
+    ["student"],
+
     studentMap,
-    "student_id",
+
+    getReportStudentId(report),
+
     "Siswa",
   );
 };
 
+/* ============================================================
+ * TEACHER
+ * ============================================================ */
+
 export const getReportTeacherName = (report, teacherMap) => {
   return getReportName(
     report,
-    "teacher_name",
-    "teacher",
+
+    ["teacher_name", "teacherName"],
+
+    ["teacher"],
+
     teacherMap,
-    "teacher_id",
+
+    getReportTeacherId(report),
+
     "Pengajar",
   );
 };
 
+/* ============================================================
+ * PROGRAM
+ * ============================================================ */
+
 export const getReportProgramName = (report, programMap) => {
   return getReportName(
     report,
-    "program_name",
-    "program",
+
+    ["program_name", "programName"],
+
+    ["program"],
+
     programMap,
-    "program_id",
+
+    getReportProgramId(report),
+
     "Program",
   );
 };
 
+/* ============================================================
+ * CLASS
+ * ============================================================ */
+
 export const getReportClassName = (report, classMap) => {
   return getReportName(
     report,
-    "class_name",
-    "class",
+
+    ["class_name", "className"],
+
+    ["class", "classroom"],
+
     classMap,
-    "class_id",
+
+    getReportClassId(report),
+
     "Kelas",
   );
+};
+
+/* ============================================================
+ * AVERAGE RATING
+ * ============================================================ */
+
+const getRatingValue = (report, nestedKey, flatKey) => {
+  const nested = report?.ratings?.[nestedKey];
+
+  if (nested !== null && nested !== undefined && nested !== "") {
+    return nested;
+  }
+
+  return report?.[flatKey];
 };
 
 export const getReportAverageRating = (report) => {
@@ -242,39 +395,27 @@ export const getReportAverageRating = (report) => {
   }
 
   const values = [
-    report.rating_understanding,
-    report.rating_activity,
-    report.rating_discipline,
-    report.rating_communication,
-  ];
+    getRatingValue(report, "understanding", "rating_understanding"),
 
-  let total = 0;
-  let count = 0;
+    getRatingValue(report, "activity", "rating_activity"),
 
-  for (const value of values) {
-    const numericValue = Number(value);
+    getRatingValue(report, "discipline", "rating_discipline"),
 
-    if (Number.isFinite(numericValue) && numericValue >= 0) {
-      total += numericValue;
-      count += 1;
-    }
+    getRatingValue(report, "communication", "rating_communication"),
+  ]
+    .map(Number)
+    .filter((value) => Number.isFinite(value) && value > 0);
+
+  if (values.length === 0) {
+    return null;
   }
 
-  return count > 0 ? total / count : null;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
 };
 
-export const sortReportsByDate = (reports, direction = "desc") => {
-  if (!isValidArray(reports)) {
-    return [];
-  }
-
-  const multiplier = direction === "asc" ? 1 : -1;
-
-  return [...reports].sort(
-    (first, second) =>
-      (getReportTimestamp(first) - getReportTimestamp(second)) * multiplier,
-  );
-};
+/* ============================================================
+ * COLLECTIONS
+ * ============================================================ */
 
 export const getReportCollections = ({
   materials = [],
@@ -283,15 +424,73 @@ export const getReportCollections = ({
 } = {}) => {
   return {
     materials: isValidArray(materials)
-      ? materials.map((item) => item?.material).filter(Boolean)
+      ? materials
+          .map((item) => {
+            if (typeof item === "string") {
+              return item;
+            }
+
+            return item?.material ?? item?.name ?? "";
+          })
+          .filter(Boolean)
       : [],
 
     activities: isValidArray(activities)
-      ? activities.map((item) => item?.activity).filter(Boolean)
+      ? activities
+          .map((item) => {
+            if (typeof item === "string") {
+              return item;
+            }
+
+            return item?.activity ?? item?.name ?? "";
+          })
+          .filter(Boolean)
       : [],
 
     photos: isValidArray(photos)
-      ? photos.map((item) => item?.photo).filter(Boolean)
+      ? photos
+          .map((item) => {
+            if (typeof item === "string") {
+              return item;
+            }
+
+            return (
+              item?.photo_url ??
+              item?.url ??
+              item?.image_url ??
+              item?.photo ??
+              ""
+            );
+          })
+          .filter(Boolean)
       : [],
   };
+};
+
+/* ============================================================
+ * DATE SORT
+ * ============================================================ */
+
+export const sortReportsByDate = (reports, direction = "desc") => {
+  if (!isValidArray(reports)) {
+    return [];
+  }
+
+  const multiplier = direction === "asc" ? 1 : -1;
+
+  return [...reports].sort((first, second) => {
+    const firstTimestamp = getReportTimestamp(first);
+
+    const secondTimestamp = getReportTimestamp(second);
+
+    if (firstTimestamp !== secondTimestamp) {
+      return (firstTimestamp - secondTimestamp) * multiplier;
+    }
+
+    const firstId = normalizeId(first?.id) ?? 0;
+
+    const secondId = normalizeId(second?.id) ?? 0;
+
+    return (firstId - secondId) * multiplier;
+  });
 };

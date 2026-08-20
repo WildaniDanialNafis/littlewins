@@ -2,10 +2,12 @@ import { memo } from "react";
 
 import { Button, EmptyState } from "@/shared/components/ui";
 
-import { cx } from "@/shared/utils";
-
 import ReportCard from "./ReportCard";
 import ReportPagination from "./ReportPagination";
+
+/* ============================================================
+ * REPORT LIST
+ * ============================================================ */
 
 const ReportList = memo(
   ({
@@ -25,27 +27,24 @@ const ReportList = memo(
     onCreate,
   }) => {
     const isTeacher = role === "teacher";
+
     const hasSearch = Boolean(searchQuery.trim());
 
     const emptyDescription = isTeacher
-      ? "Anda belum membuat laporan belajar. Mulai buat laporan pertama Anda."
-      : "Belum ada laporan belajar yang tersedia untuk Anda.";
+      ? "Belum ada laporan. Buat laporan pertama."
+      : "Belum ada laporan untuk Anda.";
+
+    /* ==========================================================
+     * EMPTY
+     * ========================================================== */
 
     if (reports.length === 0) {
       return (
-        <div
-          className={cx(
-            "rounded-2xl bg-surface px-5 py-12",
-            "shadow-sm ring-1 ring-border",
-            "sm:px-8",
-          )}
-        >
+        <div className="rounded-xl border border-border bg-surface px-4 py-10 sm:px-6 sm:py-12">
           <EmptyState
             title={hasSearch ? "Laporan tidak ditemukan" : "Belum ada laporan"}
             description={
-              hasSearch
-                ? "Tidak ada laporan yang cocok dengan pencarian Anda."
-                : emptyDescription
+              hasSearch ? "Tidak ada hasil yang cocok." : emptyDescription
             }
             action={
               hasSearch ? (
@@ -53,7 +52,7 @@ const ReportList = memo(
                   type="button"
                   variant="secondary"
                   size="sm"
-                  className="mt-4 px-5"
+                  className="mt-4"
                   onClick={onClearSearch}
                 >
                   Hapus pencarian
@@ -63,10 +62,10 @@ const ReportList = memo(
                   type="button"
                   variant="primary"
                   size="sm"
-                  className="mt-4 px-5"
+                  className="mt-4"
                   onClick={onCreate}
                 >
-                  Buat Laporan Baru
+                  Buat Laporan
                 </Button>
               ) : null
             }
@@ -75,9 +74,13 @@ const ReportList = memo(
       );
     }
 
+    /* ==========================================================
+     * LIST
+     * ========================================================== */
+
     return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+      <div className="min-w-0 space-y-5">
+        <div className="grid min-w-0 grid-cols-1 gap-3.5 md:grid-cols-2 xl:grid-cols-3">
           {reports.map((report) => (
             <ReportCard
               key={report.id}

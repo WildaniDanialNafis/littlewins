@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import {
   DEFAULT_PAGE_SIZE,
@@ -46,18 +46,20 @@ const normalizeAccountId = (accountId) => {
     return null;
   }
 
-  return String(accountId);
+  return String(accountId).trim() || null;
 };
 
 const normalizePageSize = (pageSize) => {
-  const numericPageSize = Number(pageSize);
+  const numeric = Number(pageSize);
 
-  if (!Number.isInteger(numericPageSize) || numericPageSize <= 0) {
+  if (!Number.isInteger(numeric) || numeric <= 0) {
     return DEFAULT_PAGE_SIZE;
   }
 
-  return numericPageSize;
+  return numeric;
 };
+
+const normalizeSearch = (value) => String(value ?? "").trim();
 
 const getSafeArray = (value) => (Array.isArray(value) ? value : EMPTY_ARRAY);
 
@@ -85,7 +87,8 @@ const enrichReports = ({ reports, studentMap, teacherMap, programMap }) => {
     .filter(Boolean);
 };
 
-const normalizeSearch = (value) => String(value ?? "").trim();
+const getFirstError = (...errors) =>
+  errors.find((error) => error !== null && error !== undefined) ?? null;
 
 const useReportList = (options = {}) => {
   const {
@@ -102,7 +105,7 @@ const useReportList = (options = {}) => {
 
   const accountId = normalizeAccountId(rawAccountId);
 
-  const pageSize = normalizePageSize(rawPageSize);
+  const normalizedPageSize = normalizePageSize(rawPageSize);
 
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -114,52 +117,47 @@ const useReportList = (options = {}) => {
 
   const [deleteTargetId, setDeleteTargetId] = useState(null);
 
-  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const studentsResource = useStudents({
+    autoFetch,
+  });
 
-  const {
-    reports: rawReports,
-    loading: reportsLoading,
-    error: reportsError,
-    refresh: refreshReports,
-    deleteReport,
-  } = useReports({
+  const teachersResource = useTeachers({
+    autoFetch,
+  });
+
+  const programsResource = usePrograms({
+    autoFetch,
+  });
+
+  const reportsResource = useReports({
     autoFetch,
   });
 
   const {
-    data: rawStudents,
+    data: students = [],
     loading: studentsLoading,
     error: studentsError,
-    refresh: refreshStudents,
-  } = useStudents({
-    autoFetch,
-  });
+  } = studentsResource;
 
   const {
-    data: rawTeachers,
+    data: teachers = [],
     loading: teachersLoading,
     error: teachersError,
-    refresh: refreshTeachers,
-  } = useTeachers({
-    autoFetch,
-  });
+  } = teachersResource;
 
   const {
-    data: rawPrograms,
+    data: programs = [],
     loading: programsLoading,
     error: programsError,
-    refresh: refreshPrograms,
-  } = usePrograms({
-    autoFetch,
-  });
+  } = programsResource;
 
-  const reports = getSafeArray(rawReports);
-
-  const students = getSafeArray(rawStudents);
-
-  const teachers = getSafeArray(rawTeachers);
-
-  const programs = getSafeArray(rawPrograms);
+  const {
+    reports = [],
+    loading: reportsLoading,
+    error: reportsError,
+    deleteReport,
+    refresh,
+  } = reportsResource;
 
   const studentMap = useMemo(() => createLookupMap(students), [students]);
 
@@ -170,100 +168,50 @@ const useReportList = (options = {}) => {
   const enrichedReports = useMemo(
     () =>
       enrichReports({
-        reports,
+        reports: getSafeArray(reports),
+
         studentMap,
+
         teacherMap,
+
         programMap,
       }),
     [reports, studentMap, teacherMap, programMap],
   );
 
-  const accountScopedReports = useMemo(() => {
-    if (role === null) {
-      return EMPTY_ARRAY;
-    }
+  const accountFilteredReports = useMemo(
+    () => filterReportsByAccount(enrichedReports, role, accountId),
+    [enrichedReports, role, accountId],
+  );
 
-    if (accountId === null) {
-      return EMPTY_ARRAY;
-    }
-
-    return filterReportsByAccount(enrichedReports, role, accountId);
-  }, [enrichedReports, role, accountId]);
-
-  const filteredReports = useMemo(
-    () =>
-      filterReportsBySearch(
-        accountScopedReports,
-        normalizeSearch(searchQuery),
-        role,
-      ),
-    [accountScopedReports, searchQuery, role],
+  const searchedReports = useMemo(
+    () => filterReportsBySearch(accountFilteredReports, searchQuery, role),
+    [accountFilteredReports, searchQuery, role],
   );
 
   const sortedReports = useMemo(
-    () => sortReports(filteredReports, sortKey, sortDirection),
-    [filteredReports, sortKey, sortDirection],
+    () => sortReports(searchedReports, sortKey, sortDirection),
+    [searchedReports, sortKey, sortDirection],
   );
 
-  const totalPages = useMemo(() => {
-    if (sortedReports.length === 0) {
-      return 1;
-    }
-
-    return Math.max(1, Math.ceil(sortedReports.length / pageSize));
-  }, [sortedReports.length, pageSize]);
-
-  const effectivePage = Math.min(Math.max(currentPage, 1), totalPages);
-
-  /*
-   * Filter/sort/page-size berubah:
-   * state page lama tidak langsung dipakai
-   * untuk indexing hasil baru.
-   */
-  useEffect(() => {
-    if (currentPage !== effectivePage) {
-      setCurrentPage(effectivePage);
-    }
-  }, [currentPage, effectivePage]);
-
-  const processed = useMemo(
-    () => paginateReports(sortedReports, effectivePage, pageSize),
-    [sortedReports, effectivePage, pageSize],
+  const pagination = useMemo(
+    () => paginateReports(sortedReports, currentPage, normalizedPageSize),
+    [sortedReports, currentPage, normalizedPageSize],
   );
+
+  const reportsForPage = pagination.items;
 
   const handleSearchChange = useCallback((value) => {
-    const nextSearch = normalizeSearch(value);
-
-    setSearchQuery(nextSearch);
+    setSearchQuery(normalizeSearch(value));
 
     setCurrentPage(1);
   }, []);
 
-  const clearSearch = useCallback(() => {
-    setSearchQuery("");
+  const handleSort = useCallback((key) => {
+    setSortKey(key);
+
     setCurrentPage(1);
   }, []);
-
-  const handleSort = useCallback(
-    (key) => {
-      const nextKey = normalizeSearch(key);
-
-      if (!nextKey) {
-        return;
-      }
-
-      if (sortKey === nextKey) {
-        setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
-      } else {
-        setSortKey(nextKey);
-
-        setSortDirection(DEFAULT_SORT_DIRECTION);
-      }
-
-      setCurrentPage(1);
-    },
-    [sortKey],
-  );
 
   const toggleSortDirection = useCallback(() => {
     setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
@@ -278,85 +226,60 @@ const useReportList = (options = {}) => {
       if (
         !Number.isInteger(numericPage) ||
         numericPage < 1 ||
-        numericPage > totalPages
+        numericPage > pagination.totalPages
       ) {
         return;
       }
 
       setCurrentPage(numericPage);
     },
-    [totalPages],
+    [pagination.totalPages],
   );
+
+  const clearSearch = useCallback(() => {
+    setSearchQuery("");
+
+    setCurrentPage(1);
+  }, []);
 
   const requestDelete = useCallback(
     (id) => {
-      if (id === null || id === undefined || id === "" || deleteSubmitting) {
+      if (role !== "teacher") {
+        return;
+      }
+
+      if (id === null || id === undefined || id === "") {
         return;
       }
 
       setDeleteTargetId(id);
     },
-    [deleteSubmitting],
+    [role],
   );
 
   const cancelDelete = useCallback(() => {
-    if (deleteSubmitting) {
+    setDeleteTargetId(null);
+  }, []);
+
+  const confirmDelete = useCallback(async () => {
+    if (deleteTargetId === null || deleteTargetId === undefined) {
       return;
     }
 
+    await deleteReport(deleteTargetId);
+
     setDeleteTargetId(null);
-  }, [deleteSubmitting]);
 
-  const confirmDelete = useCallback(async () => {
-    if (
-      deleteSubmitting ||
-      deleteTargetId === null ||
-      deleteTargetId === undefined ||
-      deleteTargetId === ""
-    ) {
-      return false;
-    }
+    setCurrentPage(1);
+  }, [deleteReport, deleteTargetId]);
 
-    const targetId = deleteTargetId;
+  const hasError = Boolean(
+    getFirstError(studentsError, teachersError, programsError, reportsError),
+  );
 
-    setDeleteSubmitting(true);
-
-    try {
-      await deleteReport(targetId);
-
-      /*
-       * Revalidate effective page
-       * setelah item terhapus.
-       */
-      setDeleteTargetId(null);
-
-      return true;
-    } catch {
-      return false;
-    } finally {
-      setDeleteSubmitting(false);
-    }
-  }, [deleteReport, deleteSubmitting, deleteTargetId]);
-
-  const refresh = useCallback(async () => {
-    const results = await Promise.allSettled([
-      refreshReports(),
-      refreshStudents(),
-      refreshTeachers(),
-      refreshPrograms(),
-    ]);
-
-    const failed = results.find((result) => result.status === "rejected");
-
-    if (failed) {
-      throw failed.reason instanceof Error
-        ? failed.reason
-        : new Error("Gagal memperbarui daftar laporan.");
-    }
-  }, [refreshReports, refreshStudents, refreshTeachers, refreshPrograms]);
-
-  const error =
-    reportsError || studentsError || teachersError || programsError || null;
+  const isLoading = Boolean(
+    studentsLoading || teachersLoading || programsLoading || reportsLoading,
+  );
 
   return {
     searchQuery,
@@ -365,45 +288,44 @@ const useReportList = (options = {}) => {
 
     sortDirection,
 
-    currentPage: effectivePage,
-
-    totalPages,
-
-    hasPreviousPage: processed.hasPreviousPage,
-
-    hasNextPage: processed.hasNextPage,
-
-    startItem: processed.startItem,
-
-    endItem: processed.endItem,
-
-    reports: processed.visibleReports,
-
-    allReports: sortedReports,
+    currentPage,
 
     deleteTargetId,
 
-    deleteSubmitting,
+    reports: reportsForPage,
 
-    isLoading: Boolean(
-      reportsLoading || studentsLoading || teachersLoading || programsLoading,
+    allReports: sortedReports,
+
+    hasPreviousPage: pagination.hasPreviousPage,
+
+    hasNextPage: pagination.hasNextPage,
+
+    startItem: pagination.startItem,
+
+    endItem: pagination.endItem,
+
+    isLoading,
+
+    hasError,
+
+    error: getFirstError(
+      studentsError,
+      teachersError,
+      programsError,
+      reportsError,
     ),
-
-    hasError: Boolean(error),
-
-    error,
 
     refresh,
 
     handleSearchChange,
-
-    clearSearch,
 
     handleSort,
 
     toggleSortDirection,
 
     handlePageChange,
+
+    clearSearch,
 
     requestDelete,
 

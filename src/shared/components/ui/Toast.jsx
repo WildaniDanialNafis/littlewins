@@ -13,7 +13,7 @@ const VARIANT_CLASSES = {
 };
 
 const ToastIcon = ({ type }) => {
-  const iconClass = "h-5 w-5 shrink-0";
+  const iconClass = "size-5 shrink-0";
 
   const icons = {
     success: (
@@ -89,7 +89,7 @@ const ToastIcon = ({ type }) => {
 const CloseIcon = () => {
   return (
     <svg
-      className="h-4 w-4"
+      className="size-4"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -122,9 +122,12 @@ export const Toast = ({ message, type = "info", duration = 4000, onClose }) => {
   return (
     <div
       className={cx(
-        "pointer-events-auto flex items-start gap-3 rounded-xl border px-4 py-3",
+        "pointer-events-auto flex items-start gap-3",
+        "rounded-2xl border px-4 py-3",
         "shadow-lg backdrop-blur-sm",
-        "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-right-2",
+        "motion-safe:animate-in",
+        "motion-safe:fade-in",
+        "motion-safe:slide-in-from-right-2",
         "motion-reduce:animate-none",
         VARIANT_CLASSES[type] ?? VARIANT_CLASSES.info,
       )}
@@ -140,7 +143,8 @@ export const Toast = ({ message, type = "info", duration = 4000, onClose }) => {
           type="button"
           onClick={onClose}
           className={cx(
-            "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md",
+            "inline-flex size-7 shrink-0 items-center justify-center",
+            "rounded-lg",
             "opacity-70 transition-opacity",
             "hover:opacity-100",
             "focus-visible:outline-none",

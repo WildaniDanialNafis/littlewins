@@ -1,12 +1,15 @@
 import {
   createLookupMap,
-  getEntityName,
   getReportClassName,
   getReportProgramName,
   getReportStudentName,
   getReportTeacherName,
   normalizeId,
 } from "./reportSelectors";
+
+/* ============================================================
+ * BASIC
+ * ============================================================ */
 
 const normalizeString = (value) => {
   if (value === null || value === undefined) {
@@ -26,19 +29,55 @@ const normalizeNumber = (value, fallback = null) => {
   return Number.isFinite(number) ? number : fallback;
 };
 
-const normalizeRatings = (report) => {
+/* ============================================================
+ * RATING
+ * ============================================================ */
+
+const normalizeRating = (value, fallback = 0) => {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return fallback;
+  }
+
+  return Math.min(5, Math.max(0, Math.round(number)));
+};
+
+const readRating = (report, nestedKey, flatKey) => {
+  const nestedValue = report?.ratings?.[nestedKey];
+
+  /*
+   * Nested API shape adalah source
+   * yang lebih prioritas.
+   */
+  if (nestedValue !== null && nestedValue !== undefined && nestedValue !== "") {
+    return normalizeRating(nestedValue, 0);
+  }
+
+  /*
+   * Backward compatibility dengan
+   * response flat lama.
+   */
+  return normalizeRating(report?.[flatKey], 0);
+};
+
+export const normalizeRatings = (report) => {
   return {
-    understanding: normalizeNumber(report?.rating_understanding, 0),
+    understanding: readRating(report, "understanding", "rating_understanding"),
 
-    activity: normalizeNumber(report?.rating_activity, 0),
+    activity: readRating(report, "activity", "rating_activity"),
 
-    discipline: normalizeNumber(report?.rating_discipline, 0),
+    discipline: readRating(report, "discipline", "rating_discipline"),
 
-    communication: normalizeNumber(report?.rating_communication, 0),
+    communication: readRating(report, "communication", "rating_communication"),
   };
 };
 
-const normalizeRelationValues = (items, field) => {
+/* ============================================================
+ * RELATIONS
+ * ============================================================ */
+
+const normalizeRelationValues = (items, fields) => {
   if (!Array.isArray(items)) {
     return [];
   }
@@ -49,10 +88,28 @@ const normalizeRelationValues = (items, field) => {
         return item.trim();
       }
 
-      return normalizeString(item?.[field]);
+      if (!item || typeof item !== "object") {
+        return "";
+      }
+
+      for (const field of fields) {
+        const value = item?.[field];
+
+        const normalized = normalizeString(value);
+
+        if (normalized) {
+          return normalized;
+        }
+      }
+
+      return "";
     })
     .filter(Boolean);
 };
+
+/* ============================================================
+ * PHOTOS
+ * ============================================================ */
 
 const normalizePhotos = (photos) => {
   if (!Array.isArray(photos)) {
@@ -62,15 +119,65 @@ const normalizePhotos = (photos) => {
   return photos
     .map((item) => {
       if (typeof item === "string") {
-        return item;
+        return item.trim();
       }
 
-      return (
-        item?.photo_url || item?.url || item?.image_url || item?.photo || null
+      if (!item || typeof item !== "object") {
+        return "";
+      }
+
+      return normalizeString(
+        item?.photo_url ?? item?.url ?? item?.image_url ?? item?.photo ?? "",
       );
     })
     .filter(Boolean);
 };
+
+/* ============================================================
+ * MAP
+ * ============================================================ */
+
+const normalizeMap = (value) => {
+  if (value instanceof Map) {
+    return value;
+  }
+
+  return createLookupMap(Array.isArray(value) ? value : []);
+};
+
+/* ============================================================
+ * IDENTITY
+ * ============================================================ */
+
+const getStudentId = (report) => {
+  return normalizeId(
+    report?.student_id ?? report?.studentId ?? report?.student?.id,
+  );
+};
+
+const getTeacherId = (report) => {
+  return normalizeId(
+    report?.teacher_id ?? report?.teacherId ?? report?.teacher?.id,
+  );
+};
+
+const getProgramId = (report) => {
+  return normalizeId(
+    report?.program_id ?? report?.programId ?? report?.program?.id,
+  );
+};
+
+const getClassId = (report) => {
+  return normalizeId(report?.class_id ?? report?.classId ?? report?.class?.id);
+};
+
+/* ============================================================
+ * CANONICAL REPORT
+ *
+ * IMPORTANT:
+ * normalizeReport harus tetap diexport karena
+ * dipakai oleh reportDetailUtils dan consumer lain.
+ * ============================================================ */
 
 export const normalizeReport = (
   report,
@@ -88,24 +195,42 @@ export const normalizeReport = (
     return null;
   }
 
-  const studentMap =
-    students instanceof Map ? students : createLookupMap(students);
+  const studentMap = normalizeMap(students);
 
-  const teacherMap =
-    teachers instanceof Map ? teachers : createLookupMap(teachers);
+  const teacherMap = normalizeMap(teachers);
 
-  const programMap =
-    programs instanceof Map ? programs : createLookupMap(programs);
+  const programMap = normalizeMap(programs);
 
-  const classMap = classes instanceof Map ? classes : createLookupMap(classes);
+  const classMap = normalizeMap(classes);
+
+  const ratings = normalizeRatings(report);
+
+  const studentId = getStudentId(report);
+
+  const teacherId = getTeacherId(report);
+
+  const programId = getProgramId(report);
+
+  const classId = getClassId(report);
 
   return {
+    /* ========================================================
+     * IDENTITY
+     * ======================================================== */
+
     id: normalizeId(report.id),
 
-    studentId: normalizeId(report.student_id),
-    teacherId: normalizeId(report.teacher_id),
-    programId: normalizeId(report.program_id),
-    classId: normalizeId(report.class_id),
+    studentId,
+
+    teacherId,
+
+    programId,
+
+    classId,
+
+    /* ========================================================
+     * NAMES
+     * ======================================================== */
 
     studentName: getReportStudentName(report, studentMap),
 
@@ -115,7 +240,16 @@ export const normalizeReport = (
 
     className: getReportClassName(report, classMap),
 
-    reportDate: report.report_date ?? report.date ?? report.created_at ?? null,
+    /* ========================================================
+     * DATE / SESSION
+     * ======================================================== */
+
+    reportDate:
+      report.report_date ??
+      report.reportDate ??
+      report.date ??
+      report.created_at ??
+      null,
 
     status: normalizeString(report.status) || null,
 
@@ -123,56 +257,135 @@ export const normalizeReport = (
 
     score: normalizeNumber(report.score),
 
-    ratings: normalizeRatings(report),
+    /* ========================================================
+     * RATINGS
+     * ======================================================== */
+
+    ratings,
+
+    /* ========================================================
+     * TEXT
+     * ======================================================== */
 
     homework: normalizeString(report.homework),
 
-    teacherNote: normalizeString(report.teacher_note),
+    teacherNote: normalizeString(report.teacher_note ?? report.teacherNote),
 
     recommendation: normalizeString(report.recommendation),
 
-    materials: normalizeRelationValues(materials, "material"),
+    /* ========================================================
+     * RELATIONS
+     * ======================================================== */
 
-    activities: normalizeRelationValues(activities, "activity"),
+    materials: normalizeRelationValues(materials, [
+      "material",
+      "value",
+      "name",
+    ]),
+
+    activities: normalizeRelationValues(activities, [
+      "activity",
+      "value",
+      "name",
+    ]),
+
+    /* ========================================================
+     * PHOTOS
+     * ======================================================== */
 
     photos: normalizePhotos(photos),
+
+    /* ========================================================
+     * RAW
+     * ======================================================== */
 
     raw: report,
   };
 };
 
+/* ============================================================
+ * LIST COMPATIBILITY MODEL
+ *
+ * UI existing tetap memakai field snake_case.
+ * Jangan pindahkan consumer UI ke model canonical
+ * hanya karena canonical model baru tersedia.
+ * ============================================================ */
+
 export const normalizeReportListItem = (
   report,
-  { students = [], teachers = [], programs = [] } = {},
+  { students = [], teachers = [], programs = [], classes = [] } = {},
 ) => {
   if (!report || typeof report !== "object") {
     return null;
   }
 
-  const studentMap = createLookupMap(students);
-  const teacherMap = createLookupMap(teachers);
-  const programMap = createLookupMap(programs);
+  const studentMap = normalizeMap(students);
+
+  const teacherMap = normalizeMap(teachers);
+
+  const programMap = normalizeMap(programs);
+
+  const classMap = normalizeMap(classes);
+
+  const normalized = normalizeReport(report, {
+    students: studentMap,
+
+    teachers: teacherMap,
+
+    programs: programMap,
+
+    classes: classMap,
+  });
+
+  if (!normalized) {
+    return null;
+  }
 
   return {
     ...report,
 
-    id: normalizeId(report.id),
+    id: normalized.id,
 
-    student_id: normalizeId(report.student_id),
+    student_id: normalized.studentId,
 
-    teacher_id: normalizeId(report.teacher_id),
+    teacher_id: normalized.teacherId,
 
-    program_id: normalizeId(report.program_id),
+    program_id: normalized.programId,
 
-    student_name: getReportStudentName(report, studentMap),
+    class_id: normalized.classId,
 
-    teacher_name: getReportTeacherName(report, teacherMap),
+    student_name: normalized.studentName,
 
-    program_name: getReportProgramName(report, programMap),
+    teacher_name: normalized.teacherName,
+
+    program_name: normalized.programName,
+
+    class_name: normalized.className,
+
+    /*
+     * Compatibility fields untuk UI existing.
+     */
+    rating_understanding: normalized.ratings.understanding,
+
+    rating_activity: normalized.ratings.activity,
+
+    rating_discipline: normalized.ratings.discipline,
+
+    rating_communication: normalized.ratings.communication,
+
+    /*
+     * Tambahkan canonical ratings juga,
+     * tanpa menghapus field lama.
+     */
+    ratings: normalized.ratings,
   };
 };
 
-export const normalizeReportOptions = (items, fallback) => {
+/* ============================================================
+ * OPTIONS
+ * ============================================================ */
+
+export const normalizeReportOptions = (items, fallback = "Item") => {
   if (!Array.isArray(items)) {
     return [];
   }
@@ -185,13 +398,27 @@ export const normalizeReportOptions = (items, fallback) => {
         return null;
       }
 
+      const label =
+        item?.full_name ??
+        item?.nama_lengkap ??
+        item?.name ??
+        item?.nama ??
+        item?.title ??
+        item?.label ??
+        `${fallback} ${id}`;
+
       return {
         value: String(id),
-        label: getEntityName(item, `${fallback} ${id}`),
+
+        label: normalizeString(label) || `${fallback} ${id}`,
       };
     })
     .filter(Boolean);
 };
+
+/* ============================================================
+ * SCORE
+ * ============================================================ */
 
 export const normalizeReportScore = (value) => {
   if (value === null || value === undefined || value === "") {
@@ -207,6 +434,10 @@ export const normalizeReportScore = (value) => {
   return Math.min(100, Math.max(0, score));
 };
 
+/* ============================================================
+ * DURATION
+ * ============================================================ */
+
 export const normalizeReportDuration = (value) => {
   if (value === null || value === undefined || value === "") {
     return null;
@@ -214,13 +445,27 @@ export const normalizeReportDuration = (value) => {
 
   const duration = Number(value);
 
-  if (!Number.isInteger(duration)) {
-    return null;
-  }
-
-  if (duration < 0) {
+  if (!Number.isInteger(duration) || duration < 0) {
     return null;
   }
 
   return duration;
+};
+
+/* ============================================================
+ * DEFAULT EXPORT
+ * ============================================================ */
+
+export default {
+  normalizeReport,
+
+  normalizeRatings,
+
+  normalizeReportListItem,
+
+  normalizeReportOptions,
+
+  normalizeReportScore,
+
+  normalizeReportDuration,
 };

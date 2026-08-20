@@ -64,28 +64,24 @@ const useReportDetail = (reportId) => {
     data: teachers = [],
     loading: teachersLoading,
     error: teachersError,
-    refresh: refreshTeachers,
   } = useTeachers();
 
   const {
     data: programs = [],
     loading: programsLoading,
     error: programsError,
-    refresh: refreshPrograms,
   } = usePrograms();
 
   const {
     data: classes = [],
     loading: classesLoading,
     error: classesError,
-    refresh: refreshClasses,
   } = useClasses();
 
   const {
     data: students = [],
     loading: studentsLoading,
     error: studentsError,
-    refresh: refreshStudents,
   } = useStudents();
 
   const {
@@ -132,6 +128,7 @@ const useReportDetail = (reportId) => {
 
     return () => {
       mountedRef.current = false;
+
       requestVersionRef.current += 1;
     };
   }, []);
@@ -158,10 +155,7 @@ const useReportDetail = (reportId) => {
     try {
       const result = await getReport(normalizedReportId);
 
-      const current =
-        mountedRef.current && requestVersion === requestVersionRef.current;
-
-      if (!current) {
+      if (!mountedRef.current || requestVersion !== requestVersionRef.current) {
         return null;
       }
 
@@ -192,10 +186,18 @@ const useReportDetail = (reportId) => {
   }, [getReport, normalizedReportId]);
 
   useEffect(() => {
-    void fetchReport();
-  }, [fetchReport]);
+    let cancelled = false;
 
-  const canView = Boolean(user && report && canViewReport(user, report));
+    Promise.resolve().then(() => {
+      if (!cancelled) {
+        void fetchReport();
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchReport]);
 
   const capabilities = useMemo(() => {
     if (!user || !report) {
@@ -206,16 +208,18 @@ const useReportDetail = (reportId) => {
       };
     }
 
-    const view = canViewReport(user, report);
+    const canView = canViewReport(user, report);
 
-    const edit = view && canEditReport(user, report);
+    const canEdit = canView && canEditReport(user, report);
 
     return {
-      canView: view,
-      canEdit: edit,
-      canDelete: edit,
+      canView,
+      canEdit,
+      canDelete: canEdit,
     };
-  }, [user, report]);
+  }, [report, user]);
+
+  const canView = capabilities.canView;
 
   const viewData = useMemo(() => {
     if (!report || !canView) {
@@ -278,34 +282,29 @@ const useReportDetail = (reportId) => {
   );
 
   const refresh = useCallback(async () => {
-    const tasks = [
-      fetchReport(),
-      refreshTeachers(),
-      refreshPrograms(),
-      refreshClasses(),
-      refreshStudents(),
-    ];
-
-    if (normalizedReportId !== null) {
-      tasks.push(refreshMaterials(), refreshActivities(), refreshPhotos());
+    if (normalizedReportId === null) {
+      return true;
     }
 
-    const results = await Promise.allSettled(tasks);
+    const results = await Promise.allSettled([
+      fetchReport(),
+      refreshMaterials(),
+      refreshActivities(),
+      refreshPhotos(),
+    ]);
 
     const refreshError = getRefreshError(results);
 
     if (refreshError) {
       throw refreshError;
     }
+
+    return true;
   }, [
     fetchReport,
     normalizedReportId,
-    refreshTeachers,
-    refreshPrograms,
-    refreshClasses,
-    refreshStudents,
-    refreshMaterials,
     refreshActivities,
+    refreshMaterials,
     refreshPhotos,
   ]);
 

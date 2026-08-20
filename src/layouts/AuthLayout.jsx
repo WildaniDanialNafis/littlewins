@@ -11,8 +11,7 @@ export const AuthLayout = ({ children, className = "" }) => {
   return (
     <main
       className={cx(
-        "flex min-h-svh w-full",
-        "items-center justify-center",
+        "flex min-h-svh w-full items-center justify-center",
         "bg-background",
         "px-(--token-layout-gutter)",
         "py-6 sm:py-8 lg:py-10",

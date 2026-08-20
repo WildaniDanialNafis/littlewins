@@ -4,6 +4,10 @@ import { cx } from "@/shared/utils";
 
 import { hasValue } from "../utils/reportDetailUtils";
 
+/* ============================================================
+ * REPORT SCORE
+ * ============================================================ */
+
 const ReportScore = memo(({ report, style }) => {
   if (!report || !style || !hasValue(report.score)) {
     return null;
@@ -11,29 +15,30 @@ const ReportScore = memo(({ report, style }) => {
 
   return (
     <section aria-labelledby="report-score-title">
-      <div className={cx("rounded-2xl p-5 ring-1 md:p-6", style.background)}>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted">
-              Nilai sesi
+      <div className={cx("rounded-xl p-4 ring-1", "sm:p-5", style.background)}>
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted">
+              Nilai
             </p>
 
-            <h2 className="mt-1 text-base font-semibold text-text">
-              Hasil penilaian belajar
+            <h2
+              id="report-score-title"
+              className="mt-1 text-base font-semibold text-text"
+            >
+              Hasil belajar
             </h2>
 
-            <p className="mt-1 max-w-xl text-sm leading-relaxed text-muted">
-              Nilai membantu melihat hasil sesi, bersama penilaian perkembangan
-              lainnya.
-            </p>
+            <p className="mt-1 text-sm leading-5 text-muted">Nilai sesi ini.</p>
           </div>
 
-          <div className="sm:text-right">
-            <div className="flex items-baseline sm:justify-end">
+          <div className="shrink-0 text-right">
+            <div className="flex items-baseline justify-end">
               <span
                 className={cx(
-                  "text-4xl font-bold tracking-tight md:text-5xl",
+                  "text-4xl font-bold tracking-tight tabular-nums",
                   style.text,
+                  "sm:text-5xl",
                 )}
               >
                 {report.score}

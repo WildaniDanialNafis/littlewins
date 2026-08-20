@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 const getMatchMedia = (query) => {
   if (
@@ -14,55 +14,48 @@ const getMatchMedia = (query) => {
 };
 
 export const useMediaQuery = (query) => {
-  const [matches, setMatches] = useState(() => {
+  const subscribe = useCallback(
+    (onStoreChange) => {
+      const mediaQuery = getMatchMedia(query);
+
+      if (!mediaQuery) {
+        return () => {};
+      }
+
+      const handleChange = () => {
+        onStoreChange();
+      };
+
+      if (typeof mediaQuery.addEventListener === "function") {
+        mediaQuery.addEventListener("change", handleChange);
+
+        return () => {
+          mediaQuery.removeEventListener("change", handleChange);
+        };
+      }
+
+      if (typeof mediaQuery.addListener === "function") {
+        mediaQuery.addListener(handleChange);
+
+        return () => {
+          mediaQuery.removeListener(handleChange);
+        };
+      }
+
+      return () => {};
+    },
+    [query],
+  );
+
+  const getSnapshot = useCallback(() => {
     const mediaQuery = getMatchMedia(query);
 
     return Boolean(mediaQuery?.matches);
-  });
-
-  useEffect(() => {
-    const mediaQuery = getMatchMedia(query);
-
-    if (!mediaQuery) {
-      return undefined;
-    }
-
-    const handleChange = (event) => {
-      const nextValue = Boolean(event.matches);
-
-      setMatches((current) => (current === nextValue ? current : nextValue));
-    };
-
-    /*
-     * Sinkronisasi hanya jika
-     * nilai memang berbeda.
-     */
-    const currentValue = Boolean(mediaQuery.matches);
-
-    setMatches((current) =>
-      current === currentValue ? current : currentValue,
-    );
-
-    if (typeof mediaQuery.addEventListener === "function") {
-      mediaQuery.addEventListener("change", handleChange);
-
-      return () => {
-        mediaQuery.removeEventListener("change", handleChange);
-      };
-    }
-
-    if (typeof mediaQuery.addListener === "function") {
-      mediaQuery.addListener(handleChange);
-
-      return () => {
-        mediaQuery.removeListener(handleChange);
-      };
-    }
-
-    return undefined;
   }, [query]);
 
-  return matches;
+  const getServerSnapshot = useCallback(() => false, []);
+
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 };
 
 useMediaQuery.displayName = "useMediaQuery";

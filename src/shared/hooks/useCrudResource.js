@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  createRequestDeduper,
   getCachedResource,
   getResourceKey,
   getResourceSnapshot,
+  getResourceVersion,
   invalidateResource,
   setCachedResource,
 } from "@/shared/cache";
@@ -11,6 +13,8 @@ import {
 import { useAuth } from "./useAuth";
 
 const EMPTY_ARRAY = Object.freeze([]);
+
+const DEFAULT_STALE_TIME = 60_000;
 
 /* ============================================================
  * HELPERS
@@ -67,80 +71,70 @@ const getUserScope = (user) => {
 
 const useCrudResource = ({
   service,
+  resourceKey,
   messages,
-  initialData,
+  initialData = EMPTY_ARRAY,
   autoFetch = true,
-  staleTime = 30_000,
+  staleTime = DEFAULT_STALE_TIME,
 }) => {
   const { user } = useAuth();
 
-  /*
-   * IMPORTANT:
-   * Jangan menggunakan default parameter []
-   * karena itu membuat array baru setiap render.
-   */
-  const normalizedInitialData = Array.isArray(initialData)
-    ? initialData
-    : EMPTY_ARRAY;
-
   const userScope = getUserScope(user);
 
-  const resourceName = service?.constructor?.name ?? "resource";
+  const normalizedResourceKey = String(resourceKey ?? "").trim();
 
   const cacheKey = useMemo(() => {
-    if (!userScope) {
+    if (!userScope || !normalizedResourceKey) {
       return null;
     }
 
     return getResourceKey({
       scope: `user:${userScope}`,
-      resource: resourceName,
+      resource: normalizedResourceKey,
     });
-  }, [resourceName, userScope]);
+  }, [normalizedResourceKey, userScope]);
 
-  const cachedData = useMemo(() => {
+  const initial = Array.isArray(initialData) ? initialData : EMPTY_ARRAY;
+
+  /* ==========================================================
+   * STATE
+   * ========================================================== */
+
+  const [data, setData] = useState(() => {
     if (!cacheKey) {
-      return null;
+      return initial;
     }
 
-    return getCachedResource(cacheKey, staleTime);
-  }, [cacheKey, staleTime]);
+    const cached = getCachedResource(cacheKey, staleTime);
 
-  const staleSnapshot = useMemo(() => {
-    if (!cacheKey) {
-      return null;
+    if (cached !== null) {
+      return toArray(cached);
     }
 
-    return getResourceSnapshot(cacheKey);
-  }, [cacheKey]);
+    const snapshot = getResourceSnapshot(cacheKey);
 
-  const getInitialData = useCallback(() => {
-    if (cachedData !== null) {
-      return toArray(cachedData);
+    if (snapshot?.data !== undefined) {
+      return toArray(snapshot.data);
     }
 
-    if (staleSnapshot?.data !== undefined) {
-      return toArray(staleSnapshot.data);
-    }
+    return initial;
+  });
 
-    return toArray(normalizedInitialData);
-  }, [cachedData, normalizedInitialData, staleSnapshot]);
-
-  const [data, setData] = useState(getInitialData);
-
-  const [loading, setLoading] = useState(
-    Boolean(autoFetch && cachedData === null),
-  );
+  const [loading, setLoading] = useState(() => {
+    return Boolean(autoFetch && service && cacheKey);
+  });
 
   const [error, setError] = useState(null);
 
+  /* ==========================================================
+   * REFS
+   * ========================================================== */
+
   const mountedRef = useRef(false);
 
-  const requestVersionRef = useRef(0);
+  const generationRef = useRef(0);
 
   const mutationVersionRef = useRef(0);
-
-  const controllerRef = useRef(null);
 
   const createPromiseRef = useRef(null);
 
@@ -155,96 +149,33 @@ const useCrudResource = ({
   useEffect(() => {
     mountedRef.current = true;
 
+    const updatePromises = updatePromisesRef.current;
+
+    const removePromises = removePromisesRef.current;
+
     return () => {
       mountedRef.current = false;
 
-      requestVersionRef.current += 1;
+      generationRef.current += 1;
 
       mutationVersionRef.current += 1;
 
-      controllerRef.current?.abort();
-
-      controllerRef.current = null;
-
       createPromiseRef.current = null;
 
-      updatePromisesRef.current.clear();
+      updatePromises.clear();
 
-      removePromisesRef.current.clear();
+      removePromises.clear();
     };
   }, []);
 
   /* ==========================================================
-   * INITIAL/CACHE SYNC
-   *
-   * IMPORTANT:
-   * initialData sengaja TIDAK ada di
-   * dependency effect.
-   *
-   * initialData adalah initial state,
-   * bukan external reactive source.
-   *
-   * Ini mencegah:
-   *
-   * render
-   *   ↓
-   * [] baru
-   *   ↓
-   * effect
-   *   ↓
-   * setData
-   *   ↓
-   * render
-   *   ↓
-   * LOOP
-   * ========================================================== */
-
-  useEffect(() => {
-    if (cachedData !== null) {
-      const nextData = toArray(cachedData);
-
-      setData(nextData);
-
-      if (!autoFetch) {
-        setLoading(false);
-      }
-
-      setError(null);
-
-      return;
-    }
-
-    if (staleSnapshot?.data !== undefined) {
-      const nextData = toArray(staleSnapshot.data);
-
-      setData(nextData);
-
-      if (!autoFetch) {
-        setLoading(false);
-      }
-
-      setError(null);
-
-      return;
-    }
-
-    if (!autoFetch) {
-      setLoading(false);
-    }
-  }, [autoFetch, cachedData, staleSnapshot]);
-
-  /* ==========================================================
-   * INVALIDATION
+   * INVALIDATE
    * ========================================================== */
 
   const invalidate = useCallback(() => {
+    generationRef.current += 1;
+
     mutationVersionRef.current += 1;
-
-    requestVersionRef.current += 1;
-
-    controllerRef.current?.abort();
-
-    controllerRef.current = null;
 
     if (cacheKey) {
       invalidateResource(cacheKey);
@@ -257,104 +188,105 @@ const useCrudResource = ({
 
   const fetchAll = useCallback(
     async ({ force = false } = {}) => {
-      const requestVersion = ++requestVersionRef.current;
+      if (!service || !cacheKey) {
+        if (mountedRef.current) {
+          setLoading(false);
+        }
 
-      const mutationVersion = mutationVersionRef.current;
+        return EMPTY_ARRAY;
+      }
 
-      if (!force && cacheKey) {
+      if (!force) {
         const cached = getCachedResource(cacheKey, staleTime);
 
         if (cached !== null) {
           const nextData = toArray(cached);
 
-          if (
-            mountedRef.current &&
-            requestVersion === requestVersionRef.current &&
-            mutationVersion === mutationVersionRef.current
-          ) {
+          if (mountedRef.current) {
             setData(nextData);
 
             setError(null);
+
             setLoading(false);
           }
 
           return nextData;
         }
-
-        const snapshot = getResourceSnapshot(cacheKey);
-
-        if (snapshot?.data !== undefined && mountedRef.current) {
-          setData(toArray(snapshot.data));
-        }
       }
 
-      controllerRef.current?.abort();
+      if (force) {
+        invalidateResource(cacheKey);
+      }
 
-      const controller = new AbortController();
+      const generation = generationRef.current;
 
-      controllerRef.current = controller;
+      const mutationVersion = mutationVersionRef.current;
+
+      const requestVersion = getResourceVersion(cacheKey);
 
       if (mountedRef.current) {
         setLoading(true);
+
         setError(null);
       }
 
       try {
-        const result = await service.getAll({
-          signal: controller.signal,
+        const result = await createRequestDeduper({
+          key: cacheKey,
+
+          request: () => service.getAll(),
         });
 
         const nextData = toArray(result);
 
         const isCurrent =
           mountedRef.current &&
-          requestVersion === requestVersionRef.current &&
+          generation === generationRef.current &&
           mutationVersion === mutationVersionRef.current;
 
         if (!isCurrent) {
           return nextData;
         }
 
+        setCachedResource(cacheKey, nextData, {
+          version: requestVersion,
+        });
+
         setData(nextData);
 
-        if (cacheKey) {
-          setCachedResource(cacheKey, nextData);
-        }
-
         setError(null);
+
+        setLoading(false);
 
         return nextData;
       } catch (fetchError) {
         if (isAbortError(fetchError)) {
-          return [];
+          if (mountedRef.current) {
+            setLoading(false);
+          }
+
+          return EMPTY_ARRAY;
         }
 
-        const normalizedError = toError(fetchError, messages.fetch);
+        const normalizedError = toError(
+          fetchError,
+          messages?.fetch ?? "Gagal memuat data.",
+        );
 
         if (
           mountedRef.current &&
-          requestVersion === requestVersionRef.current &&
+          generation === generationRef.current &&
           mutationVersion === mutationVersionRef.current
         ) {
           setError(normalizedError);
-        }
 
-        throw normalizedError;
-      } finally {
-        if (
-          mountedRef.current &&
-          requestVersion === requestVersionRef.current &&
-          mutationVersion === mutationVersionRef.current
-        ) {
           setLoading(false);
         }
 
-        if (controllerRef.current === controller) {
-          controllerRef.current = null;
-        }
+        throw normalizedError;
       }
     },
-    [cacheKey, messages.fetch, service, staleTime],
+    [cacheKey, messages?.fetch, service, staleTime],
   );
 
   /* ==========================================================
@@ -369,33 +301,39 @@ const useCrudResource = ({
 
       invalidate();
 
-      if (mountedRef.current) {
-        setError(null);
-      }
+      const mutationGeneration = generationRef.current;
 
       const promise = (async () => {
         try {
-          const item = await service.create(payload);
+          const created = await service.create(payload);
 
-          if (mountedRef.current && item !== null && item !== undefined) {
+          mutationVersionRef.current += 1;
+
+          if (
+            mountedRef.current &&
+            mutationGeneration === generationRef.current
+          ) {
             setData((current) => {
-              const nextData = [...current, item];
+              const nextData = [...current, created];
 
               if (cacheKey) {
-                setCachedResource(cacheKey, nextData);
+                setCachedResource(cacheKey, nextData, {
+                  version: getResourceVersion(cacheKey),
+                });
               }
 
               return nextData;
             });
+
+            setError(null);
           }
 
-          mutationVersionRef.current += 1;
-
-          return item;
+          return created;
         } catch (mutationError) {
-          mutationVersionRef.current += 1;
-
-          const normalizedError = toError(mutationError, messages.create);
+          const normalizedError = toError(
+            mutationError,
+            messages?.create ?? "Gagal membuat data.",
+          );
 
           if (mountedRef.current) {
             setError(normalizedError);
@@ -413,7 +351,7 @@ const useCrudResource = ({
 
       return promise;
     },
-    [cacheKey, invalidate, messages.create, service],
+    [cacheKey, invalidate, messages?.create, service],
   );
 
   /* ==========================================================
@@ -432,35 +370,41 @@ const useCrudResource = ({
 
       invalidate();
 
-      if (mountedRef.current) {
-        setError(null);
-      }
+      const mutationGeneration = generationRef.current;
 
       const promise = (async () => {
         try {
-          const item = await service.update(id, payload);
+          const updated = await service.update(id, payload);
 
-          if (mountedRef.current && item !== null && item !== undefined) {
+          mutationVersionRef.current += 1;
+
+          if (
+            mountedRef.current &&
+            mutationGeneration === generationRef.current
+          ) {
             setData((current) => {
-              const nextData = current.map((currentItem) =>
-                sameId(currentItem?.id, id) ? item : currentItem,
+              const nextData = current.map((item) =>
+                sameId(item?.id, id) ? updated : item,
               );
 
               if (cacheKey) {
-                setCachedResource(cacheKey, nextData);
+                setCachedResource(cacheKey, nextData, {
+                  version: getResourceVersion(cacheKey),
+                });
               }
 
               return nextData;
             });
+
+            setError(null);
           }
 
-          mutationVersionRef.current += 1;
-
-          return item;
+          return updated;
         } catch (mutationError) {
-          mutationVersionRef.current += 1;
-
-          const normalizedError = toError(mutationError, messages.update);
+          const normalizedError = toError(
+            mutationError,
+            messages?.update ?? "Gagal memperbarui data.",
+          );
 
           if (mountedRef.current) {
             setError(normalizedError);
@@ -478,7 +422,7 @@ const useCrudResource = ({
 
       return promise;
     },
-    [cacheKey, invalidate, messages.update, service],
+    [cacheKey, invalidate, messages?.update, service],
   );
 
   /* ==========================================================
@@ -497,33 +441,39 @@ const useCrudResource = ({
 
       invalidate();
 
-      if (mountedRef.current) {
-        setError(null);
-      }
+      const mutationGeneration = generationRef.current;
 
       const promise = (async () => {
         try {
           await service.remove(id);
 
-          if (mountedRef.current) {
+          mutationVersionRef.current += 1;
+
+          if (
+            mountedRef.current &&
+            mutationGeneration === generationRef.current
+          ) {
             setData((current) => {
               const nextData = current.filter((item) => !sameId(item?.id, id));
 
               if (cacheKey) {
-                setCachedResource(cacheKey, nextData);
+                setCachedResource(cacheKey, nextData, {
+                  version: getResourceVersion(cacheKey),
+                });
               }
 
               return nextData;
             });
-          }
 
-          mutationVersionRef.current += 1;
+            setError(null);
+          }
 
           return true;
         } catch (mutationError) {
-          mutationVersionRef.current += 1;
-
-          const normalizedError = toError(mutationError, messages.delete);
+          const normalizedError = toError(
+            mutationError,
+            messages?.delete ?? "Gagal menghapus data.",
+          );
 
           if (mountedRef.current) {
             setError(normalizedError);
@@ -541,7 +491,7 @@ const useCrudResource = ({
 
       return promise;
     },
-    [cacheKey, invalidate, messages.delete, service],
+    [cacheKey, invalidate, messages?.delete, service],
   );
 
   /* ==========================================================
@@ -549,16 +499,32 @@ const useCrudResource = ({
    * ========================================================== */
 
   useEffect(() => {
-    if (!autoFetch) {
-      setLoading(false);
-
+    if (!autoFetch || !cacheKey || !service) {
       return undefined;
     }
 
-    void fetchAll().catch(() => {});
+    let cancelled = false;
 
-    return undefined;
-  }, [autoFetch, fetchAll]);
+    const execute = async () => {
+      try {
+        if (!cancelled) {
+          await fetchAll();
+        }
+      } catch {
+        // handled internally
+      }
+    };
+
+    void execute();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [autoFetch, cacheKey, fetchAll, service]);
+
+  /* ==========================================================
+   * REFRESH
+   * ========================================================== */
 
   const refresh = useCallback(
     () =>
@@ -568,15 +534,23 @@ const useCrudResource = ({
     [fetchAll],
   );
 
+  /* ==========================================================
+   * RETURN
+   * ========================================================== */
+
   return {
     data,
+
     loading,
+
     error,
 
     fetchAll,
 
     create,
+
     update,
+
     remove,
 
     refresh,

@@ -2,6 +2,10 @@ import { memo, useCallback, useEffect, useState } from "react";
 
 import { cx } from "@/shared/utils";
 
+/* ============================================================
+ * PHOTO THUMBNAIL
+ * ============================================================ */
+
 const PhotoThumbnail = memo(
   ({ photo, index, subject = "belajar", onOpen, overlay = null }) => {
     const [hasError, setHasError] = useState(false);
@@ -25,12 +29,12 @@ const PhotoThumbnail = memo(
             "relative flex aspect-4/3 w-full items-center justify-center",
             "overflow-hidden rounded-xl",
             "border border-border bg-surface-muted",
-            "text-sm text-muted",
+            "px-3 text-center text-sm text-muted",
           )}
           role="img"
-          aria-label={`Dokumentasi ${index + 1} gagal dimuat`}
+          aria-label={`Foto ${index + 1} gagal dimuat`}
         >
-          <span>Gagal memuat foto</span>
+          <span>Foto gagal dimuat.</span>
         </div>
       );
     }
@@ -55,12 +59,14 @@ const PhotoThumbnail = memo(
           "motion-reduce:transition-none",
         )}
         aria-label={
-          hasOverlay ? overlay.label : `Lihat dokumentasi ${index + 1}`
+          hasOverlay
+            ? overlay.label || `Lihat ${overlay.count} foto lagi`
+            : `Lihat foto ${index + 1}`
         }
       >
         <img
           src={photo}
-          alt={`Dokumentasi kegiatan ${subject} ${index + 1}`}
+          alt={`Foto ${subject} ${index + 1}`}
           className={cx(
             "h-full w-full object-cover",
             "transition-transform",
@@ -73,12 +79,15 @@ const PhotoThumbnail = memo(
           onError={handleError}
         />
 
+        {/* ==================================================
+         * NORMAL OVERLAY
+         * ================================================== */}
+
         {!hasOverlay && (
           <span
             className={cx(
               "pointer-events-none absolute inset-0 flex items-end",
-              "bg-linear-to-t from-black/60",
-              "via-transparent to-transparent",
+              "bg-linear-to-t from-black/55 via-transparent to-transparent",
               "p-3 opacity-0",
               "transition-opacity",
               "duration-(--token-transition-base)",
@@ -88,9 +97,13 @@ const PhotoThumbnail = memo(
             )}
             aria-hidden="true"
           >
-            <span className="text-xs font-medium text-white">Lihat foto</span>
+            <span className="text-xs font-semibold text-white">Lihat</span>
           </span>
         )}
+
+        {/* ==================================================
+         * MORE PHOTOS OVERLAY
+         * ================================================== */}
 
         {hasOverlay && (
           <span
@@ -102,23 +115,16 @@ const PhotoThumbnail = memo(
               "transition-colors duration-(--token-transition-fast)",
               "group-hover:bg-black/75",
               "group-focus-visible:bg-black/75",
+              "motion-reduce:transition-none",
             )}
             aria-hidden="true"
           >
-            <span
-              className={cx("text-4xl font-bold leading-none", "sm:text-5xl")}
-            >
+            <span className="text-3xl font-bold leading-none sm:text-4xl">
               +{overlay.count}
             </span>
 
-            <span
-              className={cx(
-                "mt-2 px-3 text-center",
-                "text-xs font-bold uppercase tracking-wider",
-                "text-white",
-              )}
-            >
-              Foto lainnya
+            <span className="mt-1.5 text-xs font-medium text-white">
+              Foto lagi
             </span>
           </span>
         )}

@@ -6,6 +6,10 @@ import { StudentIcon } from "@/shared/icons";
 
 import { formatReportDate, hasValue } from "../utils/reportDetailUtils";
 
+/* ============================================================
+ * REPORT SUMMARY
+ * ============================================================ */
+
 const ReportSummary = memo(({ report }) => {
   if (!report) {
     return null;
@@ -29,9 +33,9 @@ const ReportSummary = memo(({ report }) => {
           value={hasValue(report.duration) ? `${report.duration} menit` : "-"}
         />
 
-        <InfoCard label="Mata Pelajaran" value={report.programName} />
+        <InfoCard label="Pelajaran" value={report.programName} />
 
-        <InfoCard label="Pengajar" value={report.teacherName} />
+        <InfoCard label="Guru" value={report.teacherName} />
 
         <InfoCard label="Tanggal" value={formatReportDate(report.reportDate)} />
       </div>

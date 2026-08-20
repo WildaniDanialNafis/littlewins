@@ -1,9 +1,9 @@
 import { cx } from "@/shared/utils/cx";
 
 const SIZES = {
-  sm: "h-4 w-4 border-2",
-  md: "h-6 w-6 border-2",
-  lg: "h-10 w-10 border-[3px]",
+  sm: "size-4 border-2",
+  md: "size-6 border-2",
+  lg: "size-10 border-[3px]",
 };
 
 export const Spinner = ({ size = "md", className = "", ...props }) => {

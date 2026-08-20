@@ -3,25 +3,31 @@ import { Link } from "react-router-dom";
 import { cx } from "@/shared/utils";
 
 /* ============================================================
- * BREADCRUMB
+ * BREADCRUMB SEPARATOR
  * ============================================================ */
 
-const BreadcrumbSeparator = () => (
-  <svg
-    className="size-4 shrink-0 text-muted/50"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <path d="m9 18 6-6-6-6" />
-  </svg>
-);
+const BreadcrumbSeparator = () => {
+  return (
+    <svg
+      className="h-4 w-4 shrink-0 text-muted/45"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m9 18 6-6-6-6" />
+    </svg>
+  );
+};
 
 BreadcrumbSeparator.displayName = "BreadcrumbSeparator";
+
+/* ============================================================
+ * BREADCRUMB ITEM
+ * ============================================================ */
 
 const BreadcrumbItem = ({ item, isLast }) => {
   const label = item.label.trim();
@@ -32,8 +38,8 @@ const BreadcrumbItem = ({ item, isLast }) => {
         aria-current="page"
         title={label}
         className={cx(
-          "min-w-0 max-w-[min(65vw,36rem)]",
-          "truncate font-medium text-text",
+          "min-w-0 max-w-[min(65vw,36rem)] truncate",
+          "font-semibold text-text",
         )}
       >
         {label}
@@ -52,17 +58,18 @@ const BreadcrumbItem = ({ item, isLast }) => {
       to={item.path}
       className={cx(
         "inline-flex min-h-8 shrink-0 items-center",
-        "rounded-md px-1.5",
+        "rounded-lg",
+        "px-0.5",
         "whitespace-nowrap",
         "text-muted",
-        "transition-colors duration-(--token-transition-fast)",
-        "hover:text-primary",
+        "transition-[background-color,color]",
+        "duration-(--token-transition-fast)",
+        "hover:bg-surface-muted hover:text-primary",
         "focus-visible:outline-none",
         "focus-visible:ring-2",
         "focus-visible:ring-primary/30",
         "focus-visible:ring-offset-2",
         "focus-visible:ring-offset-background",
-        "motion-reduce:transition-none",
       )}
     >
       {label}
@@ -84,19 +91,13 @@ const PageBreadcrumb = ({ items }) => {
   return (
     <nav
       aria-label="Breadcrumb"
-      className={cx(
-        "min-w-0",
-        "overflow-x-auto overflow-y-hidden",
-        "overscroll-x-contain",
-        "scrollbar-thin",
-        "-mx-1 px-1",
-      )}
+      className="min-w-0 overflow-x-auto overflow-y-hidden overscroll-x-contain"
     >
       <ol
         className={cx(
           "flex min-w-max items-center",
           "gap-1.5 sm:gap-2",
-          "text-sm leading-none",
+          "text-sm leading-5",
         )}
       >
         {items.map((item, index) => {
@@ -136,25 +137,19 @@ const PageHeader = ({ title, subtitle, actions }) => {
   return (
     <header
       className={cx(
-        "grid min-w-0",
-        "grid-cols-[minmax(0,1fr)_auto]",
-        "items-start",
-        "gap-x-4 gap-y-3",
-        "sm:gap-x-6 sm:gap-y-4",
+        "grid min-w-0 grid-cols-1",
+        "items-start gap-4",
+        "md:grid-cols-[minmax(0,1fr)_auto]",
+        "md:gap-6",
       )}
     >
-      {/* ======================================================
-       * TITLE / SUBTITLE
-       * ====================================================== */}
-
       {title && (
         <div className="min-w-0">
           <h1
             className={cx(
-              "min-w-0 max-w-4xl",
-              "wrap-break-word",
-              "text-2xl font-bold leading-tight tracking-tight",
-              "text-text",
+              "max-w-4xl wrap-break-word",
+              "text-2xl font-bold leading-tight",
+              "tracking-tight text-text",
               "sm:text-3xl",
             )}
           >
@@ -165,10 +160,8 @@ const PageHeader = ({ title, subtitle, actions }) => {
             <p
               className={cx(
                 "mt-2 max-w-2xl",
-                "text-sm leading-6",
-                "text-text-secondary",
+                "text-sm leading-6 text-text-secondary",
                 "sm:text-base sm:leading-7",
-                "text-pretty",
               )}
             >
               {subtitle}
@@ -177,16 +170,13 @@ const PageHeader = ({ title, subtitle, actions }) => {
         </div>
       )}
 
-      {/* ======================================================
-       * ACTIONS
-       * ====================================================== */}
-
       {actions && (
         <div
           className={cx(
             "min-w-0",
-            "flex shrink-0 items-center justify-end gap-2",
-            "pt-0.5",
+            "flex flex-wrap items-center gap-2",
+            "justify-start",
+            "md:shrink-0 md:justify-end",
           )}
         >
           {actions}
@@ -226,46 +216,21 @@ export const PageContainer = ({
   return (
     <main
       className={cx(
-        "page-container",
-        "min-w-0",
-
-        /* ======================================================
-         * MINIMUM CONTENT HEIGHT
-         * ====================================================== */
-
+        "page-container min-w-0",
         "min-h-[calc(100svh-4rem)]",
         "sm:min-h-[calc(100svh-4.5rem)]",
-        "lg:min-h-[calc(100svh-5rem)]",
-
-        /* ======================================================
-         * PAGE PADDING
-         * ====================================================== */
-
         "py-5 sm:py-6 lg:py-8",
-
         className,
       )}
     >
       <div className="min-w-0">
-        {/* ======================================================
-         * BREADCRUMB
-         * ====================================================== */}
-
         {hasBreadcrumb && <PageBreadcrumb items={safeBreadcrumb} />}
-
-        {/* ======================================================
-         * PAGE HEADER
-         * ====================================================== */}
 
         {hasHeader && (
           <div className={cx(hasBreadcrumb && "mt-layout-header")}>
             <PageHeader title={title} subtitle={subtitle} actions={actions} />
           </div>
         )}
-
-        {/* ======================================================
-         * CONTENT
-         * ====================================================== */}
 
         <div
           className={cx(

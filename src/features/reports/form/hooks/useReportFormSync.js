@@ -4,390 +4,567 @@ import {
   reportPhotoService,
 } from "@/services/api";
 
+import { getResourceKey, invalidateResource } from "@/shared/cache";
+
+import { STORAGE_KEYS } from "@/shared/constants";
+
 import {
   fileToBase64,
   getNextPhotoSortOrder,
   getPhotoId,
-  normalizeExistingRelations,
   normalizeId,
   normalizeImageFiles,
   normalizeRelationComparisonValue,
 } from "../utils/reportFormUtils";
 
 /* ============================================================
- * CONFIG
+ * HELPERS
  * ============================================================ */
 
-const RELATION_CONFIG = {
-  material: {
-    fallbackIdFields: ["material_id", "report_material_id"],
+const getCurrentUserScope = () => {
+  try {
+    const rawUser = localStorage.getItem(STORAGE_KEYS.user);
 
-    remove: (reportId, relationId) =>
-      reportMaterialService.removeMaterial(reportId, relationId),
+    if (!rawUser) {
+      return null;
+    }
 
-    create: (reportId, value) =>
-      reportMaterialService.createMaterial(reportId, {
-        material: value,
+    const user = JSON.parse(rawUser);
+
+    const userId = user?.profile?.id ?? user?.id;
+
+    if (userId === null || userId === undefined || userId === "") {
+      return null;
+    }
+
+    return `${String(user?.role ?? "unknown")
+      .trim()
+      .toLowerCase()}:${String(userId)}`;
+  } catch {
+    return null;
+  }
+};
+
+const invalidateReportRelationCaches = (reportId) => {
+  const normalizedReportId = normalizeId(reportId);
+
+  const userScope = getCurrentUserScope();
+
+  if (normalizedReportId === null || !userScope) {
+    return;
+  }
+
+  const resourceNames = ["materials", "activities", "photos"];
+
+  for (const resourceName of resourceNames) {
+    invalidateResource(
+      getResourceKey({
+        scope: `user:${userScope}`,
+
+        resource: `report:${normalizedReportId}:${resourceName}`,
       }),
+    );
+  }
+
+  /*
+   * Backward compatibility:
+   *
+   * Cache versi lama menggunakan:
+   * report:{id}:relation
+   */
+  invalidateResource(
+    getResourceKey({
+      scope: `user:${userScope}`,
+
+      resource: `report:${normalizedReportId}:relation`,
+    }),
+  );
+};
+
+/* ============================================================
+ * RELATION CONFIG
+ * ============================================================ */
+
+const RELATION_CONFIG = Object.freeze({
+  material: {
+    create: reportMaterialService.createMaterial.bind(reportMaterialService),
+
+    remove: reportMaterialService.removeMaterial.bind(reportMaterialService),
 
     getId: (item) =>
       normalizeId(item?.id ?? item?.material_id ?? item?.report_material_id),
 
-    getValue: (item) => item?.value ?? item?.material ?? item?.name ?? "",
+    getValue: (item) => item?.material ?? item?.value ?? item?.name ?? "",
   },
 
   activity: {
-    fallbackIdFields: ["activity_id", "report_activity_id"],
+    create: reportActivityService.createActivity.bind(reportActivityService),
 
-    remove: (reportId, relationId) =>
-      reportActivityService.removeActivity(reportId, relationId),
-
-    create: (reportId, value) =>
-      reportActivityService.createActivity(reportId, {
-        activity: value,
-      }),
+    remove: reportActivityService.removeActivity.bind(reportActivityService),
 
     getId: (item) =>
       normalizeId(item?.id ?? item?.activity_id ?? item?.report_activity_id),
 
-    getValue: (item) => item?.value ?? item?.activity ?? item?.name ?? "",
+    getValue: (item) => item?.activity ?? item?.value ?? item?.name ?? "",
   },
+});
+
+/* ============================================================
+ * ERROR
+ * ============================================================ */
+
+export const createReportSyncError = (
+  message,
+  {
+    cause = null,
+    created = [],
+    deleted = [],
+    restored = [],
+    operation = null,
+    partial = false,
+    rollbackFailed = [],
+  } = {},
+) => {
+  const error = new Error(message);
+
+  error.name = "ReportSyncError";
+
+  error.cause = cause;
+
+  error.created = created;
+
+  error.deleted = deleted;
+
+  error.restored = restored;
+
+  error.operation = operation;
+
+  error.partial = partial;
+
+  error.rollbackFailed = rollbackFailed;
+
+  return error;
 };
 
 /* ============================================================
- * HELPERS
+ * NORMALIZE
  * ============================================================ */
 
-const getUniqueDesiredValues = (values) => {
+const normalizeText = (value) =>
+  String(value ?? "")
+    .trim()
+    .replace(/\s+/g, " ");
+
+const getDesiredValues = (values) => {
   if (!Array.isArray(values)) {
     return [];
   }
 
+  const result = [];
+
   const seen = new Set();
 
-  const unique = [];
-
   for (const value of values) {
-    const normalized = normalizeRelationComparisonValue(value);
+    const text = normalizeText(value);
 
-    if (!normalized) {
+    const key = normalizeRelationComparisonValue(text);
+
+    if (!key) {
       continue;
     }
 
-    if (seen.has(normalized)) {
+    if (seen.has(key)) {
       continue;
     }
 
-    seen.add(normalized);
+    seen.add(key);
 
-    unique.push(value);
+    result.push(text);
   }
 
-  return unique;
+  return result;
 };
 
-const createExistingMap = (existingItems) => {
-  const map = new Map();
+const getExistingItems = (items, type) => {
+  const config = RELATION_CONFIG[type];
 
-  for (const item of existingItems) {
-    const normalizedValue = normalizeRelationComparisonValue(item.value);
-
-    if (!normalizedValue || item.id === null) {
-      continue;
-    }
-
-    /*
-     * Jika duplicate value memang sudah ada
-     * di database, pertahankan item pertama
-     * agar kita tidak menghapus semua duplicate
-     * tanpa alasan.
-     */
-    if (!map.has(normalizedValue)) {
-      map.set(normalizedValue, item);
-    }
+  if (!config || !Array.isArray(items)) {
+    return [];
   }
 
-  return map;
-};
+  const result = [];
 
-const rollbackCreatedRelations = async ({ reportId, ids, config }) => {
-  if (!Array.isArray(ids) || ids.length === 0) {
-    return;
-  }
+  const seenIds = new Set();
 
-  await Promise.allSettled(ids.map((id) => config.remove(reportId, id)));
-};
+  const seenValues = new Set();
 
-const restoreDeletedRelations = async ({ reportId, items, config }) => {
-  if (!Array.isArray(items) || items.length === 0) {
-    return;
-  }
-
-  /*
-   * Sequential restore:
-   * lebih deterministic ketika
-   * service/backend memiliki ordering.
-   */
   for (const item of items) {
-    await config.create(reportId, config.getValue(item));
+    if (!item || typeof item !== "object") {
+      continue;
+    }
+
+    const id = config.getId(item);
+
+    const value = normalizeText(config.getValue(item));
+
+    const key = normalizeRelationComparisonValue(value);
+
+    if (id === null || !key) {
+      continue;
+    }
+
+    if (seenIds.has(id) || seenValues.has(key)) {
+      continue;
+    }
+
+    seenIds.add(id);
+
+    seenValues.add(key);
+
+    result.push({
+      ...item,
+
+      id,
+
+      value,
+
+      normalized: key,
+    });
   }
+
+  return result;
 };
 
 /* ============================================================
- * RELATION SYNC
+ * PLAN
  * ============================================================ */
 
-const syncRelation = async ({ reportId, existing, desired, type }) => {
-  const config = RELATION_CONFIG[type];
+const buildRelationPlan = ({ existing, desired, type }) => {
+  const existingItems = getExistingItems(existing, type);
 
-  if (!config) {
-    throw new Error(`Relation type "${type}" tidak didukung.`);
+  const desiredValues = getDesiredValues(desired);
+
+  const existingByValue = new Map();
+
+  for (const item of existingItems) {
+    if (!existingByValue.has(item.normalized)) {
+      existingByValue.set(item.normalized, item);
+    }
   }
 
+  const keep = [];
+
+  const create = [];
+
+  for (const value of desiredValues) {
+    const key = normalizeRelationComparisonValue(value);
+
+    const existingItem = existingByValue.get(key);
+
+    if (existingItem) {
+      keep.push(existingItem);
+    } else {
+      create.push(value);
+    }
+  }
+
+  const keepIds = new Set(keep.map((item) => item.id));
+
+  const remove = existingItems.filter((item) => !keepIds.has(item.id));
+
+  return {
+    keep,
+    create,
+    remove,
+  };
+};
+
+/* ============================================================
+ * COMPENSATION
+ * ============================================================ */
+
+const createRelation = async (reportId, type, value) => {
+  const config = RELATION_CONFIG[type];
+
+  if (!config || typeof config.create !== "function") {
+    throw new Error(`Relation "${type}" tidak dapat dibuat.`);
+  }
+
+  const payload =
+    type === "material"
+      ? {
+          material: value,
+        }
+      : {
+          activity: value,
+        };
+
+  const created = await config.create(reportId, payload);
+
+  return {
+    entity: created,
+    id: config.getId(created),
+  };
+};
+
+const removeRelation = async (reportId, type, id) => {
+  const config = RELATION_CONFIG[type];
+
+  if (!config || typeof config.remove !== "function") {
+    throw new Error(`Relation "${type}" tidak dapat dihapus.`);
+  }
+
+  await config.remove(reportId, id);
+};
+
+const rollbackCreatedRelations = async ({ reportId, type, createdIds }) => {
+  const rollbackFailed = [];
+
+  if (!Array.isArray(createdIds) || createdIds.length === 0) {
+    return rollbackFailed;
+  }
+
+  const results = await Promise.allSettled(
+    createdIds.map((id) => removeRelation(reportId, type, id)),
+  );
+
+  results.forEach((result, index) => {
+    if (result.status === "rejected") {
+      rollbackFailed.push(createdIds[index]);
+    }
+  });
+
+  return rollbackFailed;
+};
+
+const restoreDeletedRelations = async ({ reportId, type, deletedItems }) => {
+  const restored = [];
+
+  const restoreFailed = [];
+
+  if (!Array.isArray(deletedItems) || deletedItems.length === 0) {
+    return {
+      restored,
+      restoreFailed,
+    };
+  }
+
+  /*
+   * Backend tidak menyediakan restore-by-id.
+   *
+   * Compensation dilakukan dengan recreate value.
+   * ID lama tidak dapat dijamin tetap sama.
+   */
+  for (const item of deletedItems) {
+    try {
+      const value = normalizeText(
+        item?.value ?? RELATION_CONFIG[type]?.getValue(item),
+      );
+
+      if (!value) {
+        restoreFailed.push(item.id);
+
+        continue;
+      }
+
+      const result = await createRelation(reportId, type, value);
+
+      restored.push({
+        previousId: item.id,
+
+        newId: result.id,
+
+        value,
+      });
+    } catch {
+      restoreFailed.push(item.id);
+    }
+  }
+
+  return {
+    restored,
+    restoreFailed,
+  };
+};
+
+/* ============================================================
+ * SYNC RELATION
+ * ============================================================ */
+
+const syncRelation = async ({
+  reportId,
+  existing = [],
+  desired = [],
+  type,
+}) => {
   const normalizedReportId = normalizeId(reportId);
 
   if (normalizedReportId === null) {
     throw new Error("Report ID wajib diisi.");
   }
 
-  const existingItems = normalizeExistingRelations(
-    existing,
-    type,
-    config.fallbackIdFields,
-  );
+  const config = RELATION_CONFIG[type];
 
-  const desiredValues = getUniqueDesiredValues(desired);
-
-  /*
-   * Existing relation lookup:
-   *
-   * value -> relation
-   *
-   * O(1) average lookup.
-   */
-  const existingMap = createExistingMap(existingItems);
-
-  const matchedIds = new Set();
-
-  const valuesToCreate = [];
-
-  for (const desiredValue of desiredValues) {
-    const normalizedDesired = normalizeRelationComparisonValue(desiredValue);
-
-    const match = existingMap.get(normalizedDesired);
-
-    if (match) {
-      matchedIds.add(match.id);
-
-      continue;
-    }
-
-    valuesToCreate.push(desiredValue);
+  if (!config) {
+    throw new Error(`Relation "${type}" tidak didukung.`);
   }
 
-  const itemsToDelete = existingItems.filter(
-    (item) => !matchedIds.has(item.id),
-  );
+  const plan = buildRelationPlan({
+    existing,
+    desired,
+    type,
+  });
 
-  /*
-   * Tidak ada perubahan sama sekali.
-   * Hindari network request.
-   */
-  if (valuesToCreate.length === 0 && itemsToDelete.length === 0) {
+  if (plan.create.length === 0 && plan.remove.length === 0) {
     return {
       created: [],
+
       deleted: [],
+
+      restored: [],
+
+      kept: plan.keep.map((item) => item.id),
+
+      changed: false,
     };
   }
 
   const createdIds = [];
 
-  /* ========================================================
-   * CREATE FIRST
-   * ======================================================== */
-
-  try {
-    /*
-     * Sequential create dipertahankan
-     * karena rollback membutuhkan ID
-     * yang baru saja dibuat.
-     */
-    for (const value of valuesToCreate) {
-      const created = await config.create(normalizedReportId, value);
-
-      const createdId = config.getId(created);
-
-      if (createdId !== null) {
-        createdIds.push(createdId);
-      }
-    }
-  } catch (error) {
-    await rollbackCreatedRelations({
-      reportId: normalizedReportId,
-
-      ids: createdIds,
-
-      config,
-    });
-
-    throw error;
-  }
-
-  /* ========================================================
-   * DELETE OLD
-   * ======================================================== */
+  const deletedIds = [];
 
   const deletedItems = [];
 
   try {
-    for (const item of itemsToDelete) {
-      await config.remove(normalizedReportId, item.id);
+    /*
+     * ========================================================
+     * CREATE FIRST
+     * ========================================================
+     *
+     * Create semua desired relation baru sebelum
+     * menghapus relation lama.
+     *
+     * Jika CREATE gagal, existing state belum tersentuh.
+     */
+    for (const value of plan.create) {
+      const result = await createRelation(normalizedReportId, type, value);
+
+      if (result.id !== null) {
+        createdIds.push(result.id);
+      }
+    }
+
+    /*
+     * ========================================================
+     * DELETE OLD
+     * ========================================================
+     */
+    for (const item of plan.remove) {
+      await removeRelation(normalizedReportId, type, item.id);
+
+      deletedIds.push(item.id);
 
       deletedItems.push(item);
     }
+
+    return {
+      created: createdIds,
+
+      deleted: deletedIds,
+
+      restored: [],
+
+      kept: plan.keep.map((item) => item.id),
+
+      changed: true,
+    };
   } catch (error) {
-    await Promise.allSettled([
-      rollbackCreatedRelations({
-        reportId: normalizedReportId,
+    /*
+     * ========================================================
+     * COMPENSATION
+     * ========================================================
+     */
 
-        ids: createdIds,
+    const rollbackFailed = await rollbackCreatedRelations({
+      reportId: normalizedReportId,
 
-        config,
-      }),
+      type,
 
-      restoreDeletedRelations({
-        reportId: normalizedReportId,
+      createdIds,
+    });
 
-        items: deletedItems,
+    const { restored, restoreFailed } = await restoreDeletedRelations({
+      reportId: normalizedReportId,
 
-        config,
-      }),
-    ]);
+      type,
 
-    throw error;
+      deletedItems,
+    });
+
+    const allRollbackFailed = [...rollbackFailed, ...restoreFailed];
+
+    throw createReportSyncError(`Gagal menyinkronkan ${type}.`, {
+      cause: error,
+
+      created: createdIds,
+
+      deleted: deletedIds,
+
+      restored,
+
+      operation: type,
+
+      partial: createdIds.length > 0 || deletedIds.length > 0,
+
+      rollbackFailed: allRollbackFailed,
+    });
+  } finally {
+    /*
+     * State backend mungkin sudah berubah walaupun
+     * operation gagal. Cache lama tidak boleh dipercaya.
+     */
+    invalidateReportRelationCaches(normalizedReportId);
   }
-
-  return {
-    created: createdIds,
-    deleted: deletedItems.map((item) => item.id),
-  };
 };
 
 /* ============================================================
- * MATERIALS
+ * MATERIAL
  * ============================================================ */
 
-export const syncMaterials = async ({ reportId, existing, desired }) => {
+export const syncMaterials = async ({
+  reportId,
+  existing = [],
+  desired = [],
+}) => {
   return syncRelation({
     reportId,
+
     existing,
+
     desired,
+
     type: "material",
   });
 };
 
 /* ============================================================
- * ACTIVITIES
+ * ACTIVITY
  * ============================================================ */
 
-export const syncActivities = async ({ reportId, existing, desired }) => {
+export const syncActivities = async ({
+  reportId,
+  existing = [],
+  desired = [],
+}) => {
   return syncRelation({
     reportId,
+
     existing,
+
     desired,
+
     type: "activity",
   });
-};
-
-/* ============================================================
- * PHOTO UPLOAD
- * ============================================================ */
-
-export const uploadPhotos = async ({ reportId, files, startOrder = 0 }) => {
-  const normalizedReportId = normalizeId(reportId);
-
-  if (normalizedReportId === null) {
-    throw new Error("Report ID wajib diisi.");
-  }
-
-  const normalizedFiles = normalizeImageFiles(files);
-
-  if (normalizedFiles.length === 0) {
-    return [];
-  }
-
-  const uploaded = [];
-
-  try {
-    /*
-     * Sequential processing sengaja:
-     * - menjaga memory usage
-     * - menjaga sort_order deterministik
-     * - mempermudah rollback
-     */
-    for (let index = 0; index < normalizedFiles.length; index += 1) {
-      const file = normalizedFiles[index];
-
-      const base64 = await fileToBase64(file, {
-        maxWidth: 1600,
-        maxHeight: 1600,
-        quality: 0.82,
-      });
-
-      const photo = await reportPhotoService.createPhoto(normalizedReportId, {
-        photo: base64,
-        sort_order: startOrder + index,
-      });
-
-      uploaded.push(photo);
-    }
-
-    return uploaded;
-  } catch (error) {
-    const uploadedIds = uploaded.map(getPhotoId).filter((id) => id !== null);
-
-    await Promise.allSettled(
-      uploadedIds.map((id) =>
-        reportPhotoService.removePhoto(normalizedReportId, id),
-      ),
-    );
-
-    throw error;
-  }
-};
-
-/* ============================================================
- * PHOTO DELETE
- * ============================================================ */
-
-export const removePhotos = async ({ reportId, photoIds }) => {
-  const normalizedReportId = normalizeId(reportId);
-
-  if (normalizedReportId === null) {
-    throw new Error("Report ID wajib diisi.");
-  }
-
-  if (!Array.isArray(photoIds) || photoIds.length === 0) {
-    return [];
-  }
-
-  const ids = Array.from(
-    new Set(photoIds.map(normalizeId).filter((id) => id !== null)),
-  );
-
-  if (ids.length === 0) {
-    return [];
-  }
-
-  const deletedIds = [];
-
-  for (const photoId of ids) {
-    await reportPhotoService.removePhoto(normalizedReportId, photoId);
-
-    deletedIds.push(photoId);
-  }
-
-  return deletedIds;
 };
 
 /* ============================================================
@@ -401,25 +578,207 @@ export const syncReportRelations = async ({
   existingMaterials = [],
   existingActivities = [],
 }) => {
-  const [materialResult, activityResult] = await Promise.all([
-    syncMaterials({
-      reportId,
+  const normalizedReportId = normalizeId(reportId);
+
+  if (normalizedReportId === null) {
+    throw new Error("Report ID wajib diisi.");
+  }
+
+  try {
+    /*
+     * Serialisasi dilakukan di level group.
+     *
+     * Material dan activity sama-sama merupakan bagian
+     * dari satu logical report mutation.
+     *
+     * Kita tidak menjalankannya dengan Promise.all lagi,
+     * sehingga failure pertama tidak meninggalkan operasi
+     * kedua yang masih berjalan di background.
+     */
+    const materialResult = await syncMaterials({
+      reportId: normalizedReportId,
+
       existing: existingMaterials,
+
       desired: materials,
-    }),
+    });
 
-    syncActivities({
-      reportId,
+    const activityResult = await syncActivities({
+      reportId: normalizedReportId,
+
       existing: existingActivities,
+
       desired: activities,
-    }),
-  ]);
+    });
 
-  return {
-    materials: materialResult,
+    invalidateReportRelationCaches(normalizedReportId);
 
-    activities: activityResult,
-  };
+    return {
+      materials: materialResult,
+
+      activities: activityResult,
+
+      changed: Boolean(materialResult.changed || activityResult.changed),
+    };
+  } catch (error) {
+    invalidateReportRelationCaches(normalizedReportId);
+
+    throw error;
+  }
+};
+
+/* ============================================================
+ * PHOTO HELPERS
+ * ============================================================ */
+
+const getFileIdentity = (file) => {
+  if (!file) {
+    return "";
+  }
+
+  return [file.name ?? "", file.size ?? 0, file.lastModified ?? 0].join(":");
+};
+
+const dedupeFiles = (files) => {
+  const normalized = normalizeImageFiles(files);
+
+  const seen = new Set();
+
+  return normalized.filter((file) => {
+    const key = getFileIdentity(file);
+
+    if (!key || seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+
+    return true;
+  });
+};
+
+/* ============================================================
+ * PHOTO UPLOAD
+ * ============================================================ */
+
+export const uploadPhotos = async ({
+  reportId,
+  files = [],
+  startOrder = 0,
+}) => {
+  const normalizedReportId = normalizeId(reportId);
+
+  if (normalizedReportId === null) {
+    throw new Error("Report ID wajib diisi.");
+  }
+
+  const uniqueFiles = dedupeFiles(files);
+
+  if (uniqueFiles.length === 0) {
+    return [];
+  }
+
+  const uploaded = [];
+
+  try {
+    /*
+     * Intentionally sequential.
+     *
+     * sort_order harus deterministik dan setiap upload
+     * harus diketahui hasilnya sebelum lanjut.
+     */
+    for (let index = 0; index < uniqueFiles.length; index += 1) {
+      const file = uniqueFiles[index];
+
+      const encoded = await fileToBase64(file, {
+        maxWidth: 1600,
+
+        maxHeight: 1600,
+
+        quality: 0.82,
+      });
+
+      const created = await reportPhotoService.createPhoto(normalizedReportId, {
+        photo: encoded,
+
+        sort_order: Number(startOrder) + index,
+      });
+
+      uploaded.push(created);
+    }
+
+    return uploaded;
+  } catch (error) {
+    const uploadedIds = uploaded.map(getPhotoId).filter((id) => id !== null);
+
+    const rollbackResults = await Promise.allSettled(
+      uploadedIds.map((id) =>
+        reportPhotoService.removePhoto(normalizedReportId, id),
+      ),
+    );
+
+    const rollbackFailed = uploadedIds.filter(
+      (_, index) => rollbackResults[index]?.status === "rejected",
+    );
+
+    throw createReportSyncError("Gagal mengunggah foto laporan.", {
+      cause: error,
+
+      created: uploadedIds,
+
+      operation: "photo-upload",
+
+      partial: uploaded.length > 0,
+
+      rollbackFailed,
+    });
+  }
+};
+
+/* ============================================================
+ * REMOVE PHOTO
+ * ============================================================ */
+
+export const removePhotos = async ({ reportId, photoIds = [] }) => {
+  const normalizedReportId = normalizeId(reportId);
+
+  if (normalizedReportId === null) {
+    throw new Error("Report ID wajib diisi.");
+  }
+
+  const ids = Array.from(
+    new Set(
+      (Array.isArray(photoIds) ? photoIds : [])
+        .map(normalizeId)
+        .filter((id) => id !== null),
+    ),
+  );
+
+  if (ids.length === 0) {
+    return [];
+  }
+
+  const deleted = [];
+
+  try {
+    for (const id of ids) {
+      await reportPhotoService.removePhoto(normalizedReportId, id);
+
+      deleted.push(id);
+    }
+
+    return deleted;
+  } catch (error) {
+    throw createReportSyncError("Gagal menghapus foto laporan.", {
+      cause: error,
+
+      deleted,
+
+      operation: "photo-delete",
+
+      partial: deleted.length > 0,
+    });
+  }
 };
 
 /* ============================================================
@@ -438,31 +797,99 @@ export const syncReportPhotos = async ({
     throw new Error("Report ID wajib diisi.");
   }
 
-  const uploaded = await uploadPhotos({
-    reportId: normalizedReportId,
-
-    files: newPhotos,
-
-    startOrder: getNextPhotoSortOrder(existingPhotos),
-  });
-
   try {
-    await removePhotos({
+    /*
+     * Upload new files FIRST.
+     *
+     * Existing photos remain untouched until
+     * all uploads are successful.
+     */
+    const uploaded = await uploadPhotos({
       reportId: normalizedReportId,
 
-      photoIds: removedPhotoIds,
-    });
-  } catch (error) {
-    const uploadedIds = uploaded.map(getPhotoId).filter((id) => id !== null);
+      files: newPhotos,
 
-    await Promise.allSettled(
-      uploadedIds.map((id) =>
-        reportPhotoService.removePhoto(normalizedReportId, id),
-      ),
-    );
+      startOrder: getNextPhotoSortOrder(existingPhotos),
+    });
+
+    try {
+      /*
+       * Delete old photos SECOND.
+       */
+      const deleted = await removePhotos({
+        reportId: normalizedReportId,
+
+        photoIds: removedPhotoIds,
+      });
+
+      invalidateReportRelationCaches(normalizedReportId);
+
+      return {
+        uploaded,
+
+        deleted,
+
+        changed: uploaded.length > 0 || deleted.length > 0,
+
+        partial: false,
+
+        rollbackFailed: [],
+      };
+    } catch (error) {
+      /*
+       * Delete gagal setelah sebagian/seluruh upload baru
+       * berhasil.
+       *
+       * New uploads dibatalkan.
+       *
+       * Existing deleted photos TIDAK dipalsukan sebagai
+       * restored karena backend tidak menyediakan restore
+       * endpoint dan kita tidak memiliki canonical binary
+       * payload yang aman untuk recreate.
+       */
+      const uploadedIds = uploaded.map(getPhotoId).filter((id) => id !== null);
+
+      const rollbackResults = await Promise.allSettled(
+        uploadedIds.map((id) =>
+          reportPhotoService.removePhoto(normalizedReportId, id),
+        ),
+      );
+
+      const rollbackFailed = uploadedIds.filter(
+        (_, index) => rollbackResults[index]?.status === "rejected",
+      );
+
+      throw createReportSyncError("Gagal menghapus foto lama laporan.", {
+        cause: error,
+
+        created: uploadedIds,
+
+        operation: "photo-sync",
+
+        partial: uploaded.length > 0,
+
+        rollbackFailed,
+      });
+    }
+  } catch (error) {
+    invalidateReportRelationCaches(normalizedReportId);
 
     throw error;
   }
+};
 
-  return uploaded;
+export default {
+  createReportSyncError,
+
+  syncMaterials,
+
+  syncActivities,
+
+  syncReportRelations,
+
+  uploadPhotos,
+
+  removePhotos,
+
+  syncReportPhotos,
 };

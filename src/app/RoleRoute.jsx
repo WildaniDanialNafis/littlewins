@@ -6,9 +6,10 @@ import { useAuth } from "@/shared/hooks";
 
 const ROLE_DASHBOARDS = Object.freeze({
   teacher: ROUTES.teacher.dashboard,
-
   student: ROUTES.student.dashboard,
 });
+
+const VALID_ROLES = new Set(["teacher", "student"]);
 
 const RoleLoading = () => {
   return (
@@ -36,20 +37,22 @@ const RoleRoute = ({ role }) => {
     return <Navigate to={ROUTES.login} replace />;
   }
 
-  const requestedDashboard = ROLE_DASHBOARDS[role];
-
-  if (!requestedDashboard) {
+  if (typeof role !== "string" || !VALID_ROLES.has(role)) {
     return <Navigate to={ROUTES.login} replace />;
   }
 
-  const currentDashboard = ROLE_DASHBOARDS[currentRole];
-
-  if (!currentDashboard) {
+  if (!currentRole || !VALID_ROLES.has(currentRole)) {
     return <Navigate to={ROUTES.login} replace />;
   }
 
   if (currentRole !== role) {
-    return <Navigate to={currentDashboard} replace />;
+    const dashboard = ROLE_DASHBOARDS[currentRole];
+
+    if (dashboard) {
+      return <Navigate to={dashboard} replace />;
+    }
+
+    return <Navigate to={ROUTES.login} replace />;
   }
 
   return <Outlet />;

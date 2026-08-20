@@ -1,4 +1,12 @@
-import { normalizeId } from "./reportSelectors";
+import {
+  getReportStudentId,
+  getReportTeacherId,
+  normalizeId,
+} from "./reportSelectors";
+
+/* ============================================================
+ * ROLE
+ * ============================================================ */
 
 const normalizeRole = (role) => {
   if (typeof role !== "string") {
@@ -10,27 +18,41 @@ const normalizeRole = (role) => {
   return normalized || null;
 };
 
+/* ============================================================
+ * USER
+ * ============================================================ */
+
 const getUserId = (user) => {
   if (!user || typeof user !== "object") {
     return null;
   }
 
-  return normalizeId(user.profile?.id ?? user.id ?? null);
+  return normalizeId(user?.profile?.id ?? user?.id ?? null);
 };
 
-const isTeacherOwner = (user, report) => {
+/* ============================================================
+ * OWNERSHIP
+ * ============================================================ */
+
+export const isTeacherReportOwner = (user, report) => {
   const userId = getUserId(user);
-  const teacherId = normalizeId(report?.teacher_id);
+
+  const teacherId = getReportTeacherId(report);
 
   return userId !== null && teacherId !== null && userId === teacherId;
 };
 
-const isStudentOwner = (user, report) => {
+export const isStudentReportOwner = (user, report) => {
   const userId = getUserId(user);
-  const studentId = normalizeId(report?.student_id);
+
+  const studentId = getReportStudentId(report);
 
   return userId !== null && studentId !== null && userId === studentId;
 };
+
+/* ============================================================
+ * VIEW
+ * ============================================================ */
 
 export const canViewReport = (user, report) => {
   if (!user || !report) {
@@ -41,55 +63,104 @@ export const canViewReport = (user, report) => {
 
   switch (role) {
     case "teacher":
-      return isTeacherOwner(user, report);
+      return isTeacherReportOwner(user, report);
 
     case "student":
-      return isStudentOwner(user, report);
+      return isStudentReportOwner(user, report);
 
     default:
       return false;
   }
 };
 
-export const canEditReport = (user, report) => {
-  if (!user || !report) {
-    return false;
-  }
-
-  return normalizeRole(user.role) === "teacher" && isTeacherOwner(user, report);
-};
+/* ============================================================
+ * CREATE
+ * ============================================================ */
 
 export const canCreateReport = (user) => {
   return normalizeRole(user?.role) === "teacher";
 };
 
+/* ============================================================
+ * EDIT
+ * ============================================================ */
+
+export const canEditReport = (user, report) => {
+  if (!user || !report) {
+    return false;
+  }
+
+  return (
+    normalizeRole(user.role) === "teacher" && isTeacherReportOwner(user, report)
+  );
+};
+
+/* ============================================================
+ * UPDATE
+ * ============================================================ */
+
+export const canUpdateReport = (user, report) => {
+  return canEditReport(user, report);
+};
+
+/* ============================================================
+ * DELETE
+ * ============================================================ */
+
 export const canDeleteReport = (user, report) => {
   return canEditReport(user, report);
 };
+
+/* ============================================================
+ * CAPABILITIES
+ * ============================================================ */
 
 export const getReportCapabilities = (user, report) => {
   if (!user || !report) {
     return {
       canView: false,
+
+      canCreate: canCreateReport(user),
+
       canEdit: false,
+
+      canUpdate: false,
+
       canDelete: false,
     };
   }
 
   const canView = canViewReport(user, report);
+
   const canEdit = canView && canEditReport(user, report);
 
   return {
     canView,
+
+    canCreate: canCreateReport(user),
+
     canEdit,
+
+    canUpdate: canEdit,
+
     canDelete: canEdit,
   };
 };
 
 export default {
+  isTeacherReportOwner,
+
+  isStudentReportOwner,
+
   canViewReport,
-  canEditReport,
+
   canCreateReport,
+
+  canEditReport,
+
+  canUpdateReport,
+
   canDeleteReport,
+
   getReportCapabilities,
 };

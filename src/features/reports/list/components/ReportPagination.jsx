@@ -4,11 +4,19 @@ import { Button } from "@/shared/components/ui";
 
 import { ChevronLeftIcon, ChevronRightIcon } from "@/shared/icons";
 
+/* ============================================================
+ * HELPERS
+ * ============================================================ */
+
 const toSafePage = (value) => {
   const numeric = Number(value);
 
   return Number.isInteger(numeric) && numeric > 0 ? numeric : 1;
 };
+
+/* ============================================================
+ * REPORT PAGINATION
+ * ============================================================ */
 
 const ReportPagination = memo(
   ({
@@ -41,38 +49,44 @@ const ReportPagination = memo(
 
     return (
       <nav
-        className="flex flex-col gap-3 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between"
-        aria-label="Pagination laporan"
+        aria-label="Navigasi laporan"
+        className="flex min-w-0 flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between"
       >
+        {/* ==================================================
+         * INFO
+         * ================================================== */}
+
         <p className="text-sm text-muted" aria-live="polite">
           {hasItems ? (
             <>
-              Menampilkan{" "}
-              <span className="font-semibold text-text">
-                {startItem} – {endItem}
-              </span>
+              {startItem}–{endItem}
             </>
           ) : (
             "Tidak ada laporan"
           )}
         </p>
 
-        <div className="flex items-center gap-2">
+        {/* ==================================================
+         * CONTROLS
+         * ================================================== */}
+
+        <div className="flex items-center gap-1.5">
           <Button
             type="button"
             variant="secondary"
             size="sm"
             disabled={!hasPreviousPage}
             onClick={handlePrevious}
-            aria-label="Halaman sebelumnya"
+            aria-label="Sebelumnya"
+            className="min-h-10"
           >
             <ChevronLeftIcon className="h-4 w-4" aria-hidden="true" />
 
-            <span className="ml-1 hidden sm:inline">Sebelumnya</span>
+            <span className="hidden sm:inline">Sebelumnya</span>
           </Button>
 
           <span
-            className="inline-flex h-10 min-w-10 items-center justify-center rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground"
+            className="inline-flex h-10 min-w-10 items-center justify-center rounded-lg bg-primary px-3 text-sm font-semibold tabular-nums text-primary-foreground"
             aria-current="page"
             aria-label={`Halaman ${page}`}
           >
@@ -85,9 +99,10 @@ const ReportPagination = memo(
             size="sm"
             disabled={!hasNextPage}
             onClick={handleNext}
-            aria-label="Halaman selanjutnya"
+            aria-label="Berikutnya"
+            className="min-h-10"
           >
-            <span className="mr-1 hidden sm:inline">Selanjutnya</span>
+            <span className="hidden sm:inline">Berikutnya</span>
 
             <ChevronRightIcon className="h-4 w-4" aria-hidden="true" />
           </Button>

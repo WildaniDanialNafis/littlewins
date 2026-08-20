@@ -2,6 +2,8 @@ import { reportMaterialService } from "@/services/api";
 
 import useReportRelationResource from "./useReportRelationResource";
 
+const DEFAULT_STALE_TIME = 60_000;
+
 const METHODS = Object.freeze({
   getAll: (reportId, options = {}) =>
     reportMaterialService.getAllMaterials(reportId, options),
@@ -27,10 +29,20 @@ const MESSAGES = Object.freeze({
 });
 
 export const useReportMaterials = (reportId, options = {}) => {
-  const { initialData, autoFetch = true, staleTime } = options;
+  const {
+    initialData,
+
+    autoFetch = true,
+
+    staleTime = DEFAULT_STALE_TIME,
+
+    forceFetchOnMount = false,
+  } = options;
 
   const resource = useReportRelationResource({
     reportId,
+
+    resourceKey: "materials",
 
     methods: METHODS,
 
@@ -41,10 +53,12 @@ export const useReportMaterials = (reportId, options = {}) => {
     autoFetch,
 
     staleTime,
+
+    forceFetchOnMount,
   });
 
   return {
-    materials: resource.data,
+    materials: Array.isArray(resource.data) ? resource.data : [],
 
     loading: resource.loading,
 

@@ -7,12 +7,16 @@ export { default as NotFoundPage } from "./NotFoundPage";
 export { default as LoginPage } from "./LoginPage";
 
 // ============================================================
-// TEACHER
+// SHARED
 // ============================================================
 
-export { default as TeacherDashboardPage } from "./teacher/DashboardPage";
+export { default as DashboardPage } from "./DashboardPage";
 
-export { default as TeacherSettingsPage } from "./teacher/SettingsPage";
+export { default as SettingsPage } from "./SettingsPage";
+
+// ============================================================
+// TEACHER
+// ============================================================
 
 export { default as TeacherReportsPage } from "./teacher/reports/ReportsPage";
 
@@ -25,10 +29,6 @@ export { default as TeacherReportEditPage } from "./teacher/reports/ReportEditPa
 // ============================================================
 // STUDENT
 // ============================================================
-
-export { default as StudentDashboardPage } from "./student/DashboardPage";
-
-export { default as StudentSettingsPage } from "./student/SettingsPage";
 
 export { default as StudentReportsPage } from "./student/reports/ReportsPage";
 

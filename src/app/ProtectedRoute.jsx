@@ -4,6 +4,8 @@ import { ROUTES } from "@/shared/constants";
 
 import { useAuth } from "@/shared/hooks";
 
+const VALID_ROLES = new Set(["teacher", "student"]);
+
 const AuthLoading = ({ label = "Memeriksa sesi..." }) => {
   return (
     <div
@@ -30,7 +32,7 @@ const ProtectedRoute = () => {
     return <Navigate to={ROUTES.login} replace />;
   }
 
-  if (role !== "teacher" && role !== "student") {
+  if (!role || !VALID_ROLES.has(role)) {
     return <Navigate to={ROUTES.login} replace />;
   }
 

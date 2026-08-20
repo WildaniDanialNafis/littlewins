@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 
 import { ContentBlock } from "@/shared/components/layout";
+
 import { Button } from "@/shared/components/ui";
 
 import { APP_NAME, ROUTES } from "@/shared/constants";
@@ -15,40 +16,120 @@ const NotFoundPage = () => {
   const currentYear = new Date().getFullYear();
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background px-4 py-16">
+    <main
+      className="
+        flex min-h-screen items-center justify-center
+        bg-background
+        px-4 py-6
+        sm:px-6 sm:py-10
+      "
+    >
       <div className="w-full max-w-md">
-        <ContentBlock>
-          <div className="text-center">
-            <div className="mb-6 flex justify-center">
-              <LogoIcon className="h-16 w-16" aria-hidden="true" />
+        <ContentBlock className="overflow-hidden p-0">
+          {/* ==================================================
+           * CONTENT
+           * ================================================== */}
+
+          <div
+            className="
+              px-5 py-8
+              text-center
+              sm:px-8 sm:py-10
+            "
+          >
+            {/* ==================================================
+             * BRAND
+             * ================================================== */}
+
+            <div
+              className="
+                mx-auto flex h-12 w-12
+                items-center justify-center
+                rounded-xl
+                bg-primary-soft
+                text-primary
+              "
+              aria-hidden="true"
+            >
+              <LogoIcon className="h-6 w-6" aria-hidden="true" />
             </div>
 
+            {/* ==================================================
+             * ERROR CODE
+             * ================================================== */}
+
             <p
-              className="text-7xl font-bold tracking-tight text-text"
+              className="
+                mt-5
+                text-6xl font-bold
+                leading-none tracking-tight
+                text-text
+                sm:text-7xl
+              "
               aria-hidden="true"
             >
               404
             </p>
 
-            <h1 className="mt-4 text-2xl font-semibold text-text">
-              Halaman Tidak Ditemukan
-            </h1>
+            {/* ==================================================
+             * MESSAGE
+             * ================================================== */}
 
-            <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted">
-              Maaf, halaman yang Anda cari tidak tersedia atau telah
-              dipindahkan.
-            </p>
+            <div className="mt-4">
+              <h1
+                className="
+                  text-xl font-bold
+                  tracking-tight text-text
+                  sm:text-2xl
+                "
+              >
+                Halaman Tidak Ditemukan
+              </h1>
 
-            <div className="mt-6 flex justify-center">
-              <Button as={Link} to={ROUTES.home} variant="primary" size="md">
-                Kembali
+              <p
+                className="
+                  mt-2
+                  text-sm leading-5
+                  text-muted
+                  sm:text-base
+                "
+              >
+                Halaman ini tidak tersedia.
+              </p>
+            </div>
+
+            {/* ==================================================
+             * ACTION
+             * ================================================== */}
+
+            <div className="mt-6">
+              <Button
+                as={Link}
+                to={ROUTES.home}
+                variant="primary"
+                size="lg"
+                className="w-full sm:w-auto"
+              >
+                Kembali ke Beranda
               </Button>
             </div>
           </div>
 
-          <footer className="mt-8 border-t border-border pt-5 text-center">
-            <p className="text-xs text-muted">
-              &copy; {currentYear} {APP_NAME}. All rights reserved.
+          {/* ==================================================
+           * FOOTER
+           * ================================================== */}
+
+          <footer
+            className="
+              border-t border-border
+              bg-surface-muted/20
+              px-5 py-4
+              text-center
+              sm:px-8
+            "
+          >
+            <p className="text-xs leading-5 text-muted">
+              © {currentYear} {APP_NAME}
             </p>
           </footer>
         </ContentBlock>

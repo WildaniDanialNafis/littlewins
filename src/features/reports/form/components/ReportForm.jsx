@@ -13,28 +13,36 @@ import { CheckIcon, CloseIcon, PlusIcon, TrashIcon } from "@/shared/icons";
 import ReportFormSection from "./ReportFormSection";
 import ReportPhotoSection from "./ReportPhotoSection";
 
+/* ============================================================
+ * CONSTANTS
+ * ============================================================ */
+
 const RATING_ITEMS = [
   {
     field: "rating_understanding",
-    label: "Pemahaman Materi",
-    description: "Sejauh mana siswa memahami materi.",
+    label: "Pemahaman",
+    description: "Pemahaman siswa.",
   },
   {
     field: "rating_activity",
-    label: "Keaktifan & Semangat",
-    description: "Keterlibatan siswa selama pembelajaran.",
+    label: "Keaktifan",
+    description: "Keterlibatan siswa.",
   },
   {
     field: "rating_discipline",
     label: "Kedisiplinan",
-    description: "Kedisiplinan siswa selama sesi berlangsung.",
+    description: "Sikap selama belajar.",
   },
   {
     field: "rating_communication",
-    label: "Kemampuan Komunikasi",
-    description: "Kemampuan siswa dalam berkomunikasi.",
+    label: "Komunikasi",
+    description: "Kemampuan berkomunikasi.",
   },
 ];
+
+/* ============================================================
+ * FIELD ERROR
+ * ============================================================ */
 
 const FieldError = ({ error }) => {
   if (!error) {
@@ -47,6 +55,12 @@ const FieldError = ({ error }) => {
     </p>
   );
 };
+
+FieldError.displayName = "FieldError";
+
+/* ============================================================
+ * DYNAMIC TEXT LIST
+ * ============================================================ */
 
 const DynamicTextList = ({
   items,
@@ -65,7 +79,7 @@ const DynamicTextList = ({
         {safeItems.map((item, index) => (
           <div
             key={`${placeholder}-${index}`}
-            className="flex items-start gap-2"
+            className="flex min-w-0 items-start gap-2"
           >
             <div className="min-w-0 flex-1">
               <Input
@@ -83,10 +97,12 @@ const DynamicTextList = ({
               onClick={() => onRemove(index)}
               aria-label={`Hapus ${placeholder.toLowerCase()} ${index + 1}`}
               className={[
-                "mt-0.5 inline-flex h-10 w-10 shrink-0",
+                "mt-0.5 inline-flex h-11 w-11 shrink-0",
                 "items-center justify-center rounded-xl",
                 "border border-border bg-surface",
-                "text-muted transition-colors",
+                "text-muted",
+                "transition-[background-color,border-color,color]",
+                "duration-(--token-transition-fast)",
                 "hover:border-danger/30",
                 "hover:bg-danger-soft",
                 "hover:text-danger",
@@ -95,6 +111,7 @@ const DynamicTextList = ({
                 "focus-visible:ring-primary/30",
                 "disabled:pointer-events-none",
                 "disabled:opacity-40",
+                "motion-reduce:transition-none",
               ].join(" ")}
             >
               <TrashIcon className="h-4 w-4" aria-hidden="true" />
@@ -118,6 +135,12 @@ const DynamicTextList = ({
     </div>
   );
 };
+
+DynamicTextList.displayName = "DynamicTextList";
+
+/* ============================================================
+ * REPORT FORM
+ * ============================================================ */
 
 const ReportForm = ({
   form,
@@ -157,23 +180,31 @@ const ReportForm = ({
     <form
       onSubmit={onSubmit}
       noValidate
-      className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm"
+      className="min-w-0 overflow-hidden rounded-2xl border border-border bg-surface shadow-sm"
     >
+      {/* ==================================================
+       * FORM ERROR
+       * ================================================== */}
+
       {errors.form && (
         <div
           role="alert"
-          className="border-b border-danger/20 bg-danger-soft px-5 py-4 sm:px-7"
+          className="border-b border-danger/20 bg-danger-soft px-4 py-3.5 sm:px-6"
         >
           <p className="text-sm font-medium text-danger">{errors.form}</p>
         </div>
       )}
 
+      {/* ==================================================
+       * BASIC INFO
+       * ================================================== */}
+
       <ReportFormSection
         eyebrow="Identitas"
-        title="Informasi pembelajaran"
-        description="Tentukan siswa, pengajar, program, dan kelas."
+        title="Informasi belajar"
+        description="Pilih siswa, guru, program, dan kelas."
       >
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="grid min-w-0 gap-4 md:grid-cols-2">
           <Select
             id="student_id"
             label="Siswa"
@@ -223,10 +254,10 @@ const ReportForm = ({
           />
         </div>
 
-        <div className="mt-5 grid gap-5 md:grid-cols-2">
+        <div className="mt-4 grid min-w-0 gap-4 md:grid-cols-2">
           <Input
             id="report_date"
-            label="Tanggal pembelajaran"
+            label="Tanggal"
             required
             type="date"
             value={form.report_date ?? ""}
@@ -250,10 +281,14 @@ const ReportForm = ({
         </div>
       </ReportFormSection>
 
+      {/* ==================================================
+       * MATERIALS
+       * ================================================== */}
+
       <ReportFormSection
         eyebrow="Materi"
-        title="Materi pembelajaran"
-        description="Catat materi yang dibahas selama sesi."
+        title="Materi"
+        description="Catat materi sesi."
       >
         <DynamicTextList
           items={form.materials}
@@ -266,10 +301,14 @@ const ReportForm = ({
         />
       </ReportFormSection>
 
+      {/* ==================================================
+       * ACTIVITIES
+       * ================================================== */}
+
       <ReportFormSection
         eyebrow="Aktivitas"
-        title="Aktivitas belajar"
-        description="Catat aktivitas utama yang dilakukan siswa."
+        title="Aktivitas"
+        description="Catat aktivitas siswa."
       >
         <DynamicTextList
           items={form.activities}
@@ -282,12 +321,16 @@ const ReportForm = ({
         />
       </ReportFormSection>
 
+      {/* ==================================================
+       * RATINGS
+       * ================================================== */}
+
       <ReportFormSection
         eyebrow="Penilaian"
-        title="Perkembangan siswa"
-        description="Berikan penilaian berdasarkan pengamatan selama pembelajaran."
+        title="Perkembangan"
+        description="Nilai berdasarkan pengamatan."
       >
-        <div className="space-y-4">
+        <div className="space-y-3.5">
           {RATING_ITEMS.map((item) => {
             const rating = Number(form[item.field]) || 0;
 
@@ -295,11 +338,13 @@ const ReportForm = ({
               <div
                 key={item.field}
                 className={[
-                  "rounded-xl border bg-surface-muted/40 p-4",
+                  "rounded-xl border",
+                  "bg-surface-muted/40",
+                  "p-4",
                   errors.rating ? "border-danger/40" : "border-border",
                 ].join(" ")}
               >
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 flex-col gap-3.5 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-text">
                       {item.label}
@@ -318,7 +363,7 @@ const ReportForm = ({
                       onChange={(value) => onRatingChange(item.field, value)}
                     />
 
-                    <span className="min-w-8 text-center text-sm font-semibold text-text">
+                    <span className="min-w-8 text-center text-sm font-semibold tabular-nums text-text">
                       {rating > 0 ? rating : "—"}
                     </span>
                   </div>
@@ -344,17 +389,21 @@ const ReportForm = ({
         </div>
       </ReportFormSection>
 
+      {/* ==================================================
+       * NOTES
+       * ================================================== */}
+
       <ReportFormSection
         eyebrow="Catatan"
-        title="Catatan pembelajaran"
-        description="Tambahkan pekerjaan rumah, catatan pengajar, dan rekomendasi."
+        title="Catatan"
+        description="Tambahkan tugas dan catatan."
       >
-        <div className="space-y-5">
+        <div className="space-y-4">
           <Textarea
             id="homework"
-            label="Pekerjaan rumah"
+            label="Tugas"
             rows={4}
-            placeholder="Tuliskan pekerjaan rumah atau tindak lanjut siswa."
+            placeholder="Tulis tugas atau tindak lanjut."
             value={form.homework ?? ""}
             disabled={disabled}
             onChange={(event) => onChange("homework", event.target.value)}
@@ -364,7 +413,7 @@ const ReportForm = ({
             id="teacher_note"
             label="Catatan pengajar"
             rows={5}
-            placeholder="Tuliskan perkembangan, kekuatan, atau hal yang perlu diperhatikan."
+            placeholder="Tulis catatan pengajar."
             value={form.teacher_note ?? ""}
             disabled={disabled}
             onChange={(event) => onChange("teacher_note", event.target.value)}
@@ -374,7 +423,7 @@ const ReportForm = ({
             id="recommendation"
             label="Rekomendasi"
             rows={5}
-            placeholder="Tuliskan rekomendasi untuk pertemuan berikutnya."
+            placeholder="Tulis rekomendasi berikutnya."
             value={form.recommendation ?? ""}
             disabled={disabled}
             onChange={(event) => onChange("recommendation", event.target.value)}
@@ -382,10 +431,14 @@ const ReportForm = ({
         </div>
       </ReportFormSection>
 
+      {/* ==================================================
+       * PHOTOS
+       * ================================================== */}
+
       <ReportFormSection
         eyebrow="Dokumentasi"
-        title="Foto kegiatan"
-        description="Tambahkan dokumentasi visual pembelajaran."
+        title="Foto"
+        description="Tambahkan foto kegiatan."
       >
         <ReportPhotoSection
           photos={form.photos}
@@ -397,12 +450,17 @@ const ReportForm = ({
         />
       </ReportFormSection>
 
-      <footer className="flex flex-col-reverse gap-3 border-t border-border bg-surface-muted/40 px-5 py-5 sm:flex-row sm:justify-end sm:px-7">
+      {/* ==================================================
+       * ACTIONS
+       * ================================================== */}
+
+      <footer className="flex flex-col-reverse gap-2.5 border-t border-border bg-surface-muted/40 px-4 py-4 sm:flex-row sm:justify-end sm:px-6">
         <Button
           type="button"
           variant="secondary"
           disabled={disabled}
           onClick={onCancel}
+          className="w-full sm:w-auto"
         >
           <CloseIcon className="h-4 w-4" aria-hidden="true" />
 
@@ -414,10 +472,11 @@ const ReportForm = ({
           variant="primary"
           disabled={disabled || relationOptionsLoading}
           loading={submitting}
+          className="w-full sm:w-auto"
         >
           <CheckIcon className="h-4 w-4" aria-hidden="true" />
 
-          <span>{submitting ? "Menyimpan..." : "Simpan laporan"}</span>
+          <span>{submitting ? "Menyimpan..." : "Simpan"}</span>
         </Button>
       </footer>
     </form>

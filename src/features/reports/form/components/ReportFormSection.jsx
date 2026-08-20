@@ -2,24 +2,24 @@ import { memo } from "react";
 
 const ReportFormSection = ({ eyebrow, title, description, children }) => {
   return (
-    <section className="border-b border-border px-5 py-7 last:border-b-0 sm:px-7 sm:py-8">
+    <section className="px-4 py-5 sm:px-6 sm:py-6">
       <div className="max-w-2xl">
         {eyebrow && (
-          <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-primary">
             {eyebrow}
           </p>
         )}
 
-        <h2 className="mt-1 text-lg font-semibold tracking-tight text-text sm:text-xl">
+        <h2 className="mt-1 text-lg font-bold tracking-tight text-text sm:text-xl">
           {title}
         </h2>
 
         {description && (
-          <p className="mt-1.5 text-sm leading-6 text-muted">{description}</p>
+          <p className="mt-1 text-sm leading-5 text-muted">{description}</p>
         )}
       </div>
 
-      <div className="mt-6">{children}</div>
+      <div className="mt-4">{children}</div>
     </section>
   );
 };

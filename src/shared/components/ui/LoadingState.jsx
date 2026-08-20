@@ -9,8 +9,9 @@ export const LoadingState = ({
   return (
     <div
       className={cx(
-        "rounded-xl border border-border bg-surface px-5 py-12 text-center shadow-sm",
-        "sm:px-8",
+        "rounded-2xl bg-surface",
+        "px-5 py-12 text-center",
+        "sm:px-8 sm:py-14",
         className,
       )}
       aria-busy="true"

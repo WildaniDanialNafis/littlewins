@@ -17,8 +17,9 @@ export const ErrorState = ({
   return (
     <div
       className={cx(
-        "rounded-xl border border-border bg-surface px-5 py-12 text-center shadow-sm",
-        "sm:px-8",
+        "rounded-2xl bg-surface",
+        "px-5 py-10 text-center",
+        "sm:px-8 sm:py-12",
         className,
       )}
       role="alert"

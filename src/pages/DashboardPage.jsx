@@ -37,26 +37,53 @@ const ActionLink = ({
     <Link
       to={to}
       className={cx(
-        "inline-flex min-h-10 shrink-0 items-center justify-center gap-2",
-        "rounded-lg px-4 py-2.5",
-        "text-sm font-medium leading-none select-none",
-        "transition-[background-color,border-color,color,box-shadow,opacity]",
-        "duration-(--token-transition-fast) ease-out",
+        "inline-flex min-h-11 shrink-0",
+        "items-center justify-center gap-2",
+        "rounded-xl border",
+        "px-4 py-2.5",
+        "text-sm font-semibold leading-none",
+        "select-none",
+        "transition-[background-color,border-color,color,box-shadow]",
+        "duration-(--token-transition-fast)",
+        "ease-out",
+        "motion-reduce:transition-none",
+
         "focus-visible:outline-none",
         "focus-visible:ring-2",
         "focus-visible:ring-primary/30",
         "focus-visible:ring-offset-2",
         "focus-visible:ring-offset-background",
-        "motion-reduce:transition-none",
 
         variant === "primary" &&
-          "bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-active",
+          [
+            "border-transparent",
+            "bg-primary",
+            "text-primary-foreground",
+            "shadow-sm",
+            "hover:bg-primary-hover",
+            "active:bg-primary-active",
+          ].join(" "),
 
         variant === "secondary" &&
-          "border border-border bg-surface text-text hover:border-border-strong hover:bg-surface-muted active:bg-surface-muted",
+          [
+            "border-border",
+            "bg-surface",
+            "text-text",
+            "hover:border-border-strong",
+            "hover:bg-surface-muted",
+            "active:bg-surface-muted",
+          ].join(" "),
 
         variant === "ghost" &&
-          "px-3 text-muted hover:bg-surface-muted hover:text-text active:bg-surface-muted",
+          [
+            "border-transparent",
+            "bg-transparent",
+            "px-3",
+            "text-muted",
+            "hover:bg-surface-muted",
+            "hover:text-text",
+            "active:bg-surface-muted",
+          ].join(" "),
 
         className,
       )}
@@ -70,6 +97,304 @@ const ActionLink = ({
 ActionLink.displayName = "ActionLink";
 
 /* ============================================================
+ * WELCOME SECTION
+ * ============================================================ */
+
+const WelcomeSection = ({
+  userName,
+  isTeacher,
+  settingsRoute,
+  createReportRoute,
+}) => {
+  const description = isTeacher
+    ? "Kelola laporan siswa dengan mudah."
+    : "Lihat perkembangan belajar Anda.";
+
+  return (
+    <section aria-labelledby="dashboard-welcome-title" className="pb-6">
+      <div className="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3.5 sm:items-center sm:gap-4">
+          <div
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary"
+            aria-hidden="true"
+          >
+            <UserIcon className="h-6 w-6" aria-hidden="true" />
+          </div>
+
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted">
+              Selamat datang
+            </p>
+
+            <h2
+              id="dashboard-welcome-title"
+              className="mt-1 truncate text-xl font-bold tracking-tight text-text sm:text-2xl"
+              title={userName || "Pengguna"}
+            >
+              {userName || "Pengguna"}
+            </h2>
+
+            <p className="mt-1 text-sm leading-5 text-muted sm:text-base">
+              {description}
+            </p>
+          </div>
+        </div>
+
+        <nav
+          aria-label="Aksi dashboard"
+          className={cx(
+            "grid w-full shrink-0 gap-2",
+            isTeacher ? "grid-cols-2" : "grid-cols-1",
+            "sm:flex sm:w-auto",
+          )}
+        >
+          <ActionLink
+            to={settingsRoute}
+            variant="secondary"
+            className="w-full sm:w-auto"
+          >
+            Pengaturan
+          </ActionLink>
+
+          {isTeacher && (
+            <ActionLink
+              to={createReportRoute}
+              variant="primary"
+              className="w-full sm:w-auto"
+            >
+              <PlusIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+
+              <span>Buat Laporan</span>
+            </ActionLink>
+          )}
+        </nav>
+      </div>
+    </section>
+  );
+};
+
+WelcomeSection.displayName = "WelcomeSection";
+
+/* ============================================================
+ * REPORT META
+ * ============================================================ */
+
+const ReportMeta = ({ reportDate, duration }) => {
+  if (!reportDate && !hasValue(duration)) {
+    return null;
+  }
+
+  return (
+    <div
+      className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted"
+      aria-label="Informasi laporan"
+    >
+      {reportDate && (
+        <span className="inline-flex items-center gap-1.5">
+          <CalendarIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+
+          <time dateTime={reportDate}>{formatDateShort(reportDate)}</time>
+        </span>
+      )}
+
+      {hasValue(duration) && <span className="shrink-0">{duration} menit</span>}
+    </div>
+  );
+};
+
+ReportMeta.displayName = "ReportMeta";
+
+/* ============================================================
+ * LATEST REPORT
+ * ============================================================ */
+
+const LatestReport = ({ report, isTeacher, reportDetailRoute }) => {
+  if (!report) {
+    return null;
+  }
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-border bg-surface">
+      <div className="p-4 sm:p-5">
+        <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-semibold uppercase tracking-[0.08em] text-primary">
+              {report.programName || "Program belajar"}
+            </p>
+
+            <h3 className="mt-1 truncate text-lg font-bold tracking-tight text-text sm:text-xl">
+              {isTeacher
+                ? report.studentName || "Siswa"
+                : "Perkembangan Belajar"}
+            </h3>
+          </div>
+
+          <div
+            className={cx(
+              "flex shrink-0 flex-col items-center justify-center",
+              "min-w-18",
+              "rounded-xl border border-border",
+              "bg-surface-muted/50",
+              "px-3 py-2",
+              "sm:min-w-20 sm:px-3.5 sm:py-2.5",
+            )}
+            aria-label={`Nilai ${
+              hasValue(report.score) ? report.score : "tidak tersedia"
+            }`}
+          >
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
+              Nilai
+            </p>
+
+            <p className="mt-0.5 text-xl font-bold tabular-nums text-text sm:text-2xl">
+              {hasValue(report.score) ? report.score : "-"}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <ReportMeta
+            reportDate={report.reportDate}
+            duration={report.duration}
+          />
+        </div>
+      </div>
+
+      <div className="border-t border-border bg-surface-muted/20 p-4 sm:p-5">
+        <div
+          className={cx(
+            "flex gap-3",
+            "flex-col",
+            "sm:flex-row sm:items-center sm:justify-between",
+          )}
+        >
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-muted">Laporan terakhir</p>
+
+            <p className="mt-0.5 text-sm font-medium text-text">
+              Lihat detail laporan
+            </p>
+          </div>
+
+          <ActionLink
+            to={reportDetailRoute}
+            variant="primary"
+            className="w-full sm:w-auto"
+          >
+            <EyeIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+
+            <span>Lihat Detail</span>
+          </ActionLink>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+LatestReport.displayName = "LatestReport";
+
+/* ============================================================
+ * LATEST REPORT SECTION
+ * ============================================================ */
+
+const LatestReportSection = ({
+  latestReportData,
+  isTeacher,
+  reportsRoute,
+  createReportRoute,
+  reportDetailRoute,
+}) => {
+  const description = isTeacher
+    ? "Laporan terakhir yang dibuat."
+    : "Laporan belajar terakhir Anda.";
+
+  return (
+    <section aria-labelledby="latest-report-title" className="pt-6">
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <div className="min-w-0">
+          <SectionTitle title="Laporan Terbaru" description={description} />
+        </div>
+
+        <ActionLink
+          to={reportsRoute}
+          variant="ghost"
+          className="shrink-0"
+          aria-label="Lihat semua laporan"
+        >
+          <span className="hidden sm:inline">Lihat semua</span>
+
+          <span className="sm:hidden">Semua</span>
+        </ActionLink>
+      </div>
+
+      <div className="mt-4">
+        {!latestReportData ? (
+          <div className="rounded-xl border border-border bg-surface-muted/20 p-4 sm:p-5">
+            <EmptyState
+              title="Belum ada laporan"
+              description={
+                isTeacher
+                  ? "Belum ada laporan. Buat laporan pertama."
+                  : "Belum ada laporan untuk Anda."
+              }
+              action={
+                isTeacher ? (
+                  <ActionLink to={createReportRoute} variant="primary">
+                    <PlusIcon className="h-4 w-4" aria-hidden="true" />
+
+                    <span>Buat Laporan</span>
+                  </ActionLink>
+                ) : null
+              }
+            />
+          </div>
+        ) : (
+          <LatestReport
+            report={latestReportData}
+            isTeacher={isTeacher}
+            reportDetailRoute={reportDetailRoute}
+          />
+        )}
+      </div>
+    </section>
+  );
+};
+
+LatestReportSection.displayName = "LatestReportSection";
+
+/* ============================================================
+ * LOADING
+ * ============================================================ */
+
+const DashboardLoading = ({ title }) => {
+  return (
+    <PageContainer title={title} subtitle={`Selamat datang di ${APP_NAME}.`}>
+      <ContentBlock>
+        <LoadingState message="Memuat dashboard..." />
+      </ContentBlock>
+    </PageContainer>
+  );
+};
+
+DashboardLoading.displayName = "DashboardLoading";
+
+/* ============================================================
+ * ERROR
+ * ============================================================ */
+
+const DashboardError = ({ title, error, refresh }) => {
+  return (
+    <PageContainer title={title} subtitle="Gagal memuat data.">
+      <ContentBlock>
+        <ErrorState error={error} onRetry={refresh} />
+      </ContentBlock>
+    </PageContainer>
+  );
+};
+
+DashboardError.displayName = "DashboardError";
+
+/* ============================================================
  * PAGE
  * ============================================================ */
 
@@ -77,235 +402,58 @@ const DashboardPage = ({ role = "teacher" }) => {
   const { userName, isTeacher, latestReportData, isLoading, error, refresh } =
     useDashboardData(role);
 
-  /* ==========================================================
-   * DERIVED VIEW DATA
-   *
-   * Semua business/data logic sudah dilakukan
-   * oleh useDashboardData.
-   * ========================================================== */
-
   const dashboardTitle = isTeacher ? "Dashboard Guru" : "Dashboard Siswa";
 
   const subtitle = userName
     ? `Selamat datang kembali, ${userName}.`
     : `Selamat datang di ${APP_NAME}.`;
 
-  /* ==========================================================
-   * LOADING
-   * ========================================================== */
+  const settingsRoute = isTeacher
+    ? ROUTES.teacher.settings
+    : ROUTES.student.settings;
+
+  const reportsRoute = isTeacher
+    ? ROUTES.teacher.reports
+    : ROUTES.student.reports;
+
+  const createReportRoute = isTeacher ? ROUTES.teacher.reportNew : null;
+
+  const reportDetailRoute = latestReportData
+    ? isTeacher
+      ? ROUTES.teacher.reportDetail(latestReportData.id)
+      : ROUTES.student.reportDetail(latestReportData.id)
+    : null;
 
   if (isLoading) {
-    return (
-      <PageContainer
-        title={dashboardTitle}
-        subtitle={`Selamat datang di ${APP_NAME}.`}
-      >
-        <ContentBlock>
-          <LoadingState message="Memuat data dashboard..." />
-        </ContentBlock>
-      </PageContainer>
-    );
+    return <DashboardLoading title={dashboardTitle} />;
   }
-
-  /* ==========================================================
-   * ERROR
-   * ========================================================== */
 
   if (error) {
     return (
-      <PageContainer title={dashboardTitle} subtitle="Gagal memuat data.">
-        <ContentBlock>
-          <ErrorState error={error} onRetry={refresh} />
-        </ContentBlock>
-      </PageContainer>
+      <DashboardError title={dashboardTitle} error={error} refresh={refresh} />
     );
   }
 
-  /* ==========================================================
-   * VIEW
-   * ========================================================== */
-
   return (
     <PageContainer title={dashboardTitle} subtitle={subtitle}>
-      <div className="min-w-0 space-y-8">
-        {/* ====================================================
-         * WELCOME
-         * ==================================================== */}
+      <ContentBlock>
+        <div className="divide-y divide-border">
+          <WelcomeSection
+            userName={userName}
+            isTeacher={isTeacher}
+            settingsRoute={settingsRoute}
+            createReportRoute={createReportRoute}
+          />
 
-        <ContentBlock>
-          <header className="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex min-w-0 items-start gap-4">
-              <div
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary"
-                aria-hidden="true"
-              >
-                <UserIcon className="h-6 w-6" />
-              </div>
-
-              <div className="min-w-0">
-                <p className="text-sm text-muted">Selamat datang</p>
-
-                <h2 className="mt-0.5 wrap-break-word text-xl font-bold tracking-tight text-text">
-                  {userName}
-                </h2>
-
-                <p className="mt-1 text-sm leading-relaxed text-text-secondary">
-                  {isTeacher
-                    ? "Kelola laporan belajar siswa dengan mudah."
-                    : "Lihat perkembangan belajar dan laporan Anda."}
-                </p>
-              </div>
-            </div>
-
-            <nav
-              aria-label="Aksi dashboard"
-              className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row"
-            >
-              <ActionLink
-                to={
-                  isTeacher ? ROUTES.teacher.settings : ROUTES.student.settings
-                }
-                variant="secondary"
-                className="w-full sm:w-auto"
-              >
-                Pengaturan
-              </ActionLink>
-
-              {isTeacher && (
-                <ActionLink
-                  to={ROUTES.teacher.reportNew}
-                  variant="primary"
-                  className="w-full sm:w-auto"
-                >
-                  <PlusIcon className="h-4 w-4" aria-hidden="true" />
-
-                  <span>Buat Laporan</span>
-                </ActionLink>
-              )}
-            </nav>
-          </header>
-        </ContentBlock>
-
-        {/* ====================================================
-         * LATEST REPORT
-         * ==================================================== */}
-
-        <section aria-label="Laporan terbaru" className="min-w-0">
-          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <SectionTitle
-              title="Laporan Terbaru"
-              description={
-                isTeacher
-                  ? "Laporan terakhir yang Anda buat."
-                  : "Laporan perkembangan belajar terakhir Anda."
-              }
-            />
-
-            <ActionLink
-              to={isTeacher ? ROUTES.teacher.reports : ROUTES.student.reports}
-              variant="ghost"
-              className="w-fit"
-            >
-              Lihat semua laporan
-            </ActionLink>
-          </div>
-
-          <div className="mt-4 min-w-0">
-            {!latestReportData ? (
-              <ContentBlock>
-                <EmptyState
-                  title="Belum ada laporan"
-                  description={
-                    isTeacher
-                      ? "Anda belum membuat laporan belajar. Buat laporan pertama untuk mulai mencatat perkembangan siswa."
-                      : "Belum ada laporan perkembangan belajar yang tersedia untuk Anda."
-                  }
-                  action={
-                    isTeacher ? (
-                      <ActionLink
-                        to={ROUTES.teacher.reportNew}
-                        variant="primary"
-                      >
-                        <PlusIcon className="h-4 w-4" aria-hidden="true" />
-
-                        <span>Buat Laporan</span>
-                      </ActionLink>
-                    ) : null
-                  }
-                />
-              </ContentBlock>
-            ) : (
-              <ContentBlock>
-                <article>
-                  <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-5">
-                    <div className="min-w-0">
-                      <p className="wrap-break-word text-xs font-semibold uppercase tracking-wider text-primary">
-                        {latestReportData.programName}
-                      </p>
-
-                      <h3 className="mt-1 wrap-break-word text-lg font-bold text-text">
-                        {isTeacher
-                          ? latestReportData.studentName
-                          : "Perkembangan Belajar"}
-                      </h3>
-
-                      <div
-                        className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted"
-                        aria-label="Informasi laporan"
-                      >
-                        {latestReportData.reportDate && (
-                          <span className="inline-flex max-w-full items-center gap-1.5">
-                            <CalendarIcon
-                              className="h-4 w-4 shrink-0"
-                              aria-hidden="true"
-                            />
-
-                            <time dateTime={latestReportData.reportDate}>
-                              {formatDateShort(latestReportData.reportDate)}
-                            </time>
-                          </span>
-                        )}
-
-                        {hasValue(latestReportData.duration) && (
-                          <span>{latestReportData.duration} menit</span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="shrink-0">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-muted text-right">
-                        Nilai
-                      </p>
-
-                      <p className="mt-1 text-right text-2xl font-bold tabular-nums text-text">
-                        {hasValue(latestReportData.score)
-                          ? latestReportData.score
-                          : "-"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 border-t border-border pt-4">
-                    <ActionLink
-                      to={
-                        isTeacher
-                          ? ROUTES.teacher.reportDetail(latestReportData.id)
-                          : ROUTES.student.reportDetail(latestReportData.id)
-                      }
-                      variant="primary"
-                      className="w-full sm:w-auto"
-                    >
-                      <EyeIcon className="h-4 w-4" aria-hidden="true" />
-
-                      <span>Lihat Detail Laporan</span>
-                    </ActionLink>
-                  </div>
-                </article>
-              </ContentBlock>
-            )}
-          </div>
-        </section>
-      </div>
+          <LatestReportSection
+            latestReportData={latestReportData}
+            isTeacher={isTeacher}
+            reportsRoute={reportsRoute}
+            createReportRoute={createReportRoute}
+            reportDetailRoute={reportDetailRoute}
+          />
+        </div>
+      </ContentBlock>
     </PageContainer>
   );
 };

@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+
 import { useNavigate, useParams } from "react-router-dom";
 
 import ReportForm from "../components/ReportForm";
@@ -17,6 +18,10 @@ import { ArrowLeftIcon } from "@/shared/icons";
 
 import { ROUTES } from "@/shared/constants";
 
+/* ============================================================
+ * HELPERS
+ * ============================================================ */
+
 const normalizeId = (value) => {
   if (value === null || value === undefined || value === "") {
     return null;
@@ -31,6 +36,32 @@ const normalizeId = (value) => {
   return numericValue;
 };
 
+/* ============================================================
+ * ACTION
+ * ============================================================ */
+
+const BackButton = ({ onClick, label = "Kembali" }) => {
+  return (
+    <Button
+      type="button"
+      variant="secondary"
+      size="md"
+      onClick={onClick}
+      className="w-full sm:w-auto"
+    >
+      <ArrowLeftIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+
+      <span>{label}</span>
+    </Button>
+  );
+};
+
+BackButton.displayName = "BackButton";
+
+/* ============================================================
+ * PAGE
+ * ============================================================ */
+
 const ReportFormPage = ({ mode = "create" }) => {
   const navigate = useNavigate();
 
@@ -39,6 +70,10 @@ const ReportFormPage = ({ mode = "create" }) => {
   const isEdit = mode === "edit";
 
   const normalizedReportId = normalizeId(id);
+
+  /* ==========================================================
+   * SUCCESS
+   * ========================================================== */
 
   const handleSuccess = useCallback(
     (report) => {
@@ -54,10 +89,19 @@ const ReportFormPage = ({ mode = "create" }) => {
 
       navigate(ROUTES.teacher.reportDetail(savedReportId), {
         replace: true,
+        state: {
+          reportUpdated: true,
+          reportId: savedReportId,
+          updatedAt: Date.now(),
+        },
       });
     },
     [navigate, normalizedReportId],
   );
+
+  /* ==========================================================
+   * FORM
+   * ========================================================== */
 
   const {
     form,
@@ -67,33 +111,31 @@ const ReportFormPage = ({ mode = "create" }) => {
     error,
     existingPhotos,
     relationOptionsLoading,
-
     studentOptions,
     teacherOptions,
     programOptions,
     classOptions,
-
     updateField,
     updateRating,
-
     addMaterial,
     removeMaterial,
     changeMaterial,
-
     addActivity,
     removeActivity,
     changeActivity,
-
     addPhoto,
     removePhoto,
     removeExistingPhoto,
-
     handleSubmit,
   } = useReportForm({
     mode,
     reportId: normalizedReportId,
     onSuccess: handleSuccess,
   });
+
+  /* ==========================================================
+   * CANCEL
+   * ========================================================== */
 
   const handleCancel = useCallback(() => {
     if (isEdit && normalizedReportId !== null) {
@@ -105,67 +147,134 @@ const ReportFormPage = ({ mode = "create" }) => {
     navigate(ROUTES.teacher.reports);
   }, [navigate, isEdit, normalizedReportId]);
 
+  /* ==========================================================
+   * PAGE CONFIG
+   * ========================================================== */
+
+  const pageTitle = isEdit ? "Edit Laporan" : "Buat Laporan";
+
+  const pageSubtitle = isEdit ? "Perbarui laporan." : "Buat laporan belajar.";
+
+  const breadcrumb = isEdit
+    ? [
+        {
+          label: "Laporan",
+          path: ROUTES.teacher.reports,
+        },
+        {
+          label: "Edit",
+        },
+      ]
+    : [
+        {
+          label: "Laporan",
+          path: ROUTES.teacher.reports,
+        },
+        {
+          label: "Buat",
+        },
+      ];
+
+  /* ==========================================================
+   * INVALID ID
+   * ========================================================== */
+
   if (isEdit && normalizedReportId === null) {
     return (
-      <PageContainer>
+      <PageContainer
+        title="Edit Laporan"
+        subtitle="Laporan tidak valid."
+        breadcrumb={[
+          {
+            label: "Laporan",
+            path: ROUTES.teacher.reports,
+          },
+          {
+            label: "Edit",
+          },
+        ]}
+      >
         <EmptyState
           title="Laporan tidak valid"
-          description="ID laporan yang ingin diedit tidak valid."
-          action={
-            <Button type="button" variant="secondary" onClick={handleCancel}>
-              <ArrowLeftIcon className="h-4 w-4" aria-hidden="true" />
-              Kembali
-            </Button>
-          }
+          description="ID laporan tidak valid."
+          action={<BackButton onClick={handleCancel} />}
         />
       </PageContainer>
     );
   }
 
+  /* ==========================================================
+   * LOADING
+   * ========================================================== */
+
   if (isLoading && !form) {
     return (
-      <PageContainer>
-        <LoadingState />
+      <PageContainer
+        title={pageTitle}
+        subtitle={pageSubtitle}
+        breadcrumb={breadcrumb}
+      >
+        <LoadingState message="Memuat formulir..." />
       </PageContainer>
     );
   }
 
+  /* ==========================================================
+   * ERROR
+   * ========================================================== */
+
   if (error && isEdit && !form) {
     return (
-      <PageContainer>
+      <PageContainer
+        title={pageTitle}
+        subtitle="Gagal memuat."
+        breadcrumb={breadcrumb}
+      >
         <ErrorState title="Gagal memuat laporan" description={error} />
       </PageContainer>
     );
   }
 
+  /* ==========================================================
+   * VIEW
+   * ========================================================== */
+
   return (
-    <PageContainer>
-      <ReportForm
-        mode={mode}
-        form={form}
-        errors={errors}
-        loading={isLoading || relationOptionsLoading}
-        submitting={submitting}
-        error={error}
-        existingPhotos={existingPhotos}
-        studentOptions={studentOptions}
-        teacherOptions={teacherOptions}
-        programOptions={programOptions}
-        classOptions={classOptions}
-        onChange={updateField}
-        onRatingChange={updateRating}
-        onAddMaterial={addMaterial}
-        onRemoveMaterial={removeMaterial}
-        onChangeMaterial={changeMaterial}
-        onAddActivity={addActivity}
-        onRemoveActivity={removeActivity}
-        onChangeActivity={changeActivity}
-        onAddPhoto={addPhoto}
-        onRemovePhoto={removePhoto}
-        onRemoveExistingPhoto={removeExistingPhoto}
-        onSubmit={handleSubmit}
-        onCancel={handleCancel}
-      />
+    <PageContainer
+      title={pageTitle}
+      subtitle={pageSubtitle}
+      breadcrumb={breadcrumb}
+      actions={<BackButton onClick={handleCancel} />}
+    >
+      <div className="min-w-0">
+        <ReportForm
+          mode={mode}
+          form={form}
+          errors={errors}
+          loading={isLoading}
+          submitting={submitting}
+          error={error}
+          existingPhotos={existingPhotos}
+          studentOptions={studentOptions}
+          teacherOptions={teacherOptions}
+          programOptions={programOptions}
+          classOptions={classOptions}
+          relationOptionsLoading={relationOptionsLoading}
+          onChange={updateField}
+          onRatingChange={updateRating}
+          onAddMaterial={addMaterial}
+          onRemoveMaterial={removeMaterial}
+          onMaterialChange={changeMaterial}
+          onAddActivity={addActivity}
+          onRemoveActivity={removeActivity}
+          onActivityChange={changeActivity}
+          onAddPhoto={addPhoto}
+          onRemovePhoto={removePhoto}
+          onRemoveExistingPhoto={removeExistingPhoto}
+          onSubmit={handleSubmit}
+          onCancel={handleCancel}
+        />
+      </div>
     </PageContainer>
   );
 };

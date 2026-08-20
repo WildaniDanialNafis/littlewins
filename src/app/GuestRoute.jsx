@@ -4,6 +4,11 @@ import { ROUTES } from "@/shared/constants";
 
 import { useAuth } from "@/shared/hooks";
 
+const ROLE_DASHBOARDS = Object.freeze({
+  teacher: ROUTES.teacher.dashboard,
+  student: ROUTES.student.dashboard,
+});
+
 const AuthLoading = () => {
   return (
     <div
@@ -30,20 +35,13 @@ const GuestRoute = () => {
     return <Outlet />;
   }
 
-  switch (role) {
-    case "teacher":
-      return <Navigate to={ROUTES.teacher.dashboard} replace />;
+  const dashboard = ROLE_DASHBOARDS[role];
 
-    case "student":
-      return <Navigate to={ROUTES.student.dashboard} replace />;
-
-    default:
-      /*
-       * Authenticated tetapi role invalid.
-       * Jangan memberikan guest route.
-       */
-      return <Navigate to={ROUTES.login} replace />;
+  if (dashboard) {
+    return <Navigate to={dashboard} replace />;
   }
+
+  return <Navigate to={ROUTES.login} replace />;
 };
 
 GuestRoute.displayName = "GuestRoute";

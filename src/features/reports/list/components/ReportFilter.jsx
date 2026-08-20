@@ -6,6 +6,10 @@ import { SearchIcon, SortIcon } from "@/shared/icons";
 
 import { cx } from "@/shared/utils";
 
+/* ============================================================
+ * CONSTANTS
+ * ============================================================ */
+
 const SORT_OPTIONS = [
   {
     key: "report_date",
@@ -25,6 +29,36 @@ const SORT_OPTIONS = [
   },
 ];
 
+/* ============================================================
+ * SORT BUTTON CLASS
+ * ============================================================ */
+
+const SORT_BUTTON_CLASS = [
+  "shrink-0",
+  "bg-surface",
+  "text-text",
+  "ring-1 ring-border",
+  "shadow-none",
+  "transition-colors duration-(--token-transition-fast)",
+
+  "hover:bg-surface-muted",
+  "hover:text-text",
+
+  "active:bg-surface-hover",
+
+  "focus-visible:outline-none",
+  "focus-visible:ring-2",
+  "focus-visible:ring-primary/30",
+  "focus-visible:ring-offset-2",
+  "focus-visible:ring-offset-background",
+
+  "motion-reduce:transition-none",
+].join(" ");
+
+/* ============================================================
+ * REPORT FILTER
+ * ============================================================ */
+
 const ReportFilter = memo(
   ({
     role = "teacher",
@@ -40,26 +74,41 @@ const ReportFilter = memo(
 
     const placeholder =
       role === "teacher"
-        ? "Cari mata pelajaran atau siswa..."
-        : "Cari mata pelajaran atau guru...";
+        ? "Cari siswa atau pelajaran"
+        : "Cari guru atau pelajaran";
 
-    const sortLabel = sortDirection === "asc" ? "Urutan naik" : "Urutan turun";
+    const sortLabel = sortDirection === "asc" ? "Naik" : "Turun";
 
     return (
-      <section aria-label="Filter laporan" className="mb-6">
+      <section aria-label="Filter laporan" className="min-w-0">
         <div
           className={cx(
-            "rounded-2xl bg-surface p-3 shadow-sm ring-1 ring-border",
-            "sm:p-4",
+            "rounded-xl",
+            "border border-border",
+            "bg-surface",
+            "p-3 sm:p-4",
           )}
         >
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <div
+            className={cx(
+              "flex min-w-0 flex-col gap-2.5",
+              "lg:flex-row lg:items-center",
+            )}
+          >
+            {/* ==================================================
+             * SEARCH
+             * ================================================== */}
+
             <div className="relative min-w-0 flex-1">
               <div
-                className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-muted"
+                className={cx(
+                  "pointer-events-none absolute inset-y-0 left-0",
+                  "flex items-center pl-3.5",
+                  "text-muted",
+                )}
                 aria-hidden="true"
               >
-                <SearchIcon className="h-4 w-4" />
+                <SearchIcon className="h-4 w-4" aria-hidden="true" />
               </div>
 
               <label htmlFor={searchId} className="sr-only">
@@ -75,20 +124,28 @@ const ReportFilter = memo(
                   onSearchChange?.(event.target.value);
                 }}
                 className={cx(
-                  "h-11 w-full rounded-xl border border-border",
-                  "bg-surface-muted pl-11 pr-4",
+                  "h-11 w-full rounded-xl",
+                  "border border-border",
+                  "bg-surface-muted",
+                  "pl-10 pr-4",
                   "text-sm text-text outline-none",
                   "placeholder:text-placeholder",
                   "transition-[background-color,border-color,box-shadow]",
                   "duration-(--token-transition-fast)",
-                  "focus:border-primary focus:bg-surface",
-                  "focus:ring-2 focus:ring-primary/20",
+                  "focus:border-primary",
+                  "focus:bg-surface",
+                  "focus:ring-2",
+                  "focus:ring-primary/20",
                   "motion-reduce:transition-none",
                 )}
               />
             </div>
 
-            <div className="flex w-full gap-2 lg:w-auto">
+            {/* ==================================================
+             * SORT
+             * ================================================== */}
+
+            <div className="flex w-full min-w-0 gap-2 lg:w-auto">
               <label htmlFor={sortId} className="sr-only">
                 Urutkan laporan
               </label>
@@ -101,14 +158,18 @@ const ReportFilter = memo(
                 }}
                 className={cx(
                   "h-11 min-w-0 flex-1 rounded-xl",
-                  "border border-border bg-surface px-4",
+                  "border border-border",
+                  "bg-surface-muted",
+                  "px-3.5",
                   "text-sm font-medium text-text outline-none",
-                  "transition-[border-color,box-shadow]",
+                  "transition-[background-color,border-color,box-shadow]",
                   "duration-(--token-transition-fast)",
                   "focus:border-primary",
-                  "focus:ring-2 focus:ring-primary/20",
-                  "sm:min-w-45 sm:flex-none",
+                  "focus:bg-surface",
+                  "focus:ring-2",
+                  "focus:ring-primary/20",
                   "motion-reduce:transition-none",
+                  "sm:min-w-[11rem] sm:flex-none",
                 )}
               >
                 {SORT_OPTIONS.map((option) => (
@@ -120,11 +181,11 @@ const ReportFilter = memo(
 
               <Button
                 type="button"
-                variant="ghost"
                 size="icon"
                 onClick={onToggleSort}
-                aria-label={`Ubah urutan laporan. Saat ini ${sortLabel}`}
-                title={sortLabel}
+                aria-label={`Urutan ${sortLabel.toLowerCase()}`}
+                title={`Urutan ${sortLabel}`}
+                className={SORT_BUTTON_CLASS}
               >
                 <SortIcon className="h-4 w-4" aria-hidden="true" />
               </Button>

@@ -76,6 +76,11 @@ const applyThemeToDocument = (theme) => {
 export const ThemeProvider = ({ children }) => {
   const [preference, setPreferenceState] = useState(getStoredTheme);
 
+  /*
+   * Initial value is already synchronized from matchMedia.
+   * The effect below is only responsible for subscribing
+   * to future OS preference changes.
+   */
   const [systemTheme, setSystemTheme] = useState(getSystemTheme);
 
   useEffect(() => {
@@ -97,8 +102,6 @@ export const ThemeProvider = ({ children }) => {
 
       setSystemTheme(event.matches ? THEME.values.dark : THEME.values.light);
     };
-
-    setSystemTheme(mediaQuery.matches ? THEME.values.dark : THEME.values.light);
 
     if (typeof mediaQuery.addEventListener === "function") {
       mediaQuery.addEventListener("change", handleChange);

@@ -6,10 +6,6 @@ const DEFAULT_HEADERS = Object.freeze({
   Accept: "application/json",
 });
 
-/* ============================================================
- * HELPERS
- * ============================================================ */
-
 const buildPath = (path = "") => {
   if (!path) {
     return "";
@@ -40,16 +36,25 @@ const normalizeTimeout = (timeout) => {
   return Number.isFinite(value) && value > 0 ? value : DEFAULT_TIMEOUT;
 };
 
-const createError = (message, name = "Error") => {
+const createError = (message, name = "Error", cause) => {
   if (typeof DOMException === "function") {
-    return new DOMException(message, name);
+    const error = new DOMException(message, name);
+
+    if (cause !== undefined) {
+      error.cause = cause;
+    }
+
+    return error;
   }
 
-  const error = new Error(message);
-
-  error.name = name;
-
-  return error;
+  return new Error(
+    message,
+    cause !== undefined
+      ? {
+          cause,
+        }
+      : undefined,
+  );
 };
 
 const createTimeoutController = (timeout) => {
@@ -100,18 +105,22 @@ const linkAbortSignal = (externalSignal, controller) => {
   };
 };
 
-const createAbortError = (signal, fallbackMessage) => {
+const createAbortError = (signal, fallbackMessage, cause) => {
   const reason = signal?.reason;
 
   if (reason instanceof Error) {
+    if (reason.cause === undefined && cause !== undefined) {
+      reason.cause = cause;
+    }
+
     return reason;
   }
 
   if (typeof reason === "string" && reason.trim()) {
-    return new Error(reason);
+    return createError(reason, "AbortError", cause);
   }
 
-  return createError(fallbackMessage, "AbortError");
+  return createError(fallbackMessage, "AbortError", cause);
 };
 
 const isAbortError = (error) => {
@@ -127,30 +136,12 @@ const isFormDataBody = (body) => {
   return typeof FormData !== "undefined" && body instanceof FormData;
 };
 
-const isJsonString = (body) => {
-  if (typeof body !== "string") {
-    return false;
-  }
-
-  const trimmed = body.trim();
-
-  return trimmed.startsWith("{") || trimmed.startsWith("[");
-};
-
 export const isRequestAborted = isAbortError;
-
-/* ============================================================
- * SERVICE
- * ============================================================ */
 
 export class BaseService {
   constructor(endpoint) {
     this.endpoint = endpoint;
   }
-
-  /* ==========================================================
-   * REQUEST
-   * ========================================================== */
 
   async _request(path = "", options = {}) {
     const {
@@ -239,27 +230,22 @@ export class BaseService {
       return data;
     } catch (error) {
       if (isAbortError(error) || signal?.aborted) {
-        throw createAbortError(signal, "Request dibatalkan.");
+        throw createAbortError(signal, "Request dibatalkan.", error);
       }
 
-      /*
-       * Network / browser error
-       * tetap diteruskan sebagai Error.
-       */
       if (error instanceof Error) {
         throw error;
       }
 
-      throw new Error("Request gagal.");
+      throw new Error("Request gagal.", {
+        cause: error,
+      });
     } finally {
       unlinkSignal();
+
       timeoutConfig.cleanup();
     }
   }
-
-  /* ==========================================================
-   * RESPONSE
-   * ========================================================== */
 
   async _parseResponse(response) {
     const contentType = response.headers.get("content-type") || "";
@@ -277,21 +263,10 @@ export class BaseService {
       }
     }
 
-    /*
-     * Jangan memaksa semua non-JSON
-     * menjadi error.
-     *
-     * Beberapa endpoint bisa
-     * mengembalikan plain text.
-     */
     const text = await response.text();
 
     return text || null;
   }
-
-  /* ==========================================================
-   * ERROR
-   * ========================================================== */
 
   _createError(response, data) {
     let message = `Request gagal dengan status ${response.status}`;
@@ -302,7 +277,9 @@ export class BaseService {
       message = data;
     }
 
-    const error = new Error(message);
+    const error = new Error(message, {
+      cause: data instanceof Error ? data : undefined,
+    });
 
     error.name = "ApiError";
 
@@ -315,17 +292,9 @@ export class BaseService {
     return error;
   }
 
-  /* ==========================================================
-   * PUBLIC REQUEST
-   * ========================================================== */
-
   request(path = "", options = {}) {
     return this._request(path, options);
   }
-
-  /* ==========================================================
-   * CRUD
-   * ========================================================== */
 
   getAll(options = {}) {
     return this.request("", {
@@ -363,10 +332,6 @@ export class BaseService {
       ...options,
     });
   }
-
-  /* ==========================================================
-   * ID
-   * ========================================================== */
 
   _idPath(id) {
     if (id === null || id === undefined || id === "") {

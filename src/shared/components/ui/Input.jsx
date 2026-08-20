@@ -1,17 +1,24 @@
-import { forwardRef, useState } from "react";
+import { forwardRef, useCallback, useState } from "react";
 
 import { cx } from "@/shared/utils/cx";
 
 const getFieldClasses = (error) =>
   cx(
-    "w-full rounded-xl border bg-surface px-3.5 py-2.5 text-sm text-text",
-    "transition-colors duration-(--token-transition-fast)",
+    "w-full rounded-xl border bg-surface",
+    "px-3.5 py-2.5",
+    "text-sm text-text",
+    "transition-[border-color,box-shadow]",
+    "duration-(--token-transition-fast)",
     "placeholder:text-placeholder",
     "focus:outline-none focus:ring-2",
     "disabled:cursor-not-allowed disabled:opacity-60",
     error
-      ? "border-danger focus:border-danger focus:ring-danger/20"
-      : "border-border focus:border-primary focus:ring-primary/20",
+      ? ["border-danger", "focus:border-danger", "focus:ring-danger/20"].join(
+          " ",
+        )
+      : ["border-border", "focus:border-primary", "focus:ring-primary/20"].join(
+          " ",
+        ),
   );
 
 const FieldError = ({ id, error, show }) => {
@@ -20,7 +27,7 @@ const FieldError = ({ id, error, show }) => {
   }
 
   return (
-    <p id={id} role="alert" className="mt-1.5 text-xs text-danger">
+    <p id={id} role="alert" className="mt-1.5 text-xs leading-5 text-danger">
       {error}
     </p>
   );
@@ -32,10 +39,14 @@ export const Input = forwardRef(
 
     const errorId = id ? `${id}-error` : undefined;
 
-    const handleBlur = (event) => {
-      setTouched(true);
-      onBlur?.(event);
-    };
+    const handleBlur = useCallback(
+      (event) => {
+        setTouched(true);
+
+        onBlur?.(event);
+      },
+      [onBlur],
+    );
 
     const showError = touched && Boolean(error);
 
@@ -57,6 +68,7 @@ export const Input = forwardRef(
         )}
 
         <input
+          {...props}
           ref={ref}
           id={id}
           className={cx(
@@ -66,7 +78,6 @@ export const Input = forwardRef(
           aria-invalid={showError}
           aria-describedby={showError ? errorId : undefined}
           onBlur={handleBlur}
-          {...props}
         />
 
         <FieldError id={errorId} error={error} show={showError} />

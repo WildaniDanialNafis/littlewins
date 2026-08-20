@@ -9,6 +9,8 @@ import {
   normalizeId,
 } from "../../domain/reportSelectors";
 
+import { normalizeReport } from "../../domain/reportNormalizer";
+
 /* ============================================================
  * BASIC
  * ============================================================ */
@@ -37,7 +39,7 @@ export const getName = (item, fallback = "-") => {
 };
 
 /* ============================================================
- * LOOKUP
+ * LOOKUPS
  * ============================================================ */
 
 const ensureLookupMap = (items) => {
@@ -51,17 +53,15 @@ export const createReportLookupMaps = ({
   teachers = [],
   programs = [],
   classes = [],
-} = {}) => {
-  return {
-    studentMap: ensureLookupMap(students),
+} = {}) => ({
+  studentMap: ensureLookupMap(students),
 
-    teacherMap: ensureLookupMap(teachers),
+  teacherMap: ensureLookupMap(teachers),
 
-    programMap: ensureLookupMap(programs),
+  programMap: ensureLookupMap(programs),
 
-    classMap: ensureLookupMap(classes),
-  };
-};
+  classMap: ensureLookupMap(classes),
+});
 
 /* ============================================================
  * REPORT NAMES
@@ -69,6 +69,7 @@ export const createReportLookupMaps = ({
 
 export const getReportNames = ({
   report,
+
   students = [],
   teachers = [],
   programs = [],
@@ -83,14 +84,20 @@ export const getReportNames = ({
     studentMap && teacherMap && programMap && classMap
       ? {
           studentMap,
+
           teacherMap,
+
           programMap,
+
           classMap,
         }
       : createReportLookupMaps({
           students,
+
           teachers,
+
           programs,
+
           classes,
         });
 
@@ -140,24 +147,28 @@ export const getNilaiStyle = (score) => {
     case "excellent":
       return {
         text: "text-success",
+
         background: "bg-success-soft ring-success/20",
       };
 
     case "good":
       return {
         text: "text-info",
+
         background: "bg-info-soft ring-info/20",
       };
 
     case "fair":
       return {
         text: "text-warning",
+
         background: "bg-warning-soft ring-warning/20",
       };
 
     case "low":
       return {
         text: "text-danger",
+
         background: "bg-danger-soft ring-danger/20",
       };
 
@@ -179,15 +190,83 @@ export const formatReportDate = (value) => {
 };
 
 /* ============================================================
- * RELATION NORMALIZATION
+ * RATING
  * ============================================================ */
 
-const normalizeRelationList = (items, field) => {
+const getRatingValue = (report, nestedKey, flatKey) => {
+  const nested = report?.ratings?.[nestedKey];
+
+  if (nested !== null && nested !== undefined && nested !== "") {
+    return Number(nested);
+  }
+
+  return Number(report?.[flatKey]);
+};
+
+export const getReportRatings = (report) => ({
+  understanding: getRatingValue(
+    report,
+    "understanding",
+    "rating_understanding",
+  ),
+
+  activity: getRatingValue(report, "activity", "rating_activity"),
+
+  discipline: getRatingValue(report, "discipline", "rating_discipline"),
+
+  communication: getRatingValue(
+    report,
+    "communication",
+    "rating_communication",
+  ),
+});
+
+export const getReportAverageRating = (report) => {
+  if (!report) {
+    return null;
+  }
+
+  const values = Object.values(getReportRatings(report)).filter(
+    (value) => Number.isFinite(value) && value > 0,
+  );
+
+  if (values.length === 0) {
+    return null;
+  }
+
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+};
+
+/* ============================================================
+ * COLLECTIONS
+ * ============================================================ */
+
+const getRelationValue = (item, fields) => {
+  if (typeof item === "string") {
+    return item.trim();
+  }
+
+  if (!item || typeof item !== "object") {
+    return "";
+  }
+
+  for (const field of fields) {
+    const value = item[field];
+
+    if (value !== null && value !== undefined && String(value).trim()) {
+      return String(value).trim();
+    }
+  }
+
+  return "";
+};
+
+const normalizeRelationList = (items, fields) => {
   if (!Array.isArray(items)) {
     return [];
   }
 
-  return items.map((item) => item?.[field]).filter((value) => hasValue(value));
+  return items.map((item) => getRelationValue(item, fields)).filter(Boolean);
 };
 
 const normalizePhotoList = (photos) => {
@@ -197,19 +276,73 @@ const normalizePhotoList = (photos) => {
 
   return photos
     .map((item) =>
-      typeof item === "string"
-        ? item
-        : (item?.photo_url ??
-          item?.url ??
-          item?.image_url ??
-          item?.photo ??
-          null),
+      getRelationValue(item, ["photo_url", "url", "image_url", "photo"]),
     )
     .filter(Boolean);
 };
 
+export const getReportCollections = ({
+  materials = [],
+  activities = [],
+  photos = [],
+} = {}) => ({
+  materials: normalizeRelationList(materials, ["material", "value", "name"]),
+
+  activities: normalizeRelationList(activities, ["activity", "value", "name"]),
+
+  photos: normalizePhotoList(photos),
+});
+
 /* ============================================================
- * VIEW MODEL
+ * SORT
+ * ============================================================ */
+
+const getReportTimestamp = (report) => {
+  if (!report) {
+    return Number.NEGATIVE_INFINITY;
+  }
+
+  const value =
+    report.reportDate ?? report.report_date ?? report.date ?? report.created_at;
+
+  if (!value) {
+    return Number.NEGATIVE_INFINITY;
+  }
+
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(String(value));
+
+  const timestamp = dateOnly
+    ? new Date(`${value}T00:00:00`).getTime()
+    : new Date(value).getTime();
+
+  return Number.isFinite(timestamp) ? timestamp : Number.NEGATIVE_INFINITY;
+};
+
+export const sortReportsByDate = (reports, direction = "desc") => {
+  if (!Array.isArray(reports)) {
+    return [];
+  }
+
+  const multiplier = direction === "asc" ? 1 : -1;
+
+  return [...reports].sort((first, second) => {
+    const result =
+      (getReportTimestamp(first) - getReportTimestamp(second)) * multiplier;
+
+    if (result !== 0) {
+      return result;
+    }
+
+    const firstId = normalizeId(first?.id) ?? 0;
+
+    const secondId = normalizeId(second?.id) ?? 0;
+
+    return (firstId - secondId) * multiplier;
+  });
+};
+
+/* ============================================================
+ * CANONICAL VIEW
  * ============================================================ */
 
 export const normalizeReportView = ({
@@ -223,75 +356,24 @@ export const normalizeReportView = ({
   teachers = [],
   programs = [],
   classes = [],
-
-  lookupMaps,
 } = {}) => {
-  if (!report) {
+  if (!report || typeof report !== "object") {
     return null;
   }
 
-  const maps =
-    lookupMaps ??
-    createReportLookupMaps({
-      students,
-      teachers,
-      programs,
-      classes,
-    });
+  return normalizeReport(report, {
+    students,
 
-  const names = getReportNames({
-    report,
+    teachers,
 
-    studentMap: maps.studentMap,
+    programs,
 
-    teacherMap: maps.teacherMap,
+    classes,
 
-    programMap: maps.programMap,
+    materials,
 
-    classMap: maps.classMap,
+    activities,
+
+    photos,
   });
-
-  return {
-    id: report.id,
-
-    studentId: normalizeId(report.student_id),
-
-    teacherId: normalizeId(report.teacher_id),
-
-    programId: normalizeId(report.program_id),
-
-    classId: normalizeId(report.class_id),
-
-    ...names,
-
-    reportDate: report.report_date ?? report.date ?? report.created_at ?? null,
-
-    status: report.status ?? null,
-
-    duration: report.duration ?? null,
-
-    score: report.score ?? null,
-
-    ratings: {
-      understanding: Number(report.rating_understanding) || 0,
-
-      activity: Number(report.rating_activity) || 0,
-
-      discipline: Number(report.rating_discipline) || 0,
-
-      communication: Number(report.rating_communication) || 0,
-    },
-
-    homework: report.homework ?? "",
-
-    teacherNote: report.teacher_note ?? "",
-
-    recommendation: report.recommendation ?? "",
-
-    materials: normalizeRelationList(materials, "material"),
-
-    activities: normalizeRelationList(activities, "activity"),
-
-    photos: normalizePhotoList(photos),
-  };
 };

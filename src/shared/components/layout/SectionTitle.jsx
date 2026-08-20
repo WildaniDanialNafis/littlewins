@@ -8,10 +8,10 @@ export const SectionTitle = ({
   className = "",
 }) => {
   return (
-    <div className={cx("flex items-start gap-3", className)}>
+    <div className={cx("flex min-w-0 items-start gap-3", className)}>
       {icon && (
         <div
-          className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary"
+          className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary"
           aria-hidden="true"
         >
           {icon}
@@ -20,14 +20,14 @@ export const SectionTitle = ({
 
       <div className="min-w-0">
         {eyebrow && (
-          <p className="text-xs font-semibold uppercase tracking-wider text-primary">
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-primary">
             {eyebrow}
           </p>
         )}
 
         <h2
           className={cx(
-            "text-lg font-bold text-text md:text-xl",
+            "wrap-break-word text-lg font-bold tracking-tight text-text md:text-xl",
             eyebrow && "mt-1",
           )}
         >
@@ -35,7 +35,7 @@ export const SectionTitle = ({
         </h2>
 
         {description && (
-          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted">
+          <p className="mt-1.5 max-w-3xl text-sm leading-6 text-muted sm:mt-2">
             {description}
           </p>
         )}

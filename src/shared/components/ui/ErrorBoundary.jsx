@@ -20,11 +20,6 @@ class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    /*
-     * Jangan log data sensitif.
-     * Detail error hanya ditampilkan
-     * pada development.
-     */
     if (import.meta.env.DEV) {
       console.error("UI ErrorBoundary:", error, errorInfo);
     }
@@ -49,15 +44,15 @@ class ErrorBoundary extends Component {
     return (
       <main className="flex min-h-screen items-center justify-center px-4 py-10">
         <section
-          className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 text-center shadow-sm"
+          className="w-full max-w-md rounded-2xl bg-surface p-6 text-center sm:p-7"
           role="alert"
         >
           <div
-            className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-danger-soft text-danger"
+            className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-danger-soft text-danger"
             aria-hidden="true"
           >
             <svg
-              className="h-6 w-6"
+              className="size-6"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -100,7 +95,7 @@ class ErrorBoundary extends Component {
                 Detail error
               </summary>
 
-              <pre className="mt-2 max-h-56 overflow-auto rounded-lg bg-surface-muted p-3 text-xs leading-relaxed text-muted">
+              <pre className="mt-2 max-h-56 overflow-auto rounded-xl bg-surface-muted p-3 text-xs leading-relaxed text-muted">
                 {this.state.error?.stack ?? String(this.state.error)}
               </pre>
             </details>

@@ -1,8 +1,14 @@
 import { createPortal } from "react-dom";
 
 import { Button } from "@/shared/components/ui";
+
 import { ChevronLeftIcon, ChevronRightIcon, CloseIcon } from "@/shared/icons";
+
 import { cx } from "@/shared/utils";
+
+/* ============================================================
+ * PHOTO LIGHTBOX
+ * ============================================================ */
 
 const PhotoLightbox = ({
   photos = [],
@@ -21,17 +27,22 @@ const PhotoLightbox = ({
 
   const controlClassName = cx(
     "inline-flex shrink-0 items-center justify-center",
-    "h-10 w-10 rounded-full",
-    "border border-black/10",
+    "h-11 w-11 rounded-full",
     "bg-white text-black",
-    "shadow-xl shadow-black/40",
-    "transition-all",
+    "shadow-lg shadow-black/40",
+    "transition-[background-color,transform,box-shadow]",
+    "duration-(--token-transition-fast)",
+    "ease-out",
     "hover:bg-white/90",
     "active:scale-95",
     "focus-visible:outline-none",
-    "focus-visible:ring-2 focus-visible:ring-white",
-    "focus-visible:ring-offset-2 focus-visible:ring-offset-black",
-    "sm:h-11 sm:w-11",
+    "focus-visible:ring-2",
+    "focus-visible:ring-white",
+    "focus-visible:ring-offset-2",
+    "focus-visible:ring-offset-black",
+    "motion-reduce:transition-none",
+    "motion-reduce:active:scale-100",
+    "sm:h-12 sm:w-12",
   );
 
   return createPortal(
@@ -44,7 +55,7 @@ const PhotoLightbox = ({
       )}
       role="dialog"
       aria-modal="true"
-      aria-label="Dokumentasi kegiatan belajar"
+      aria-label="Foto"
       onClick={onClose}
     >
       <div
@@ -57,7 +68,9 @@ const PhotoLightbox = ({
           event.stopPropagation();
         }}
       >
-        {/* Close */}
+        {/* ==================================================
+         * CLOSE
+         * ================================================== */}
 
         <Button
           type="button"
@@ -69,12 +82,14 @@ const PhotoLightbox = ({
             "absolute right-1 top-1 z-30",
             "sm:right-2 sm:top-2",
           )}
-          aria-label="Tutup dokumentasi"
+          aria-label="Tutup"
         >
           <CloseIcon className="h-5 w-5 stroke-[2.5]" aria-hidden="true" />
         </Button>
 
-        {/* Previous */}
+        {/* ==================================================
+         * PREVIOUS
+         * ================================================== */}
 
         {total > 1 && (
           <Button
@@ -88,7 +103,7 @@ const PhotoLightbox = ({
               "-translate-y-1/2",
               "sm:left-2 md:left-4",
             )}
-            aria-label="Foto sebelumnya"
+            aria-label="Sebelumnya"
           >
             <ChevronLeftIcon
               className="h-6 w-6 stroke-[2.5]"
@@ -97,22 +112,27 @@ const PhotoLightbox = ({
           </Button>
         )}
 
-        {/* Image */}
+        {/* ==================================================
+         * IMAGE
+         * ================================================== */}
 
         <img
           src={currentPhoto}
-          alt={`Dokumentasi ${selectedIndex + 1} dari ${total}`}
+          alt={`Foto ${selectedIndex + 1} dari ${total}`}
           className={cx(
             "max-h-[82vh]",
             "w-auto max-w-full",
             "rounded-xl",
             "object-contain",
             "shadow-2xl",
+            "select-none",
           )}
           draggable="false"
         />
 
-        {/* Next */}
+        {/* ==================================================
+         * NEXT
+         * ================================================== */}
 
         {total > 1 && (
           <Button
@@ -126,7 +146,7 @@ const PhotoLightbox = ({
               "-translate-y-1/2",
               "sm:right-2 md:right-4",
             )}
-            aria-label="Foto berikutnya"
+            aria-label="Berikutnya"
           >
             <ChevronRightIcon
               className="h-6 w-6 stroke-[2.5]"
@@ -135,7 +155,9 @@ const PhotoLightbox = ({
           </Button>
         )}
 
-        {/* Counter */}
+        {/* ==================================================
+         * COUNTER
+         * ================================================== */}
 
         {total > 1 && (
           <div
@@ -143,11 +165,12 @@ const PhotoLightbox = ({
               "absolute bottom-1 left-1/2 z-30",
               "-translate-x-1/2",
               "rounded-full",
-              "bg-white px-3.5 py-1.5",
-              "text-xs font-bold text-black",
-              "shadow-xl shadow-black/40",
+              "bg-white px-3 py-1.5",
+              "text-xs font-bold tabular-nums text-black",
+              "shadow-lg shadow-black/40",
               "sm:bottom-2",
             )}
+            aria-live="polite"
           >
             {selectedIndex + 1} / {total}
           </div>

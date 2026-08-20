@@ -1,6 +1,7 @@
 import { memo } from "react";
 
 import { CheckIcon } from "@/shared/icons";
+
 import { cx } from "@/shared/utils";
 
 import { formatReportDate } from "../utils/reportDetailUtils";
@@ -21,7 +22,7 @@ const STATUS_CONFIG = {
   },
 
   cancelled: {
-    label: "Dibatalkan",
+    label: "Batal",
     className: "bg-danger-soft text-danger",
   },
 };
@@ -48,30 +49,41 @@ const ReportHeader = memo(({ report }) => {
         "print:border-0 print:bg-white",
       )}
     >
-      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-4 sm:gap-6">
+      <div
+        className={cx(
+          "grid min-w-0",
+          "grid-cols-[minmax(0,1fr)_auto]",
+          "items-start gap-3",
+          "sm:gap-5",
+        )}
+      >
         {/* ==================================================
          * REPORT INFO
          * ================================================== */}
 
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wider text-primary">
-            Laporan Perkembangan Belajar
+          <p className="truncate text-xs font-semibold uppercase tracking-[0.08em] text-primary">
+            Laporan Belajar
           </p>
 
           <h1
             className={cx(
               "mt-1.5",
-              "wrap-break-word",
+              "truncate",
               "text-xl font-bold leading-tight tracking-tight text-text",
               "sm:text-2xl",
               "md:text-3xl",
             )}
+            title={report.programName}
           >
             {report.programName}
           </h1>
 
-          <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-muted">
-            <time dateTime={report.reportDate || undefined}>
+          <div className="mt-2 flex min-w-0 items-center gap-2 text-sm text-muted">
+            <time
+              className="shrink-0"
+              dateTime={report.reportDate || undefined}
+            >
               {formatReportDate(report.reportDate)}
             </time>
 
@@ -79,7 +91,12 @@ const ReportHeader = memo(({ report }) => {
               •
             </span>
 
-            <span className="font-medium text-text">{report.teacherName}</span>
+            <span
+              className="min-w-0 truncate font-medium text-text"
+              title={report.teacherName}
+            >
+              {report.teacherName}
+            </span>
           </div>
         </div>
 
@@ -90,12 +107,13 @@ const ReportHeader = memo(({ report }) => {
         <span
           className={cx(
             "inline-flex shrink-0 items-center gap-1.5",
-            "rounded-full px-2.5 py-1.5",
+            "rounded-full",
+            "px-2.5 py-1.5",
             "text-xs font-semibold",
-            "sm:px-3 sm:py-1.5",
+            "sm:px-3",
             statusConfig.className,
           )}
-          aria-label={`Status laporan: ${statusConfig.label}`}
+          aria-label={`Status: ${statusConfig.label}`}
         >
           <CheckIcon className="h-3 w-3" aria-hidden="true" />
 

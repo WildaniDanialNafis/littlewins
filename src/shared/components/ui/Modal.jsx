@@ -10,38 +10,53 @@ const MODAL_SIZES = {
 };
 
 const OVERLAY_CLASS = [
-  "fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6",
+  "fixed inset-0 z-50 flex items-center justify-center",
+  "p-4 sm:p-6",
   "bg-text/50 backdrop-blur-sm",
-  "motion-safe:animate-in motion-safe:fade-in motion-reduce:animate-none",
+  "motion-safe:animate-in motion-safe:fade-in",
+  "motion-reduce:animate-none",
 ].join(" ");
 
 const MODAL_CLASS = [
-  "flex w-full flex-col rounded-xl border border-border bg-surface shadow-xl",
-  "max-h-[calc(100dvh-2rem)] overflow-hidden",
-  "motion-safe:animate-in motion-safe:zoom-in-[0.98]",
+  "flex w-full flex-col",
+  "rounded-2xl",
+  "border border-border",
+  "bg-surface",
+  "shadow-xl",
+  "max-h-[calc(100dvh-2rem)]",
+  "overflow-hidden",
+  "motion-safe:animate-in",
+  "motion-safe:zoom-in-[0.98]",
   "motion-safe:duration-(--token-transition-base)",
   "motion-reduce:animate-none",
 ].join(" ");
 
 const HEADER_CLASS = [
-  "flex shrink-0 items-center justify-between gap-4 px-5 py-4 sm:px-6",
+  "flex shrink-0 items-center justify-between gap-4",
   "border-b border-border",
+  "px-5 py-4 sm:px-6",
 ].join(" ");
 
 const TITLE_CLASS =
   "min-w-0 text-base font-semibold leading-6 text-text sm:text-lg";
 
-const CONTENT_CLASS =
-  "min-h-0 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6 sm:py-6";
+const CONTENT_CLASS = [
+  "min-h-0 overflow-y-auto overscroll-contain",
+  "px-5 py-5 sm:px-6 sm:py-6",
+].join(" ");
 
 const CLOSE_BUTTON_CLASS = [
-  "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
-  "text-muted transition-[background-color,color,box-shadow]",
-  "duration-(--token-transition-fast) ease-out",
+  "inline-flex size-9 shrink-0 items-center justify-center",
+  "rounded-xl",
+  "text-muted",
+  "transition-[background-color,color]",
+  "duration-(--token-transition-fast)",
   "hover:bg-surface-muted hover:text-text",
   "active:bg-surface-muted",
-  "focus-visible:outline-none focus-visible:ring-2",
-  "focus-visible:ring-primary/30 focus-visible:ring-offset-2",
+  "focus-visible:outline-none",
+  "focus-visible:ring-2",
+  "focus-visible:ring-primary/30",
+  "focus-visible:ring-offset-2",
   "focus-visible:ring-offset-surface",
   "motion-reduce:transition-none",
 ].join(" ");
@@ -120,7 +135,6 @@ export const Modal = ({ isOpen, onClose, title, children, size = "md" }) => {
       }
 
       const first = focusables[0];
-
       const last = focusables[focusables.length - 1];
 
       if (event.shiftKey && document.activeElement === first) {
@@ -193,7 +207,7 @@ export const Modal = ({ isOpen, onClose, title, children, size = "md" }) => {
               aria-label="Tutup modal"
             >
               <svg
-                className="h-5 w-5"
+                className="size-5"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"

@@ -97,13 +97,22 @@ const ReportListPage = ({ role = "teacher", accountId = null }) => {
   );
 
   /* ==========================================================
+   * PAGE CONTENT
+   * ========================================================== */
+
+  const reportCount = allReports.length;
+
+  const pageSubtitle =
+    reportCount > 0 ? `${reportCount} laporan.` : "Belum ada laporan.";
+
+  /* ==========================================================
    * LOADING
    * ========================================================== */
 
   if (isLoading) {
     return (
-      <PageContainer title="Riwayat Laporan" subtitle="Memuat data laporan...">
-        <LoadingState message="Memuat data laporan..." />
+      <PageContainer title="Laporan" subtitle="Memuat...">
+        <LoadingState message="Memuat laporan..." />
       </PageContainer>
     );
   }
@@ -114,7 +123,7 @@ const ReportListPage = ({ role = "teacher", accountId = null }) => {
 
   if (hasError) {
     return (
-      <PageContainer title="Riwayat Laporan" subtitle="Gagal memuat data.">
+      <PageContainer title="Laporan" subtitle="Gagal memuat.">
         <ErrorState error={error} onRetry={refresh} />
       </PageContainer>
     );
@@ -126,12 +135,8 @@ const ReportListPage = ({ role = "teacher", accountId = null }) => {
 
   return (
     <PageContainer
-      title="Riwayat Laporan"
-      subtitle={
-        allReports.length === 0
-          ? "Belum ada laporan belajar"
-          : `${allReports.length} laporan belajar`
-      }
+      title="Laporan"
+      subtitle={pageSubtitle}
       actions={
         isTeacher ? (
           <Button
@@ -139,18 +144,19 @@ const ReportListPage = ({ role = "teacher", accountId = null }) => {
             variant="primary"
             size="md"
             onClick={goToCreate}
+            className="w-full sm:w-auto"
           >
-            <PlusIcon className="h-4 w-4" aria-hidden="true" />
+            <PlusIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
 
             <span>Buat Laporan</span>
           </Button>
         ) : null
       }
     >
-      <div className="space-y-5">
-        {/* ======================================================
+      <div className="min-w-0 space-y-5 sm:space-y-6">
+        {/* ====================================================
          * FILTER
-         * ====================================================== */}
+         * ==================================================== */}
 
         <ReportFilter
           role={role}
@@ -162,9 +168,9 @@ const ReportListPage = ({ role = "teacher", accountId = null }) => {
           onToggleSort={toggleSortDirection}
         />
 
-        {/* ======================================================
+        {/* ====================================================
          * LIST
-         * ====================================================== */}
+         * ==================================================== */}
 
         <ReportList
           role={role}
@@ -185,7 +191,7 @@ const ReportListPage = ({ role = "teacher", accountId = null }) => {
       </div>
 
       {/* ========================================================
-       * DELETE CONFIRMATION
+       * DELETE
        * ======================================================== */}
 
       {isTeacher && (
@@ -194,7 +200,7 @@ const ReportListPage = ({ role = "teacher", accountId = null }) => {
           onClose={cancelDelete}
           onConfirm={confirmDelete}
           title="Hapus Laporan"
-          message="Apakah Anda yakin ingin menghapus laporan ini? Tindakan ini tidak dapat dibatalkan."
+          message="Laporan akan dihapus permanen."
           confirmText="Hapus"
           cancelText="Batal"
           variant="danger"

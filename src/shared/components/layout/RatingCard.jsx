@@ -9,7 +9,9 @@ export const RatingCard = ({ label, rating, className = "" }) => {
     <div
       className={cx(
         "flex items-center justify-between gap-4",
-        "rounded-xl bg-surface-muted px-4 py-3.5",
+        "rounded-xl border border-border",
+        "bg-surface-muted/60",
+        "px-3.5 py-3",
         className,
       )}
     >
@@ -18,7 +20,9 @@ export const RatingCard = ({ label, rating, className = "" }) => {
       <div className="flex shrink-0 items-center gap-2">
         <StarRating rating={value} readonly size="sm" />
 
-        <span className="text-xs font-semibold text-muted">{value}/5</span>
+        <span className="text-xs font-semibold tabular-nums text-muted">
+          {value}/5
+        </span>
       </div>
     </div>
   );

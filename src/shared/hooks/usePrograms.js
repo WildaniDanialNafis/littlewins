@@ -15,10 +15,18 @@ const MESSAGES = Object.freeze({
 });
 
 export const usePrograms = (options = {}) => {
-  const { autoFetch = true, initialData = EMPTY_ARRAY, staleTime } = options;
+  const {
+    autoFetch = true,
+
+    initialData = EMPTY_ARRAY,
+
+    staleTime = 10 * 60 * 1000,
+  } = options;
 
   const resource = useCrudResource({
     service: programService,
+
+    resourceKey: "programs",
 
     autoFetch,
 
