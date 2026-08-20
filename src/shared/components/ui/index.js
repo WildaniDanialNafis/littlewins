@@ -10,6 +10,7 @@ export { default as Toast } from "./Toast";
 export { default as ToastContainer } from "./ToastContainer";
 
 export { default as Spinner } from "./Spinner";
+export { default as Skeleton } from "./Skeleton";
 export { default as StarRating } from "./StarRating";
 
 export { default as EmptyState } from "./EmptyState";
@@ -17,3 +18,11 @@ export { default as ErrorState } from "./ErrorState";
 export { default as LoadingState } from "./LoadingState";
 
 export { default as ErrorBoundary } from "./ErrorBoundary";
+
+// Skeleton variants
+export {
+  ReportListSkeleton,
+  ReportDetailSkeleton,
+  ReportFormSkeleton,
+  DashboardSkeleton,
+} from "./LoadingState";
