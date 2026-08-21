@@ -15,6 +15,10 @@ const getRatingValue = (report, nestedKey, flatKey) => {
   return ratings?.[nestedKey] ?? report?.[flatKey] ?? null;
 };
 
+/* ============================================================
+ * BASIC
+ * ============================================================ */
+
 export const hasValue = (value) => {
   if (value === null || value === undefined) {
     return false;
@@ -22,6 +26,10 @@ export const hasValue = (value) => {
 
   return String(value).trim() !== "";
 };
+
+/* ============================================================
+ * STATUS
+ * ============================================================ */
 
 export const getStatusLabel = (status) => {
   switch (
@@ -62,6 +70,10 @@ export const getStatusBadgeClass = (status) => {
       return "bg-surface-muted text-muted";
   }
 };
+
+/* ============================================================
+ * SCORE
+ * ============================================================ */
 
 export const getScoreColor = (score) => {
   const number = toFiniteNumber(score);
@@ -106,6 +118,10 @@ export const getScoreBackground = (score) => {
 
   return "bg-danger-soft";
 };
+
+/* ============================================================
+ * RATINGS
+ * ============================================================ */
 
 const getRatingList = (report) => {
   return [
@@ -156,6 +172,10 @@ export const getRatingValues = (report) => {
   };
 };
 
+/* ============================================================
+ * SEARCH
+ * ============================================================ */
+
 export const filterReportsBySearch = (reports, query, role) => {
   if (!Array.isArray(reports)) {
     return [];
@@ -169,7 +189,7 @@ export const filterReportsBySearch = (reports, query, role) => {
 
   const personField = role === "teacher" ? "student_name" : "teacher_name";
 
-  return reports.filter((report) => {
+  const matchesSearch = (report) => {
     if (!report || typeof report !== "object") {
       return false;
     }
@@ -208,9 +228,27 @@ export const filterReportsBySearch = (reports, query, role) => {
       report?.score,
     ];
 
-    return searchable.some((value) => normalizeText(value).includes(search));
-  });
+    for (let index = 0; index < searchable.length; index += 1) {
+      const value = searchable[index];
+
+      if (value === null || value === undefined) {
+        continue;
+      }
+
+      if (normalizeText(value).includes(search)) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  return reports.filter(matchesSearch);
 };
+
+/* ============================================================
+ * SORT
+ * ============================================================ */
 
 const compareNullable = (first, second, direction) => {
   if (first === second) {
@@ -248,7 +286,6 @@ const compareText = (first, second, direction) => {
   return (
     firstValue.localeCompare(secondValue, undefined, {
       sensitivity: "base",
-
       numeric: true,
     }) * direction
   );
@@ -259,8 +296,8 @@ const getSortableRating = (report, nestedKey, flatKey) => {
 };
 
 export const sortReports = (reports, sortKey, sortDirection) => {
-  if (!Array.isArray(reports)) {
-    return [];
+  if (!Array.isArray(reports) || reports.length < 2) {
+    return Array.isArray(reports) ? reports : [];
   }
 
   const direction = sortDirection === "asc" ? 1 : -1;
@@ -272,7 +309,9 @@ export const sortReports = (reports, sortKey, sortDirection) => {
       case "report_date":
         comparison = compareText(
           first?.report_date ?? first?.reportDate ?? first?.date,
+
           second?.report_date ?? second?.reportDate ?? second?.date,
+
           direction,
         );
         break;
@@ -280,7 +319,9 @@ export const sortReports = (reports, sortKey, sortDirection) => {
       case "program_name":
         comparison = compareText(
           first?.program_name ?? first?.programName,
+
           second?.program_name ?? second?.programName,
+
           direction,
         );
         break;
@@ -288,7 +329,9 @@ export const sortReports = (reports, sortKey, sortDirection) => {
       case "score":
         comparison = compareNullable(
           toFiniteNumber(first?.score),
+
           toFiniteNumber(second?.score),
+
           direction,
         );
         break;
@@ -296,7 +339,9 @@ export const sortReports = (reports, sortKey, sortDirection) => {
       case "rating_understanding":
         comparison = compareNullable(
           getSortableRating(first, "understanding", "rating_understanding"),
+
           getSortableRating(second, "understanding", "rating_understanding"),
+
           direction,
         );
         break;
@@ -307,10 +352,12 @@ export const sortReports = (reports, sortKey, sortDirection) => {
             first?.studentName ??
             first?.teacher_name ??
             first?.teacherName,
+
           second?.student_name ??
             second?.studentName ??
             second?.teacher_name ??
             second?.teacherName,
+
           direction,
         );
         break;
@@ -324,16 +371,32 @@ export const sortReports = (reports, sortKey, sortDirection) => {
   });
 };
 
+/* ============================================================
+ * PAGINATION
+ * ============================================================ */
+
 export const paginateReports = (reports, page, pageSize) => {
   const safeReports = Array.isArray(reports) ? reports : [];
 
-  const size = Math.max(1, Number(pageSize) || 1);
+  const numericSize = Number(pageSize);
+
+  const size =
+    Number.isFinite(numericSize) && numericSize > 0
+      ? Math.floor(numericSize)
+      : 1;
 
   const totalItems = safeReports.length;
 
   const totalPages = Math.max(1, Math.ceil(totalItems / size));
 
-  const normalizedPage = Math.min(Math.max(1, Number(page) || 1), totalPages);
+  const numericPage = Number(page);
+
+  const requestedPage =
+    Number.isFinite(numericPage) && numericPage > 0
+      ? Math.floor(numericPage)
+      : 1;
+
+  const normalizedPage = Math.min(requestedPage, totalPages);
 
   const startOffset = (normalizedPage - 1) * size;
 
@@ -359,6 +422,10 @@ export const paginateReports = (reports, page, pageSize) => {
     hasNextPage: normalizedPage < totalPages,
   };
 };
+
+/* ============================================================
+ * DATE
+ * ============================================================ */
 
 export const formatReportDate = (value) => {
   if (!value) {

@@ -1,4 +1,4 @@
-import{B as e,I as t,P as n,R as r,Y as i,at as a,t as o}from"./icons-B-pQSomD.js";import{i as s}from"./layout-BaTI4zRO.js";var c=a(),l=t(),u=()=>{let t=(0,c.c)(6),a;t[0]===Symbol.for(`react.memo_cache_sentinel`)?(a=new Date().getFullYear(),t[0]=a):a=t[0];let u=a,d,f;t[1]===Symbol.for(`react.memo_cache_sentinel`)?(d=(0,l.jsx)(`div`,{className:`
+import{P as e,Q as t,R as n,U as r,V as i,ct as a,t as o}from"./icons-CEpKBcXO.js";import{i as s}from"./layout-q3aYIp3h.js";var c=a(),l=n(),u=()=>{let n=(0,c.c)(6),a;n[0]===Symbol.for(`react.memo_cache_sentinel`)?(a=new Date().getFullYear(),n[0]=a):a=n[0];let u=a,d,f;n[1]===Symbol.for(`react.memo_cache_sentinel`)?(d=(0,l.jsx)(`div`,{className:`
                 mx-auto flex h-12 w-12
                 items-center justify-center
                 rounded-xl
@@ -10,7 +10,7 @@ import{B as e,I as t,P as n,R as r,Y as i,at as a,t as o}from"./icons-B-pQSomD.j
                 leading-none tracking-tight
                 text-text
                 sm:text-7xl
-              `,"aria-hidden":`true`,children:`404`}),t[1]=d,t[2]=f):(d=t[1],f=t[2]);let p;t[3]===Symbol.for(`react.memo_cache_sentinel`)?(p=(0,l.jsxs)(`div`,{className:`mt-4`,children:[(0,l.jsx)(`h1`,{className:`
+              `,"aria-hidden":`true`,children:`404`}),n[1]=d,n[2]=f):(d=n[1],f=n[2]);let p;n[3]===Symbol.for(`react.memo_cache_sentinel`)?(p=(0,l.jsxs)(`div`,{className:`mt-4`,children:[(0,l.jsx)(`h1`,{className:`
                   text-xl font-bold
                   tracking-tight text-text
                   sm:text-2xl
@@ -19,11 +19,11 @@ import{B as e,I as t,P as n,R as r,Y as i,at as a,t as o}from"./icons-B-pQSomD.j
                   text-sm leading-5
                   text-muted
                   sm:text-base
-                `,children:`Halaman ini tidak tersedia.`})]}),t[3]=p):p=t[3];let m;t[4]===Symbol.for(`react.memo_cache_sentinel`)?(m=(0,l.jsxs)(`div`,{className:`
+                `,children:`Halaman ini tidak tersedia.`})]}),n[3]=p):p=n[3];let m;n[4]===Symbol.for(`react.memo_cache_sentinel`)?(m=(0,l.jsxs)(`div`,{className:`
               px-5 py-8
               text-center
               sm:px-8 sm:py-10
-            `,children:[d,f,p,(0,l.jsx)(`div`,{className:`mt-6`,children:(0,l.jsx)(n,{as:i,to:r.home,variant:`primary`,size:`lg`,className:`w-full sm:w-auto`,children:`Kembali ke Beranda`})})]}),t[4]=m):m=t[4];let h;return t[5]===Symbol.for(`react.memo_cache_sentinel`)?(h=(0,l.jsx)(`main`,{className:`
+            `,children:[d,f,p,(0,l.jsx)(`div`,{className:`mt-6`,children:(0,l.jsx)(e,{as:t,to:i.home,variant:`primary`,size:`lg`,className:`w-full sm:w-auto`,children:`Kembali ke Beranda`})})]}),n[4]=m):m=n[4];let h;return n[5]===Symbol.for(`react.memo_cache_sentinel`)?(h=(0,l.jsx)(`main`,{className:`
         flex min-h-screen items-center justify-center
         bg-background
         px-4 py-6
@@ -34,4 +34,4 @@ import{B as e,I as t,P as n,R as r,Y as i,at as a,t as o}from"./icons-B-pQSomD.j
               px-5 py-4
               text-center
               sm:px-8
-            `,children:(0,l.jsxs)(`p`,{className:`text-xs leading-5 text-muted`,children:[`© `,u,` `,e]})})]})})}),t[5]=h):h=t[5],h};u.displayName=`NotFoundPage`;export{u as default};
+            `,children:(0,l.jsxs)(`p`,{className:`text-xs leading-5 text-muted`,children:[`© `,u,` `,r]})})]})})}),n[5]=h):h=n[5],h};u.displayName=`NotFoundPage`;export{u as default};

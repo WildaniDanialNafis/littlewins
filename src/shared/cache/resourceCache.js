@@ -1,11 +1,8 @@
 const DEFAULT_STALE_TIME = 30_000;
-
 const DEFAULT_MAX_ENTRIES = 150;
 
 const cache = new Map();
-
 const inFlightRequests = new Map();
-
 const resourceVersions = new Map();
 
 let cacheEpoch = 0;
@@ -46,19 +43,24 @@ const normalizeMaxEntries = (maxEntries) => {
   return value;
 };
 
+const getEntryAge = (entry) => {
+  if (!entry) {
+    return Infinity;
+  }
+
+  return Math.max(0, now() - entry.timestamp);
+};
+
 const isFresh = (entry, staleTime) => {
   if (!entry) {
     return false;
   }
 
-  const age = Math.max(0, now() - entry.timestamp);
-
-  return age <= normalizeStaleTime(staleTime);
+  return getEntryAge(entry) <= normalizeStaleTime(staleTime);
 };
 
 const touchEntry = (key, entry) => {
   cache.delete(key);
-
   cache.set(key, entry);
 };
 
@@ -89,6 +91,44 @@ const enforceCacheLimit = (maxEntries = DEFAULT_MAX_ENTRIES) => {
 };
 
 /* ============================================================
+ * CACHE STATE
+ * ============================================================ */
+
+export const getResourceState = (key, staleTime = DEFAULT_STALE_TIME) => {
+  const normalizedKey = normalizeKey(key);
+
+  if (!normalizedKey) {
+    return "missing";
+  }
+
+  const entry = cache.get(normalizedKey);
+
+  if (!entry) {
+    return "missing";
+  }
+
+  return isFresh(entry, staleTime) ? "fresh" : "stale";
+};
+
+export const isResourceFresh = (key, staleTime = DEFAULT_STALE_TIME) => {
+  return getResourceState(key, staleTime) === "fresh";
+};
+
+export const isResourceStale = (key, staleTime = DEFAULT_STALE_TIME) => {
+  return getResourceState(key, staleTime) === "stale";
+};
+
+export const hasResourceSnapshot = (key) => {
+  const normalizedKey = normalizeKey(key);
+
+  if (!normalizedKey) {
+    return false;
+  }
+
+  return cache.has(normalizedKey);
+};
+
+/* ============================================================
  * READ
  * ============================================================ */
 
@@ -101,7 +141,29 @@ export const getCachedResource = (key, staleTime = DEFAULT_STALE_TIME) => {
 
   const entry = cache.get(normalizedKey);
 
-  if (!entry || !isFresh(entry, staleTime)) {
+  if (!entry) {
+    return null;
+  }
+
+  if (!isFresh(entry, staleTime)) {
+    return null;
+  }
+
+  touchEntry(normalizedKey, entry);
+
+  return entry.data;
+};
+
+export const getStaleResource = (key) => {
+  const normalizedKey = normalizeKey(key);
+
+  if (!normalizedKey) {
+    return null;
+  }
+
+  const entry = cache.get(normalizedKey);
+
+  if (!entry) {
     return null;
   }
 
@@ -138,6 +200,22 @@ export const getResourceVersion = (key) => {
   return `${cacheEpoch}:${getCurrentVersion(normalizedKey)}`;
 };
 
+export const getResourceAge = (key) => {
+  const normalizedKey = normalizeKey(key);
+
+  if (!normalizedKey) {
+    return null;
+  }
+
+  const entry = cache.get(normalizedKey);
+
+  if (!entry) {
+    return null;
+  }
+
+  return getEntryAge(entry);
+};
+
 export const hasCachedResource = (key, staleTime = DEFAULT_STALE_TIME) => {
   return getCachedResource(key, staleTime) !== null;
 };
@@ -160,17 +238,14 @@ export const setCachedResource = (key, data, options = {}) => {
 
   const currentVersion = getResourceVersion(normalizedKey);
 
-  /*
-   * Response dari generation lama
-   * tidak boleh masuk cache generation baru.
-   */
   if (expectedVersion !== null && expectedVersion !== currentVersion) {
     return false;
   }
 
-  const timestamp = Number.isFinite(Number(options.timestamp))
-    ? Number(options.timestamp)
-    : now();
+  const rawTimestamp = Number(options.timestamp);
+
+  const timestamp =
+    Number.isFinite(rawTimestamp) && rawTimestamp >= 0 ? rawTimestamp : now();
 
   const entry = {
     data,
@@ -178,10 +253,9 @@ export const setCachedResource = (key, data, options = {}) => {
   };
 
   cache.set(normalizedKey, entry);
-
   touchEntry(normalizedKey, entry);
 
-  enforceCacheLimit(options.maxEntries ?? DEFAULT_MAX_ENTRIES);
+  enforceCacheLimit(options.maxEntries);
 
   return true;
 };
@@ -199,21 +273,13 @@ export const invalidateResource = (key) => {
 
   cache.delete(normalizedKey);
 
-  /*
-   * JANGAN menghapus inFlightRequests.
-   *
-   * Request lama tetap boleh selesai.
-   *
-   * Request baru akan mendapatkan version berbeda,
-   * sehingga tidak join request lama.
-   */
   bumpResourceVersion(normalizedKey);
 
   return getResourceVersion(normalizedKey);
 };
 
 export const invalidateResources = (keys = []) => {
-  if (!Array.isArray(keys)) {
+  if (!Array.isArray(keys) || keys.length === 0) {
     return;
   }
 
@@ -228,12 +294,6 @@ export const invalidateResources = (keys = []) => {
 
 export const clearResourceCache = () => {
   cache.clear();
-
-  /*
-   * Global reset berbeda dari invalidation satu resource.
-   *
-   * Ini dilakukan ketika identity/session berubah.
-   */
   inFlightRequests.clear();
 
   cacheEpoch += 1;
@@ -247,7 +307,6 @@ export const clearResourceCache = () => {
 
 export const getResourceKey = ({ scope = "global", resource }) => {
   const normalizedScope = String(scope ?? "global").trim();
-
   const normalizedResource = String(resource ?? "").trim();
 
   if (!normalizedResource) {
@@ -257,13 +316,20 @@ export const getResourceKey = ({ scope = "global", resource }) => {
   return `${normalizedScope}:${normalizedResource}`;
 };
 
-export const getCacheEpoch = () => cacheEpoch;
+export const getCacheEpoch = () => {
+  return cacheEpoch;
+};
 
 /* ============================================================
- * REQUEST DEDUPE
+ * REQUEST DEDUPLICATION
  * ============================================================ */
 
-export const createRequestDeduper = ({ key, request }) => {
+export const createRequestDeduper = ({
+  key,
+  request,
+  version = null,
+  joinExisting = true,
+}) => {
   const normalizedKey = normalizeKey(key);
 
   if (typeof request !== "function") {
@@ -272,24 +338,23 @@ export const createRequestDeduper = ({ key, request }) => {
     );
   }
 
-  /*
-   * Request tanpa key tidak bisa didedupe.
-   */
   if (!normalizedKey) {
     return Promise.resolve().then(request);
   }
 
-  const version = getResourceVersion(normalizedKey);
+  const currentVersion = String(version ?? getResourceVersion(normalizedKey));
 
-  const epoch = getCacheEpoch();
+  const epoch = cacheEpoch;
 
   const existing = inFlightRequests.get(normalizedKey);
 
   /*
-   * Hanya join request yang benar-benar
-   * berada pada generation sama.
+   * For concurrent callers of the same resource, always join
+   * the existing request. The consumer-side generation/version
+   * checks remain responsible for deciding whether its result
+   * is allowed to update local state.
    */
-  if (existing && existing.version === version && existing.epoch === epoch) {
+  if (joinExisting && existing && existing.epoch === epoch) {
     return existing.promise;
   }
 
@@ -297,11 +362,8 @@ export const createRequestDeduper = ({ key, request }) => {
 
   const entry = {
     promise,
-
-    version,
-
+    version: currentVersion,
     epoch,
-
     startedAt: now(),
   };
 
@@ -310,10 +372,6 @@ export const createRequestDeduper = ({ key, request }) => {
   const cleanup = () => {
     const current = inFlightRequests.get(normalizedKey);
 
-    /*
-     * Request lama tidak boleh menghapus
-     * request generasi baru.
-     */
     if (current?.promise === promise) {
       inFlightRequests.delete(normalizedKey);
     }
@@ -348,31 +406,30 @@ export const hasInFlightRequest = (key) => {
   return Boolean(getInFlightRequest(key));
 };
 
-/* ============================================================
- * INVALIDATE + REQUEST
- * ============================================================ */
-
 export const invalidateResourceAndRequest = (key, request) => {
   invalidateResource(key);
+
+  const requestVersion = getResourceVersion(key);
 
   return createRequestDeduper({
     key,
     request,
+    version: requestVersion,
+    joinExisting: true,
   });
 };
 
 /* ============================================================
- * DEBUG
+ * DEBUG / DIAGNOSTICS
  * ============================================================ */
 
 export const getCacheStats = () => {
   return {
     cacheEntries: cache.size,
-
     inFlightRequests: inFlightRequests.size,
+    cacheEpoch,
 
     cacheKeys: Array.from(cache.keys()),
-
     inFlightKeys: Array.from(inFlightRequests.keys()),
   };
 };
@@ -383,31 +440,29 @@ export const getCacheStats = () => {
 
 export default {
   getCachedResource,
-
+  getStaleResource,
   getResourceSnapshot,
 
-  getResourceVersion,
-
+  getResourceState,
+  getResourceAge,
+  hasResourceSnapshot,
   hasCachedResource,
+  isResourceFresh,
+  isResourceStale,
 
+  getResourceVersion,
   setCachedResource,
 
   invalidateResource,
-
   invalidateResources,
-
   clearResourceCache,
 
   getResourceKey,
-
   getCacheEpoch,
 
   createRequestDeduper,
-
   getInFlightRequest,
-
   getInFlightRequestMeta,
-
   hasInFlightRequest,
 
   invalidateResourceAndRequest,

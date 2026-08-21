@@ -12,10 +12,11 @@ import {
   ReportScore,
   ReportSummary,
   ReportTeacherNote,
+  ReportDetailSkeleton,
   useReportDetail,
 } from "@/features/reports/detail";
 
-import { EmptyState, ErrorState, LoadingState } from "@/shared/components/ui";
+import { Button, EmptyState, ErrorState } from "@/shared/components/ui";
 
 import { ArrowLeftIcon, EditIcon } from "@/shared/icons";
 
@@ -24,6 +25,8 @@ import { ROUTES } from "@/shared/constants";
 import { cx } from "@/shared/utils";
 
 import { PageContainer } from "@/layouts/components";
+
+import { useDelayedLoading } from "@/shared/hooks";
 
 /* ============================================================
  * ACTION STYLES
@@ -75,6 +78,7 @@ const ACTION_VARIANTS = {
 const ROLE_CONFIG = {
   teacher: {
     reportsRoute: ROUTES.teacher.reports,
+
     getEditRoute: (id) => ROUTES.teacher.reportEdit(id),
   },
 
@@ -154,15 +158,35 @@ const ReportDetailPage = ({ role = "teacher" }) => {
 
   const {
     viewData,
+
     nilaiStyle,
+
     capabilities,
-    isLoading,
-    error,
+
+    isInitialLoading,
+
+    isFetching,
+
+    isRefreshing,
+
+    initialError,
+
+    refreshError,
+
     refresh,
+
     lightbox,
   } = useReportDetail(id);
 
   const handledRefreshKeyRef = useRef(null);
+
+  /* ==========================================================
+   * LOADING VISIBILITY
+   * ========================================================== */
+
+  const showLoading = useDelayedLoading(isInitialLoading, "page");
+
+  const showInitialSkeleton = showLoading && !viewData;
 
   /* ==========================================================
    * POST-EDIT AUTHORITATIVE REFRESH
@@ -198,7 +222,9 @@ const ReportDetailPage = ({ role = "teacher" }) => {
     navigate(
       {
         pathname: location.pathname,
+
         search: location.search,
+
         hash: location.hash,
       },
       {
@@ -218,6 +244,10 @@ const ReportDetailPage = ({ role = "teacher" }) => {
     refresh,
   ]);
 
+  /* ==========================================================
+   * ROLE / BREADCRUMB
+   * ========================================================== */
+
   const roleConfig = ROLE_CONFIG[role] ?? ROLE_CONFIG.teacher;
 
   const breadcrumb = [
@@ -232,33 +262,35 @@ const ReportDetailPage = ({ role = "teacher" }) => {
   ];
 
   /* ==========================================================
-   * LOADING
+   * INITIAL LOADING
    * ========================================================== */
 
-  if (isLoading) {
+  if (showInitialSkeleton) {
     return (
       <PageContainer
         title="Detail Laporan"
-        subtitle="Memuat..."
+        subtitle="Memuat laporan..."
         breadcrumb={breadcrumb}
       >
-        <LoadingState message="Memuat laporan..." />
+        <div aria-busy="true" aria-live="polite" className="min-w-0">
+          <ReportDetailSkeleton />
+        </div>
       </PageContainer>
     );
   }
 
   /* ==========================================================
-   * ERROR
+   * INITIAL ERROR
    * ========================================================== */
 
-  if (error) {
+  if (initialError && !viewData) {
     return (
       <PageContainer
         title="Detail Laporan"
         subtitle="Gagal memuat."
         breadcrumb={breadcrumb}
       >
-        <ErrorState error={error} onRetry={refresh} />
+        <ErrorState error={initialError} onRetry={refresh} />
       </PageContainer>
     );
   }
@@ -309,7 +341,44 @@ const ReportDetailPage = ({ role = "teacher" }) => {
         />
       }
     >
-      <div className="min-w-0 space-y-6">
+      <div
+        className="min-w-0 space-y-6"
+        aria-busy={isInitialLoading || isFetching || isRefreshing || undefined}
+      >
+        {(isRefreshing || refreshError) && (
+          <div
+            className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-border bg-surface-muted/40 px-4 py-3"
+            role={refreshError ? "alert" : "status"}
+            aria-live="polite"
+          >
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-text">
+                {refreshError
+                  ? "Pembaruan laporan gagal."
+                  : "Memperbarui laporan..."}
+              </p>
+
+              {refreshError && (
+                <p className="mt-0.5 text-xs text-muted">
+                  Data laporan sebelumnya tetap ditampilkan.
+                </p>
+              )}
+            </div>
+
+            {refreshError && (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={refresh}
+                className="shrink-0"
+              >
+                Coba lagi
+              </Button>
+            )}
+          </div>
+        )}
+
         <article
           aria-label={`Detail laporan ${viewData.studentName}`}
           className={cx(

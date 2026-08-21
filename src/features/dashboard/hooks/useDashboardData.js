@@ -20,17 +20,15 @@ import {
   normalizeId,
 } from "@/features/reports/domain/reportSelectors";
 
-/* ============================================================
- * CONSTANTS
- * ============================================================ */
-
 const EMPTY_ARRAY = Object.freeze([]);
 
 /* ============================================================
  * HELPERS
  * ============================================================ */
 
-const getUserProfileId = (user) => normalizeId(user?.profile?.id ?? user?.id);
+const getUserProfileId = (user) => {
+  return normalizeId(user?.profile?.id ?? user?.id);
+};
 
 const getUserName = (user, fallback) => {
   const value = user?.profile?.full_name ?? user?.full_name ?? "";
@@ -88,58 +86,64 @@ const useDashboardData = (role = "teacher") => {
   const isStudent = normalizedRole === "student";
 
   /* ==========================================================
-   * REPORTS
+   * RESOURCES
    * ========================================================== */
 
   const reportsResource = useReports({
     autoFetch: Boolean(normalizedRole && accountId !== null),
   });
 
-  /* ==========================================================
-   * LOOKUPS
-   * ========================================================== */
-
   const studentsResource = useStudents({
     autoFetch: isTeacher,
+    staleTime: 10 * 60 * 1000,
   });
 
   const teachersResource = useTeachers({
     autoFetch: isStudent,
+    staleTime: 10 * 60 * 1000,
   });
 
   const programsResource = usePrograms({
     autoFetch: Boolean(normalizedRole && accountId !== null),
+    staleTime: 10 * 60 * 1000,
   });
 
   const classesResource = useClasses({
     autoFetch: Boolean(normalizedRole && accountId !== null),
+    staleTime: 10 * 60 * 1000,
   });
 
   /* ==========================================================
    * DATA
    * ========================================================== */
 
-  /*
-   * Important:
-   *
-   * toArray() sekarang mengembalikan shared EMPTY_ARRAY
-   * ketika resource belum mempunyai array.
-   *
-   * Jadi useMemo di bawah tidak kehilangan referential
-   * stability hanya karena resource sedang undefined/null.
-   */
-  const reports = toArray(reportsResource.reports);
+  const reports = useMemo(
+    () => toArray(reportsResource.reports ?? reportsResource.data),
+    [reportsResource.reports, reportsResource.data],
+  );
 
-  const students = toArray(studentsResource.data);
+  const students = useMemo(
+    () => toArray(studentsResource.data),
+    [studentsResource.data],
+  );
 
-  const teachers = toArray(teachersResource.data);
+  const teachers = useMemo(
+    () => toArray(teachersResource.data),
+    [teachersResource.data],
+  );
 
-  const programs = toArray(programsResource.data);
+  const programs = useMemo(
+    () => toArray(programsResource.data),
+    [programsResource.data],
+  );
 
-  const classes = toArray(classesResource.data);
+  const classes = useMemo(
+    () => toArray(classesResource.data),
+    [classesResource.data],
+  );
 
   /* ==========================================================
-   * LOOKUP MAPS
+   * LOOKUPS
    * ========================================================== */
 
   const studentMap = useMemo(() => createLookupMap(students), [students]);
@@ -155,7 +159,7 @@ const useDashboardData = (role = "teacher") => {
    * ========================================================== */
 
   const scopedReports = useMemo(() => {
-    if (normalizedRole === null || accountId === null) {
+    if (!normalizedRole || accountId === null) {
       return EMPTY_ARRAY;
     }
 
@@ -166,21 +170,23 @@ const useDashboardData = (role = "teacher") => {
    * ENRICH
    * ========================================================== */
 
-  const enrichedReports = useMemo(
-    () =>
-      scopedReports.map((report) => ({
-        ...report,
+  const enrichedReports = useMemo(() => {
+    if (scopedReports.length === 0) {
+      return EMPTY_ARRAY;
+    }
 
-        student_name: getReportStudentName(report, studentMap),
+    return scopedReports.map((report) => ({
+      ...report,
 
-        teacher_name: getReportTeacherName(report, teacherMap),
+      student_name: getReportStudentName(report, studentMap),
 
-        program_name: getReportProgramName(report, programMap),
+      teacher_name: getReportTeacherName(report, teacherMap),
 
-        class_name: getReportClassName(report, classMap),
-      })),
-    [scopedReports, studentMap, teacherMap, programMap, classMap],
-  );
+      program_name: getReportProgramName(report, programMap),
+
+      class_name: getReportClassName(report, classMap),
+    }));
+  }, [scopedReports, studentMap, teacherMap, programMap, classMap]);
 
   /* ==========================================================
    * LATEST REPORT
@@ -220,27 +226,76 @@ const useDashboardData = (role = "teacher") => {
   }, [latestReport]);
 
   /* ==========================================================
-   * LOADING
+   * RESOURCE STATUS
    * ========================================================== */
 
-  const isLoading = Boolean(
-    reportsResource.loading ||
-    studentsResource.loading ||
-    teachersResource.loading ||
-    programsResource.loading ||
-    classesResource.loading,
+  const resourceList = useMemo(
+    () => [
+      reportsResource,
+      studentsResource,
+      teachersResource,
+      programsResource,
+      classesResource,
+    ],
+    [
+      reportsResource,
+      studentsResource,
+      teachersResource,
+      programsResource,
+      classesResource,
+    ],
+  );
+
+  const isLoading = resourceList.some((resource) =>
+    Boolean(resource?.isInitialLoading),
+  );
+
+  const isFetching = resourceList.some((resource) =>
+    Boolean(resource?.isFetching),
+  );
+
+  const isRefreshing = resourceList.some((resource) =>
+    Boolean(resource?.isRefreshing),
   );
 
   /* ==========================================================
-   * ERROR
+   * INITIAL ERROR
    * ========================================================== */
 
-  const error =
-    normalizeError(reportsResource.error) ||
-    normalizeError(studentsResource.error) ||
-    normalizeError(teachersResource.error) ||
-    normalizeError(programsResource.error) ||
-    normalizeError(classesResource.error);
+  const initialError =
+    normalizeError(reportsResource.initialError) ??
+    normalizeError(studentsResource.initialError) ??
+    normalizeError(teachersResource.initialError) ??
+    normalizeError(programsResource.initialError) ??
+    normalizeError(classesResource.initialError);
+
+  /* ==========================================================
+   * REFRESH ERROR
+   * ========================================================== */
+
+  const refreshError =
+    normalizeError(reportsResource.refreshError) ??
+    normalizeError(studentsResource.refreshError) ??
+    normalizeError(teachersResource.refreshError) ??
+    normalizeError(programsResource.refreshError) ??
+    normalizeError(classesResource.refreshError);
+
+  /*
+   * Keep the public `error` contract as
+   * the initial blocking error.
+   *
+   * Refresh errors remain non-blocking.
+   */
+  const error = initialError;
+
+  /* ==========================================================
+   * USER
+   * ========================================================== */
+
+  const userName = useMemo(
+    () => getUserName(user, isTeacher ? "Guru" : "Siswa"),
+    [user, isTeacher],
+  );
 
   /* ==========================================================
    * REFRESH
@@ -273,13 +328,13 @@ const useDashboardData = (role = "teacher") => {
 
     return true;
   }, [
-    isTeacher,
+    classesResource,
     isStudent,
+    isTeacher,
+    programsResource,
     reportsResource,
     studentsResource,
     teachersResource,
-    programsResource,
-    classesResource,
   ]);
 
   /* ==========================================================
@@ -291,7 +346,7 @@ const useDashboardData = (role = "teacher") => {
 
     accountId,
 
-    userName: getUserName(user, isTeacher ? "Guru" : "Siswa"),
+    userName,
 
     role: normalizedRole,
 
@@ -307,7 +362,17 @@ const useDashboardData = (role = "teacher") => {
 
     isLoading,
 
+    isInitialLoading: isLoading,
+
+    isFetching,
+
+    isRefreshing,
+
     error,
+
+    initialError,
+
+    refreshError,
 
     refresh,
   };

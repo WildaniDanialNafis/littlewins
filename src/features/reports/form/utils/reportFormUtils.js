@@ -4,7 +4,22 @@ import { REPORT } from "@/shared/constants";
  * CONSTANTS
  * ============================================================ */
 
-const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "gif", "heic", "heif"];
+const IMAGE_EXTENSIONS = new Set([
+  "jpg",
+  "jpeg",
+  "png",
+  "webp",
+  "gif",
+  "heic",
+  "heif",
+]);
+
+const DEFAULT_IMAGE_OPTIONS = Object.freeze({
+  maxWidth: 1600,
+  maxHeight: 1600,
+  quality: 0.82,
+  mimeType: "image/jpeg",
+});
 
 /* ============================================================
  * BASIC NORMALIZATION
@@ -24,35 +39,25 @@ export const getToday = () => {
 
 export const createEmptyReportForm = () => ({
   student_id: "",
-
   teacher_id: "",
-
   program_id: "",
-
   class_id: "",
 
   report_date: getToday(),
 
   duration: "",
-
   score: "",
 
   rating_understanding: 0,
-
   rating_activity: 0,
-
   rating_discipline: 0,
-
   rating_communication: 0,
 
   materials: [""],
-
   activities: [],
 
   homework: "",
-
   teacher_note: "",
-
   recommendation: "",
 
   photos: [],
@@ -195,16 +200,6 @@ export const normalizeExistingRelations = (
     .map((item) => {
       const id = getRelationId(item, fallbackIdFields);
 
-      /*
-       * Support:
-       * value
-       * material
-       * activity
-       * name
-       *
-       * karena beberapa service dapat
-       * mengembalikan bentuk berbeda.
-       */
       const value = normalizeString(
         item?.[field] ?? item?.value ?? item?.name ?? "",
       );
@@ -215,9 +210,7 @@ export const normalizeExistingRelations = (
 
       return {
         ...item,
-
         id,
-
         value,
       };
     })
@@ -311,10 +304,6 @@ const validateDuration = (value, errors) => {
 
   const duration = normalizeInteger(value);
 
-  /*
-   * Existing contract:
-   * 1–1440 minutes.
-   */
   if (duration === null || duration <= 0 || duration > 1440) {
     errors.duration =
       "Durasi harus berupa angka bulat antara 1 sampai 1440 menit.";
@@ -429,7 +418,6 @@ export const mapOptions = (items, fallback) => {
 
       return {
         value: String(id),
-
         label: getDisplayName(item, `${fallback} ${id}`),
       };
     })
@@ -457,31 +445,24 @@ export const buildEditForm = ({
 
   const ratings = getReportRatings(report);
 
+  const studentId = normalizeId(report?.student_id ?? report?.studentId);
+
+  const teacherId = normalizeId(report?.teacher_id ?? report?.teacherId);
+
+  const programId = normalizeId(report?.program_id ?? report?.programId);
+
+  const classId = normalizeId(report?.class_id ?? report?.classId);
+
   return {
     ...cloneEmptyForm(),
 
-    /*
-     * Support both API shapes.
-     */
-    student_id:
-      normalizeId(report?.student_id ?? report?.studentId) !== null
-        ? String(normalizeId(report?.student_id ?? report?.studentId))
-        : "",
+    student_id: studentId !== null ? String(studentId) : "",
 
-    teacher_id:
-      normalizeId(report?.teacher_id ?? report?.teacherId) !== null
-        ? String(normalizeId(report?.teacher_id ?? report?.teacherId))
-        : "",
+    teacher_id: teacherId !== null ? String(teacherId) : "",
 
-    program_id:
-      normalizeId(report?.program_id ?? report?.programId) !== null
-        ? String(normalizeId(report?.program_id ?? report?.programId))
-        : "",
+    program_id: programId !== null ? String(programId) : "",
 
-    class_id:
-      normalizeId(report?.class_id ?? report?.classId) !== null
-        ? String(normalizeId(report?.class_id ?? report?.classId))
-        : "",
+    class_id: classId !== null ? String(classId) : "",
 
     report_date:
       report?.report_date ?? report?.reportDate ?? report?.date ?? "",
@@ -496,12 +477,6 @@ export const buildEditForm = ({
         ? String(report.score)
         : "",
 
-    /*
-     * CRITICAL:
-     *
-     * nested ratings sekarang ikut
-     * terbaca saat Edit.
-     */
     rating_understanding: ratings.understanding,
 
     rating_activity: ratings.activity,
@@ -551,7 +526,7 @@ export const isImageFile = (file) => {
     return true;
   }
 
-  return IMAGE_EXTENSIONS.includes(getFileExtension(file.name));
+  return IMAGE_EXTENSIONS.has(getFileExtension(file.name));
 };
 
 export const normalizeImageFiles = (files) => {
@@ -574,7 +549,7 @@ export const createFileKey = (file) => {
     return "";
   }
 
-  return [file.name, file.size, file.lastModified].join(":");
+  return [file.name, file.size, file.lastModified, file.type].join(":");
 };
 
 /* ============================================================
@@ -585,6 +560,12 @@ const readFileAsDataUrl = (file) => {
   return new Promise((resolve, reject) => {
     if (typeof File === "undefined" || !(file instanceof File)) {
       reject(new Error("File foto tidak valid."));
+
+      return;
+    }
+
+    if (typeof FileReader === "undefined") {
+      reject(new Error("Browser tidak mendukung pembacaan file."));
 
       return;
     }
@@ -614,10 +595,10 @@ const readFileAsDataUrl = (file) => {
 };
 
 /* ============================================================
- * IMAGE PROCESSING
+ * IMAGE DECODING
  * ============================================================ */
 
-const loadImage = (source) => {
+const loadImageFromObjectUrl = (file) => {
   return new Promise((resolve, reject) => {
     if (typeof Image === "undefined") {
       reject(new Error("Browser tidak mendukung pemrosesan gambar."));
@@ -625,53 +606,78 @@ const loadImage = (source) => {
       return;
     }
 
+    const urlApi = typeof URL !== "undefined" ? URL : null;
+
+    if (!urlApi || typeof urlApi.createObjectURL !== "function") {
+      reject(new Error("Browser tidak mendukung object URL."));
+
+      return;
+    }
+
+    const objectUrl = urlApi.createObjectURL(file);
+
     const image = new Image();
 
+    const cleanup = () => {
+      if (typeof urlApi.revokeObjectURL === "function") {
+        try {
+          urlApi.revokeObjectURL(objectUrl);
+        } catch {
+          // noop
+        }
+      }
+    };
+
     image.onload = () => {
+      cleanup();
       resolve(image);
     };
 
     image.onerror = () => {
-      reject(new Error("Gambar tidak dapat diproses."));
+      cleanup();
+
+      reject(new Error(`Gambar ${file.name} tidak dapat diproses.`));
     };
 
-    image.src = source;
+    image.src = objectUrl;
   });
 };
 
-/*
- * Prefer Blob URL untuk decoding image.
- *
- * Keuntungan:
- * - tidak membuat Data URL/Base64 besar hanya untuk
- *   memberi source ke Image;
- * - object URL selalu di-revoke setelah image selesai;
- * - behavior fallback tetap sama bila browser tidak
- *   menyediakan createObjectURL.
- */
 const loadImageFromFile = async (file) => {
-  const urlApi = typeof URL !== "undefined" ? URL : null;
+  if (typeof createImageBitmap === "function") {
+    try {
+      const bitmap = await createImageBitmap(file, {
+        imageOrientation: "from-image",
+      });
 
-  const canCreateObjectUrl = Boolean(
-    urlApi &&
-    typeof urlApi.createObjectURL === "function" &&
-    typeof urlApi.revokeObjectURL === "function",
-  );
-
-  if (!canCreateObjectUrl) {
-    const dataUrl = await readFileAsDataUrl(file);
-
-    return loadImage(dataUrl);
+      return {
+        source: bitmap,
+        width: bitmap.width,
+        height: bitmap.height,
+        close: () => {
+          bitmap.close?.();
+        },
+      };
+    } catch {
+      // fallback
+    }
   }
 
-  const objectUrl = urlApi.createObjectURL(file);
+  const image = await loadImageFromObjectUrl(file);
 
-  try {
-    return await loadImage(objectUrl);
-  } finally {
-    urlApi.revokeObjectURL(objectUrl);
-  }
+  return {
+    source: image,
+    width: image.naturalWidth || image.width,
+
+    height: image.naturalHeight || image.height,
+
+    close: () => {},
+  };
 };
+
+/* ============================================================
+ * CANVAS
+ * ============================================================ */
 
 const canvasToBlob = (canvas, type, quality) => {
   return new Promise((resolve, reject) => {
@@ -698,6 +704,10 @@ const canvasToBlob = (canvas, type, quality) => {
 };
 
 const createProcessedFile = (blob, originalFile) => {
+  if (typeof File === "undefined") {
+    throw new Error("Browser tidak mendukung File API.");
+  }
+
   const originalName = originalFile?.name || "photo.jpg";
 
   const baseName = originalName.replace(/\.[^/.]+$/, "");
@@ -708,10 +718,43 @@ const createProcessedFile = (blob, originalFile) => {
   });
 };
 
-export const processImageFile = async (
-  file,
-  { maxWidth = 1600, maxHeight = 1600, quality = 0.82 } = {},
+const shouldKeepOriginalFile = (
+  originalFile,
+  outputBlob,
+  width,
+  height,
+  originalWidth,
+  originalHeight,
+  mimeType,
 ) => {
+  if (!outputBlob || outputBlob.size >= originalFile.size) {
+    return true;
+  }
+
+  /*
+   * Jangan mengubah image yang sudah sesuai dimensi
+   * dan menggunakan format non-JPEG tanpa alasan size
+   * yang signifikan.
+   *
+   * Untuk JPEG tetap gunakan hasil compression agar
+   * quality policy tetap konsisten.
+   */
+  if (
+    mimeType !== "image/jpeg" &&
+    width === originalWidth &&
+    height === originalHeight
+  ) {
+    return outputBlob.size >= Math.floor(originalFile.size * 0.95);
+  }
+
+  return false;
+};
+
+/* ============================================================
+ * IMAGE PROCESSING
+ * ============================================================ */
+
+export const processImageFile = async (file, options = {}) => {
   if (typeof File === "undefined" || !(file instanceof File)) {
     throw new Error("File foto tidak valid.");
   }
@@ -720,94 +763,137 @@ export const processImageFile = async (
     throw new Error(`File ${file.name} bukan gambar yang didukung.`);
   }
 
+  const {
+    maxWidth = DEFAULT_IMAGE_OPTIONS.maxWidth,
+
+    maxHeight = DEFAULT_IMAGE_OPTIONS.maxHeight,
+
+    quality = DEFAULT_IMAGE_OPTIONS.quality,
+
+    mimeType = DEFAULT_IMAGE_OPTIONS.mimeType,
+  } = options;
+
   const extension = getFileExtension(file.name);
 
   const isHeic = extension === "heic" || extension === "heif";
 
   /*
-   * HEIC/HEIF:
-   *
-   * Browser belum tentu bisa decode lewat canvas.
-   * Pertahankan behavior lama: gunakan file asli.
+   * Browser belum tentu bisa decode HEIC/HEIF.
+   * Jangan merusak file asli.
    */
   if (isHeic) {
     return file;
   }
 
-  /*
-   * Decode langsung dari Blob/File.
-   *
-   * Ini menggantikan:
-   *
-   * File
-   *   -> Data URL
-   *   -> Image
-   *
-   * dengan:
-   *
-   * File
-   *   -> Blob URL
-   *   -> Image
-   */
-  const image = await loadImageFromFile(file);
-
-  const originalWidth = image.naturalWidth || image.width;
-
-  const originalHeight = image.naturalHeight || image.height;
-
-  if (!originalWidth || !originalHeight) {
-    throw new Error(`Ukuran gambar ${file.name} tidak dapat dibaca.`);
-  }
-
-  const safeMaxWidth = Math.max(1, Number(maxWidth) || 1600);
-
-  const safeMaxHeight = Math.max(1, Number(maxHeight) || 1600);
-
-  const safeQuality = Math.min(1, Math.max(0.1, Number(quality) || 0.82));
-
-  const scale = Math.min(
+  const normalizedMaxWidth = Math.max(
     1,
-    safeMaxWidth / originalWidth,
-    safeMaxHeight / originalHeight,
+    Number(maxWidth) || DEFAULT_IMAGE_OPTIONS.maxWidth,
   );
 
-  const width = Math.max(1, Math.round(originalWidth * scale));
+  const normalizedMaxHeight = Math.max(
+    1,
+    Number(maxHeight) || DEFAULT_IMAGE_OPTIONS.maxHeight,
+  );
 
-  const height = Math.max(1, Math.round(originalHeight * scale));
+  const normalizedQuality = Math.min(
+    1,
+    Math.max(0.1, Number(quality) || DEFAULT_IMAGE_OPTIONS.quality),
+  );
 
-  /*
-   * Tetap encode ke JPEG agar
-   * backend mendapatkan format yang konsisten.
-   */
-  const canvas = document.createElement("canvas");
+  const decoded = await loadImageFromFile(file);
 
-  canvas.width = width;
+  try {
+    const originalWidth = decoded.width;
 
-  canvas.height = height;
+    const originalHeight = decoded.height;
 
-  const context = canvas.getContext("2d");
+    if (!originalWidth || !originalHeight) {
+      throw new Error(`Ukuran gambar ${file.name} tidak dapat dibaca.`);
+    }
 
-  if (!context) {
-    throw new Error("Browser tidak mendukung pemrosesan gambar.");
+    const scale = Math.min(
+      1,
+
+      normalizedMaxWidth / originalWidth,
+
+      normalizedMaxHeight / originalHeight,
+    );
+
+    const width = Math.max(1, Math.round(originalWidth * scale));
+
+    const height = Math.max(1, Math.round(originalHeight * scale));
+
+    /*
+     * Bila file sudah kecil dan dimensinya sudah aman,
+     * tetap lakukan encoding hanya bila memang menghasilkan
+     * output yang lebih kecil.
+     */
+    const canvas = document.createElement("canvas");
+
+    canvas.width = width;
+    canvas.height = height;
+
+    const context = canvas.getContext("2d", {
+      alpha: true,
+    });
+
+    if (!context) {
+      throw new Error("Browser tidak mendukung pemrosesan gambar.");
+    }
+
+    context.imageSmoothingEnabled = true;
+
+    context.imageSmoothingQuality = "high";
+
+    /*
+     * JPEG tidak menyimpan transparency.
+     * Gunakan background putih agar PNG/WebP transparan
+     * tidak menghasilkan area hitam saat diproses.
+     */
+    if (mimeType === "image/jpeg") {
+      context.fillStyle = "#ffffff";
+
+      context.fillRect(0, 0, width, height);
+    }
+
+    context.drawImage(decoded.source, 0, 0, width, height);
+
+    const blob = await canvasToBlob(canvas, mimeType, normalizedQuality);
+
+    const originalMimeType =
+      typeof file.type === "string" ? file.type.toLowerCase() : "";
+
+    if (
+      shouldKeepOriginalFile(
+        file,
+        blob,
+        width,
+        height,
+        originalWidth,
+        originalHeight,
+        originalMimeType,
+      )
+    ) {
+      return file;
+    }
+
+    return createProcessedFile(blob, file);
+  } finally {
+    try {
+      decoded.close?.();
+    } catch {
+      // noop
+    }
   }
-
-  context.drawImage(image, 0, 0, width, height);
-
-  const blob = await canvasToBlob(canvas, "image/jpeg", safeQuality);
-
-  return createProcessedFile(blob, file);
 };
+
+/* ============================================================
+ * BASE64
+ * ============================================================ */
 
 export const fileToBase64 = async (file, options = {}) => {
   const processedFile = await processImageFile(file, options);
 
-  /*
-   * Backend contract tetap sama:
-   * caller tetap menerima Data URL.
-   *
-   * Perubahan hanya menghilangkan Data URL
-   * sementara pada tahap decoding source image.
-   */
   return readFileAsDataUrl(processedFile);
 };
 

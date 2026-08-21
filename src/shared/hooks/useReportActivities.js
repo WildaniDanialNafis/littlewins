@@ -1,8 +1,12 @@
+import { useMemo } from "react";
+
 import { reportActivityService } from "@/services/api";
 
 import useReportRelationResource from "./useReportRelationResource";
 
 const DEFAULT_STALE_TIME = 60_000;
+
+const EMPTY_ARRAY = Object.freeze([]);
 
 const METHODS = Object.freeze({
   getAll: (reportId, options = {}) =>
@@ -20,60 +24,84 @@ const METHODS = Object.freeze({
 
 const MESSAGES = Object.freeze({
   fetch: "Gagal memuat aktivitas laporan.",
-
   create: "Gagal membuat aktivitas.",
-
   update: "Gagal memperbarui aktivitas.",
-
   delete: "Gagal menghapus aktivitas.",
 });
 
-export const useReportActivities = (reportId, options = {}) => {
+const useReportActivities = (reportId, options = {}) => {
   const {
     initialData,
-
     autoFetch = true,
-
     staleTime = DEFAULT_STALE_TIME,
-
     forceFetchOnMount = false,
   } = options;
 
   const resource = useReportRelationResource({
     reportId,
-
     resourceKey: "activities",
-
     methods: METHODS,
-
     messages: MESSAGES,
-
     initialData,
-
     autoFetch,
-
     staleTime,
-
     forceFetchOnMount,
   });
 
-  return {
-    activities: Array.isArray(resource.data) ? resource.data : [],
+  const activities = useMemo(
+    () => (Array.isArray(resource.data) ? resource.data : EMPTY_ARRAY),
+    [resource.data],
+  );
 
-    loading: resource.loading,
+  const fetchActivities = resource.fetchItems ?? resource.fetchAll;
 
-    error: resource.error,
+  return useMemo(
+    () => ({
+      activities,
 
-    fetchActivities: resource.fetchItems,
+      loading: resource.isInitialLoading ?? resource.loading ?? false,
 
-    createActivity: resource.create,
+      isInitialLoading: resource.isInitialLoading ?? resource.loading ?? false,
 
-    updateActivity: resource.update,
+      isFetching: resource.isFetching ?? resource.loading ?? false,
 
-    deleteActivity: resource.remove,
+      isRefreshing: resource.isRefreshing ?? false,
 
-    refresh: resource.refresh,
-  };
+      error: resource.error ?? null,
+
+      initialError:
+        resource.initialError ??
+        (resource.isInitialLoading || resource.loading
+          ? resource.error
+          : null) ??
+        null,
+
+      refreshError: resource.refreshError ?? null,
+
+      isCreating: resource.isCreating ?? false,
+
+      isUpdating: resource.isUpdating ?? false,
+
+      isDeleting: resource.isDeleting ?? false,
+
+      isMutating:
+        resource.isMutating ??
+        Boolean(
+          resource.isCreating || resource.isUpdating || resource.isDeleting,
+        ),
+
+      fetchActivities,
+
+      createActivity: resource.create,
+
+      updateActivity: resource.update,
+
+      deleteActivity: resource.remove,
+
+      refresh: resource.refresh,
+    }),
+    [activities, fetchActivities, resource],
+  );
 };
 
 useReportActivities.displayName = "useReportActivities";

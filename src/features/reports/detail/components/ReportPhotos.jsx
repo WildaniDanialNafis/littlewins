@@ -1,4 +1,4 @@
-import { memo, useMemo } from "react";
+import { memo, useCallback, useMemo } from "react";
 
 import { Divider, SectionTitle } from "@/shared/components/layout";
 
@@ -6,16 +6,8 @@ import { PhotoIcon } from "@/shared/icons";
 
 import PhotoThumbnail from "./PhotoThumbnail";
 
-/* ============================================================
- * CONSTANTS
- * ============================================================ */
-
 const MOBILE_LIMIT = 2;
 const DESKTOP_LIMIT = 3;
-
-/* ============================================================
- * HELPERS
- * ============================================================ */
 
 const getPhotoSource = (photo) => {
   if (!photo) {
@@ -26,7 +18,7 @@ const getPhotoSource = (photo) => {
     return photo;
   }
 
-  return photo.photo_url || photo.url || photo.image_url || photo.photo || null;
+  return photo.photo_url ?? photo.url ?? photo.image_url ?? photo.photo ?? null;
 };
 
 const getPhotoKey = (photo, index) => {
@@ -39,10 +31,6 @@ const getPhotoKey = (photo, index) => {
   return `${String(photo)}-${index}`;
 };
 
-/* ============================================================
- * REPORT PHOTOS
- * ============================================================ */
-
 const ReportPhotos = memo(({ report, onOpen }) => {
   const photos = useMemo(() => {
     if (!Array.isArray(report?.photos)) {
@@ -52,39 +40,44 @@ const ReportPhotos = memo(({ report, onOpen }) => {
     return report.photos.map(getPhotoSource).filter(Boolean);
   }, [report?.photos]);
 
+  const programName = report?.programName ?? report?.program_name ?? "Kegiatan";
+
+  const renderPhotos = useCallback(
+    (limit) => {
+      const visiblePhotos = photos.slice(0, limit);
+
+      const remaining = Math.max(photos.length - limit, 0);
+
+      return visiblePhotos.map((photo, index) => {
+        const isLastVisible = index === visiblePhotos.length - 1;
+
+        const hasMore = remaining > 0 && isLastVisible;
+
+        return (
+          <PhotoThumbnail
+            key={getPhotoKey(photo, index)}
+            photo={photo}
+            index={index}
+            subject={programName}
+            onOpen={onOpen}
+            overlay={
+              hasMore
+                ? {
+                    count: remaining,
+                    label: `Lihat ${remaining} foto lagi`,
+                  }
+                : null
+            }
+          />
+        );
+      });
+    },
+    [onOpen, photos, programName],
+  );
+
   if (photos.length === 0) {
     return null;
   }
-
-  const renderPhotos = (limit) => {
-    const visiblePhotos = photos.slice(0, limit);
-
-    const remaining = Math.max(photos.length - limit, 0);
-
-    const overlayIndex = visiblePhotos.length - 1;
-
-    return visiblePhotos.map((photo, index) => {
-      const showMoreOverlay = remaining > 0 && index === overlayIndex;
-
-      return (
-        <PhotoThumbnail
-          key={getPhotoKey(photo, index)}
-          photo={photo}
-          index={index}
-          subject={report.programName}
-          onOpen={onOpen}
-          overlay={
-            showMoreOverlay
-              ? {
-                  count: remaining,
-                  label: `Lihat ${remaining} foto lagi`,
-                }
-              : null
-          }
-        />
-      );
-    });
-  };
 
   return (
     <>

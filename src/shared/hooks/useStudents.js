@@ -1,3 +1,5 @@
+import { useMemo } from "react";
+
 import { studentService } from "@/services/api";
 
 import useCrudResource from "./useCrudResource";
@@ -6,54 +8,79 @@ const EMPTY_ARRAY = Object.freeze([]);
 
 const MESSAGES = Object.freeze({
   fetch: "Gagal memuat siswa.",
-
   create: "Gagal membuat siswa.",
-
   update: "Gagal memperbarui siswa.",
-
   delete: "Gagal menghapus siswa.",
 });
 
-export const useStudents = (options = {}) => {
+const useStudents = (options = {}) => {
   const {
     autoFetch = true,
-
     initialData = EMPTY_ARRAY,
-
     staleTime = 10 * 60 * 1000,
   } = options;
 
   const resource = useCrudResource({
     service: studentService,
-
     resourceKey: "students",
-
     autoFetch,
-
     initialData,
-
     staleTime,
-
     messages: MESSAGES,
   });
 
-  return {
-    data: resource.data,
+  const data = useMemo(
+    () => (Array.isArray(resource.data) ? resource.data : EMPTY_ARRAY),
+    [resource.data],
+  );
 
-    loading: resource.loading,
+  return useMemo(
+    () => ({
+      data,
 
-    error: resource.error,
+      loading: resource.isInitialLoading ?? resource.loading ?? false,
 
-    fetchAll: resource.fetchAll,
+      isInitialLoading: resource.isInitialLoading ?? resource.loading ?? false,
 
-    createStudent: resource.create,
+      isFetching: resource.isFetching ?? resource.loading ?? false,
 
-    updateStudent: resource.update,
+      isRefreshing: resource.isRefreshing ?? false,
 
-    deleteStudent: resource.remove,
+      error: resource.error ?? null,
 
-    refresh: resource.refresh,
-  };
+      initialError:
+        resource.initialError ??
+        (resource.isInitialLoading || resource.loading
+          ? resource.error
+          : null) ??
+        null,
+
+      refreshError: resource.refreshError ?? null,
+
+      isCreating: resource.isCreating ?? false,
+
+      isUpdating: resource.isUpdating ?? false,
+
+      isDeleting: resource.isDeleting ?? false,
+
+      isMutating:
+        resource.isMutating ??
+        Boolean(
+          resource.isCreating || resource.isUpdating || resource.isDeleting,
+        ),
+
+      fetchAll: resource.fetchAll,
+
+      createStudent: resource.create,
+
+      updateStudent: resource.update,
+
+      deleteStudent: resource.remove,
+
+      refresh: resource.refresh,
+    }),
+    [data, resource],
+  );
 };
 
 useStudents.displayName = "useStudents";

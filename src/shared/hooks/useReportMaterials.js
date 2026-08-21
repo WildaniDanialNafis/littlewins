@@ -1,8 +1,12 @@
+import { useMemo } from "react";
+
 import { reportMaterialService } from "@/services/api";
 
 import useReportRelationResource from "./useReportRelationResource";
 
 const DEFAULT_STALE_TIME = 60_000;
+
+const EMPTY_ARRAY = Object.freeze([]);
 
 const METHODS = Object.freeze({
   getAll: (reportId, options = {}) =>
@@ -20,60 +24,84 @@ const METHODS = Object.freeze({
 
 const MESSAGES = Object.freeze({
   fetch: "Gagal memuat materi laporan.",
-
   create: "Gagal membuat materi.",
-
   update: "Gagal memperbarui materi.",
-
   delete: "Gagal menghapus materi.",
 });
 
-export const useReportMaterials = (reportId, options = {}) => {
+const useReportMaterials = (reportId, options = {}) => {
   const {
     initialData,
-
     autoFetch = true,
-
     staleTime = DEFAULT_STALE_TIME,
-
     forceFetchOnMount = false,
   } = options;
 
   const resource = useReportRelationResource({
     reportId,
-
     resourceKey: "materials",
-
     methods: METHODS,
-
     messages: MESSAGES,
-
     initialData,
-
     autoFetch,
-
     staleTime,
-
     forceFetchOnMount,
   });
 
-  return {
-    materials: Array.isArray(resource.data) ? resource.data : [],
+  const materials = useMemo(
+    () => (Array.isArray(resource.data) ? resource.data : EMPTY_ARRAY),
+    [resource.data],
+  );
 
-    loading: resource.loading,
+  const fetchMaterials = resource.fetchItems ?? resource.fetchAll;
 
-    error: resource.error,
+  return useMemo(
+    () => ({
+      materials,
 
-    fetchMaterials: resource.fetchItems,
+      loading: resource.isInitialLoading ?? resource.loading ?? false,
 
-    createMaterial: resource.create,
+      isInitialLoading: resource.isInitialLoading ?? resource.loading ?? false,
 
-    updateMaterial: resource.update,
+      isFetching: resource.isFetching ?? resource.loading ?? false,
 
-    deleteMaterial: resource.remove,
+      isRefreshing: resource.isRefreshing ?? false,
 
-    refresh: resource.refresh,
-  };
+      error: resource.error ?? null,
+
+      initialError:
+        resource.initialError ??
+        (resource.isInitialLoading || resource.loading
+          ? resource.error
+          : null) ??
+        null,
+
+      refreshError: resource.refreshError ?? null,
+
+      isCreating: resource.isCreating ?? false,
+
+      isUpdating: resource.isUpdating ?? false,
+
+      isDeleting: resource.isDeleting ?? false,
+
+      isMutating:
+        resource.isMutating ??
+        Boolean(
+          resource.isCreating || resource.isUpdating || resource.isDeleting,
+        ),
+
+      fetchMaterials,
+
+      createMaterial: resource.create,
+
+      updateMaterial: resource.update,
+
+      deleteMaterial: resource.remove,
+
+      refresh: resource.refresh,
+    }),
+    [fetchMaterials, materials, resource],
+  );
 };
 
 useReportMaterials.displayName = "useReportMaterials";

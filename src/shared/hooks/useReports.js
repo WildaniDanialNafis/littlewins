@@ -14,6 +14,10 @@ import {
 
 import { useAuth } from "./useAuth";
 
+/* ============================================================
+ * CONSTANTS
+ * ============================================================ */
+
 const EMPTY_ARRAY = Object.freeze([]);
 
 const LIST_STALE_TIME = 30_000;
@@ -53,20 +57,22 @@ const toArray = (value) => {
   return Array.isArray(value) ? value : EMPTY_ARRAY;
 };
 
-const sameId = (firstId, secondId) => {
-  return String(firstId) === String(secondId);
-};
-
 const normalizeId = (id) => {
   if (id === null || id === undefined || id === "") {
     return null;
   }
 
-  return String(id);
+  const normalized = String(id).trim();
+
+  return normalized || null;
 };
 
 const isValidId = (id) => {
   return id !== null && id !== undefined && id !== "";
+};
+
+const sameId = (firstId, secondId) => {
+  return normalizeId(firstId) === normalizeId(secondId);
 };
 
 const getUserScope = (user) => {
@@ -107,7 +113,6 @@ export const useReports = (options = {}) => {
 
     return getResourceKey({
       scope: `user:${userScope}`,
-
       resource: "reports:list",
     });
   }, [userScope]);
@@ -128,10 +133,10 @@ export const useReports = (options = {}) => {
   );
 
   /* ==========================================================
-   * STATE
+   * INITIAL DATA
    * ========================================================== */
 
-  const [reports, setReports] = useState(() => {
+  const getInitialReports = useCallback(() => {
     if (!listCacheKey) {
       return EMPTY_ARRAY;
     }
@@ -149,13 +154,29 @@ export const useReports = (options = {}) => {
     }
 
     return EMPTY_ARRAY;
-  });
+  }, [listCacheKey, staleTime]);
 
-  const [loading, setLoading] = useState(() => {
-    return Boolean(autoFetch && listCacheKey);
-  });
+  /* ==========================================================
+   * STATE
+   * ========================================================== */
 
-  const [error, setError] = useState(null);
+  const [reports, setReports] = useState(getInitialReports);
+
+  const [isInitialLoading, setIsInitialLoading] = useState(() =>
+    Boolean(autoFetch && listCacheKey),
+  );
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const [initialError, setInitialError] = useState(null);
+
+  const [refreshError, setRefreshError] = useState(null);
+
+  const [isCreating, setIsCreating] = useState(false);
+
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const [isDeleting, setIsDeleting] = useState(false);
 
   /* ==========================================================
    * REFS
@@ -163,17 +184,21 @@ export const useReports = (options = {}) => {
 
   const mountedRef = useRef(false);
 
+  const identityRef = useRef(listCacheKey);
+
   const generationRef = useRef(0);
 
   const mutationVersionRef = useRef(0);
+
+  const listRequestVersionRef = useRef(0);
+
+  const refreshPromiseRef = useRef(null);
 
   const createPromiseRef = useRef(null);
 
   const updatePromisesRef = useRef(new Map());
 
   const deletePromisesRef = useRef(new Map());
-
-  const listIdentityRef = useRef(listCacheKey);
 
   /* ==========================================================
    * LIFECYCLE
@@ -192,6 +217,10 @@ export const useReports = (options = {}) => {
 
       mutationVersionRef.current += 1;
 
+      listRequestVersionRef.current += 1;
+
+      refreshPromiseRef.current = null;
+
       createPromiseRef.current = null;
 
       updatePromises.clear();
@@ -201,22 +230,33 @@ export const useReports = (options = {}) => {
   }, []);
 
   /* ==========================================================
-   * IDENTITY CHANGE
+   * USER / CACHE IDENTITY
    * ========================================================== */
 
   useEffect(() => {
-    if (listIdentityRef.current === listCacheKey) {
+    if (identityRef.current === listCacheKey) {
       return;
     }
 
-    listIdentityRef.current = listCacheKey;
+    identityRef.current = listCacheKey;
 
     generationRef.current += 1;
 
     mutationVersionRef.current += 1;
 
-    setError(null);
-  }, [listCacheKey]);
+    listRequestVersionRef.current += 1;
+
+    setInitialError(null);
+
+    setRefreshError(null);
+
+    setIsInitialLoading(Boolean(autoFetch && listCacheKey));
+
+    setIsRefreshing(false);
+
+    setReports(getInitialReports());
+  }, [autoFetch, getInitialReports, listCacheKey]);
+
   /* ==========================================================
    * FETCH LIST
    * ========================================================== */
@@ -227,12 +267,17 @@ export const useReports = (options = {}) => {
         if (mountedRef.current) {
           setReports(EMPTY_ARRAY);
 
-          setLoading(false);
+          setIsInitialLoading(false);
+
+          setIsRefreshing(false);
         }
 
         return EMPTY_ARRAY;
       }
 
+      /*
+       * FRESH CACHE
+       */
       if (!force) {
         const cached = getCachedResource(listCacheKey, staleTime);
 
@@ -242,15 +287,22 @@ export const useReports = (options = {}) => {
           if (mountedRef.current) {
             setReports(nextReports);
 
-            setError(null);
+            setInitialError(null);
 
-            setLoading(false);
+            setRefreshError(null);
+
+            setIsInitialLoading(false);
+
+            setIsRefreshing(false);
           }
 
           return nextReports;
         }
       }
 
+      /*
+       * FORCE FETCH
+       */
       if (force) {
         invalidateResource(listCacheKey);
       }
@@ -261,10 +313,22 @@ export const useReports = (options = {}) => {
 
       const requestVersion = getResourceVersion(listCacheKey);
 
-      if (mountedRef.current) {
-        setLoading(true);
+      const requestId = ++listRequestVersionRef.current;
 
-        setError(null);
+      const shouldShowInitialLoading = reports.length === 0;
+
+      if (mountedRef.current) {
+        if (shouldShowInitialLoading) {
+          setIsInitialLoading(true);
+        } else {
+          setIsRefreshing(true);
+        }
+
+        if (force) {
+          setRefreshError(null);
+        } else {
+          setInitialError(null);
+        }
       }
 
       try {
@@ -276,14 +340,25 @@ export const useReports = (options = {}) => {
 
         const nextReports = toArray(result);
 
-        setCachedResource(listCacheKey, nextReports, {
-          version: requestVersion,
-        });
-
         const isCurrent =
           mountedRef.current &&
           generation === generationRef.current &&
-          mutationVersion === mutationVersionRef.current;
+          mutationVersion === mutationVersionRef.current &&
+          requestId === listRequestVersionRef.current &&
+          identityRef.current === listCacheKey;
+
+        /*
+         * Cache may be updated even when
+         * the originating component was
+         * subsequently replaced.
+         *
+         * Version guard prevents an older
+         * request from overwriting newer
+         * invalidated cache state.
+         */
+        setCachedResource(listCacheKey, nextReports, {
+          version: requestVersion,
+        });
 
         if (!isCurrent) {
           return nextReports;
@@ -291,15 +366,24 @@ export const useReports = (options = {}) => {
 
         setReports(nextReports);
 
-        setError(null);
+        setInitialError(null);
 
-        setLoading(false);
+        setRefreshError(null);
+
+        setIsInitialLoading(false);
+
+        setIsRefreshing(false);
 
         return nextReports;
       } catch (fetchError) {
         if (isAbortError(fetchError)) {
-          if (mountedRef.current) {
-            setLoading(false);
+          if (
+            mountedRef.current &&
+            requestId === listRequestVersionRef.current
+          ) {
+            setIsInitialLoading(false);
+
+            setIsRefreshing(false);
           }
 
           return EMPTY_ARRAY;
@@ -310,16 +394,29 @@ export const useReports = (options = {}) => {
           "Gagal memuat daftar laporan.",
         );
 
-        if (mountedRef.current && generation === generationRef.current) {
-          setError(normalizedError);
+        const isCurrent =
+          mountedRef.current &&
+          generation === generationRef.current &&
+          mutationVersion === mutationVersionRef.current &&
+          requestId === listRequestVersionRef.current &&
+          identityRef.current === listCacheKey;
 
-          setLoading(false);
+        if (isCurrent) {
+          if (shouldShowInitialLoading) {
+            setInitialError(normalizedError);
+          } else {
+            setRefreshError(normalizedError);
+          }
+
+          setIsInitialLoading(false);
+
+          setIsRefreshing(false);
         }
 
         throw normalizedError;
       }
     },
-    [listCacheKey, staleTime],
+    [listCacheKey, reports.length, staleTime],
   );
 
   /* ==========================================================
@@ -341,6 +438,21 @@ export const useReports = (options = {}) => {
 
         if (cached !== null) {
           return cached;
+        }
+
+        const snapshot = getResourceSnapshot(detailCacheKey);
+
+        /*
+         * stale snapshot tetap bisa digunakan
+         * hanya bila request baru nanti gagal
+         * tidak secara otomatis menimpa caller.
+         */
+        if (snapshot?.data !== undefined) {
+          /*
+           * Jangan langsung return snapshot
+           * karena detail membutuhkan data
+           * terbaru bila cache sudah stale.
+           */
         }
       }
 
@@ -383,7 +495,7 @@ export const useReports = (options = {}) => {
   );
 
   /* ==========================================================
-   * MUTATION HELPERS
+   * INVALIDATION
    * ========================================================== */
 
   const invalidateList = useCallback(() => {
@@ -423,7 +535,7 @@ export const useReports = (options = {}) => {
   );
 
   /* ==========================================================
-   * CREATE REPORT
+   * CREATE
    * ========================================================== */
 
   const createReport = useCallback(
@@ -436,14 +548,18 @@ export const useReports = (options = {}) => {
 
       const mutationGeneration = generationRef.current;
 
+      if (mountedRef.current) {
+        setIsCreating(true);
+      }
+
       const promise = (async () => {
         try {
           const report = await reportService.create(payload);
 
-          if (
-            mountedRef.current &&
-            mutationGeneration === generationRef.current
-          ) {
+          const isCurrent =
+            mountedRef.current && mutationGeneration === generationRef.current;
+
+          if (isCurrent) {
             setReports((current) => {
               const exists = current.some((item) =>
                 sameId(item?.id, report?.id),
@@ -464,7 +580,9 @@ export const useReports = (options = {}) => {
               return next;
             });
 
-            setError(null);
+            setInitialError(null);
+
+            setRefreshError(null);
           }
 
           return report;
@@ -474,14 +592,21 @@ export const useReports = (options = {}) => {
             "Gagal membuat laporan.",
           );
 
-          if (mountedRef.current) {
-            setError(normalizedError);
+          if (
+            mountedRef.current &&
+            mutationGeneration === generationRef.current
+          ) {
+            setInitialError(normalizedError);
           }
 
           throw normalizedError;
         } finally {
           if (createPromiseRef.current === promise) {
             createPromiseRef.current = null;
+          }
+
+          if (mountedRef.current) {
+            setIsCreating(false);
           }
         }
       })();
@@ -494,7 +619,7 @@ export const useReports = (options = {}) => {
   );
 
   /* ==========================================================
-   * UPDATE REPORT
+   * UPDATE
    * ========================================================== */
 
   const updateReport = useCallback(
@@ -517,14 +642,18 @@ export const useReports = (options = {}) => {
 
       const mutationGeneration = generationRef.current;
 
+      if (mountedRef.current) {
+        setIsUpdating(true);
+      }
+
       const promise = (async () => {
         try {
           const report = await reportService.update(normalizedId, payload);
 
-          if (
-            mountedRef.current &&
-            mutationGeneration === generationRef.current
-          ) {
+          const isCurrent =
+            mountedRef.current && mutationGeneration === generationRef.current;
+
+          if (isCurrent) {
             setReports((current) => {
               const next = current.map((item) =>
                 sameId(item?.id, normalizedId) ? report : item,
@@ -539,7 +668,9 @@ export const useReports = (options = {}) => {
               return next;
             });
 
-            setError(null);
+            setInitialError(null);
+
+            setRefreshError(null);
           }
 
           invalidateDetail(normalizedId);
@@ -555,13 +686,17 @@ export const useReports = (options = {}) => {
             mountedRef.current &&
             mutationGeneration === generationRef.current
           ) {
-            setError(normalizedError);
+            setInitialError(normalizedError);
           }
 
           throw normalizedError;
         } finally {
           if (updatePromisesRef.current.get(key) === promise) {
             updatePromisesRef.current.delete(key);
+          }
+
+          if (mountedRef.current && updatePromisesRef.current.size === 0) {
+            setIsUpdating(false);
           }
         }
       })();
@@ -574,7 +709,7 @@ export const useReports = (options = {}) => {
   );
 
   /* ==========================================================
-   * DELETE REPORT
+   * DELETE
    * ========================================================== */
 
   const deleteReport = useCallback(
@@ -597,14 +732,18 @@ export const useReports = (options = {}) => {
 
       const mutationGeneration = generationRef.current;
 
+      if (mountedRef.current) {
+        setIsDeleting(true);
+      }
+
       const promise = (async () => {
         try {
           await reportService.remove(normalizedId);
 
-          if (
-            mountedRef.current &&
-            mutationGeneration === generationRef.current
-          ) {
+          const isCurrent =
+            mountedRef.current && mutationGeneration === generationRef.current;
+
+          if (isCurrent) {
             setReports((current) => {
               const next = current.filter(
                 (item) => !sameId(item?.id, normalizedId),
@@ -619,7 +758,9 @@ export const useReports = (options = {}) => {
               return next;
             });
 
-            setError(null);
+            setInitialError(null);
+
+            setRefreshError(null);
           }
 
           invalidateDetail(normalizedId);
@@ -635,13 +776,17 @@ export const useReports = (options = {}) => {
             mountedRef.current &&
             mutationGeneration === generationRef.current
           ) {
-            setError(normalizedError);
+            setInitialError(normalizedError);
           }
 
           throw normalizedError;
         } finally {
           if (deletePromisesRef.current.get(key) === promise) {
             deletePromisesRef.current.delete(key);
+          }
+
+          if (mountedRef.current && deletePromisesRef.current.size === 0) {
+            setIsDeleting(false);
           }
         }
       })();
@@ -652,43 +797,90 @@ export const useReports = (options = {}) => {
     },
     [beginMutation, invalidateDetail, listCacheKey],
   );
-  /* ==========================================================
-   * AUTO FETCH
-   * ========================================================== */
-
-  useEffect(() => {
-    if (!autoFetch) {
-      return undefined;
-    }
-
-    let cancelled = false;
-
-    const timer = setTimeout(() => {
-      if (cancelled) {
-        return;
-      }
-
-      void fetchReports().catch(() => {});
-    }, 0);
-
-    return () => {
-      cancelled = true;
-
-      clearTimeout(timer);
-    };
-  }, [autoFetch, fetchReports]);
 
   /* ==========================================================
    * REFRESH
    * ========================================================== */
 
-  const refresh = useCallback(
-    () =>
-      fetchReports({
-        force: true,
-      }),
-    [fetchReports],
-  );
+  const refresh = useCallback(() => {
+    if (refreshPromiseRef.current) {
+      return refreshPromiseRef.current;
+    }
+
+    const promise = (async () => {
+      try {
+        if (mountedRef.current) {
+          setRefreshError(null);
+
+          setIsRefreshing(true);
+        }
+
+        return await fetchReports({
+          force: true,
+        });
+      } finally {
+        if (mountedRef.current) {
+          setIsRefreshing(false);
+        }
+
+        if (refreshPromiseRef.current === promise) {
+          refreshPromiseRef.current = null;
+        }
+      }
+    })();
+
+    refreshPromiseRef.current = promise;
+
+    return promise;
+  }, [fetchReports]);
+
+  /* ==========================================================
+   * AUTO FETCH
+   * ========================================================== */
+
+  useEffect(() => {
+    if (!autoFetch || !listCacheKey) {
+      if (mountedRef.current) {
+        setIsInitialLoading(false);
+      }
+
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    const execute = async () => {
+      if (cancelled) {
+        return;
+      }
+
+      try {
+        await fetchReports();
+      } catch {
+        /*
+         * Error sudah disimpan di state.
+         */
+      }
+    };
+
+    void execute();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [autoFetch, fetchReports, listCacheKey]);
+
+  /* ==========================================================
+   * DERIVED STATE
+   * ========================================================== */
+
+  const loading = isInitialLoading;
+
+  const isFetching = Boolean(isInitialLoading || isRefreshing);
+
+  const error = initialError ?? refreshError ?? null;
+
+  const isMutating = Boolean(isCreating || isUpdating || isDeleting);
 
   /* ==========================================================
    * RETURN
@@ -697,9 +889,29 @@ export const useReports = (options = {}) => {
   return {
     reports,
 
+    data: reports,
+
     loading,
 
+    isInitialLoading,
+
+    isFetching,
+
+    isRefreshing,
+
     error,
+
+    initialError,
+
+    refreshError,
+
+    isCreating,
+
+    isUpdating,
+
+    isDeleting,
+
+    isMutating,
 
     fetchReports,
 

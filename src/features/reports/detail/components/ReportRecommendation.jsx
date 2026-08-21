@@ -9,7 +9,9 @@ import { LightbulbIcon } from "@/shared/icons";
  * ============================================================ */
 
 const ReportRecommendation = memo(({ report }) => {
-  if (!report?.recommendation) {
+  const recommendation = report?.recommendation;
+
+  if (!recommendation) {
     return null;
   }
 
@@ -23,7 +25,7 @@ const ReportRecommendation = memo(({ report }) => {
 
       <div className="mt-4 rounded-xl bg-warning-soft p-4 ring-1 ring-warning/20 sm:p-5">
         <p className="text-sm leading-6 text-text sm:text-base">
-          {report.recommendation}
+          {recommendation}
         </p>
       </div>
     </section>
