@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 
 import {
   ContentBlock,
@@ -12,8 +12,10 @@ import { BookIcon } from "@/shared/icons";
  * HELPERS
  * ============================================================ */
 
+const EMPTY_ARRAY = Object.freeze([]);
+
 const toArray = (value) => {
-  return Array.isArray(value) ? value : [];
+  return Array.isArray(value) ? value : EMPTY_ARRAY;
 };
 
 /* ============================================================
@@ -21,13 +23,23 @@ const toArray = (value) => {
  * ============================================================ */
 
 const ReportLearning = memo(({ report }) => {
-  if (!report) {
+  const learning = useMemo(() => {
+    if (!report) {
+      return null;
+    }
+
+    return {
+      materials: toArray(report.materials),
+
+      activities: toArray(report.activities),
+
+      homework: report.homework ?? "",
+    };
+  }, [report]);
+
+  if (!learning) {
     return null;
   }
-
-  const materials = toArray(report.materials);
-
-  const activities = toArray(report.activities);
 
   return (
     <section aria-labelledby="report-learning-title">
@@ -39,22 +51,25 @@ const ReportLearning = memo(({ report }) => {
 
       <div className="mt-4 grid grid-cols-1 gap-3.5 md:grid-cols-2">
         <ContentBlock title="Materi">
-          <ItemList items={materials} emptyText="Belum ada materi." />
+          <ItemList items={learning.materials} emptyText="Belum ada materi." />
         </ContentBlock>
 
         <ContentBlock title="Aktivitas">
-          <ItemList items={activities} emptyText="Belum ada aktivitas." />
+          <ItemList
+            items={learning.activities}
+            emptyText="Belum ada aktivitas."
+          />
         </ContentBlock>
       </div>
 
-      {report.homework ? (
+      {learning.homework ? (
         <div className="mt-3.5 rounded-xl bg-surface-muted px-4 py-3.5 sm:px-5 sm:py-4">
           <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted">
             Tugas
           </p>
 
           <p className="mt-1.5 text-sm leading-6 text-text sm:text-base">
-            {report.homework}
+            {learning.homework}
           </p>
         </div>
       ) : null}

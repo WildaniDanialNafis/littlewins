@@ -301,7 +301,16 @@ const ReportCard = memo(
                   {personName || (isTeacher ? "Siswa" : "Pengajar")}
                 </h2>
               </div>
-              <span className={getStatusBadgeClass(report.status)}>
+              <span
+                className={cx(
+                  getStatusBadgeClass(report.status),
+                  "shrink-0 whitespace-nowrap rounded-full px-2.5 py-1",
+                  "text-[11px] font-semibold leading-none",
+                  "tracking-normal",
+                  getStatusLabel(report.status) === "Selesai" &&
+                    "bg-success-soft text-success ring-1 ring-success/15",
+                )}
+              >
                 {getStatusLabel(report.status)}
               </span>
             </div>

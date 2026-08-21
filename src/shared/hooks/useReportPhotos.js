@@ -1,3 +1,5 @@
+import { useMemo } from "react";
+
 import { reportPhotoService } from "@/services/api";
 
 import useReportRelationResource from "./useReportRelationResource";
@@ -6,9 +8,26 @@ const PHOTO_STALE_TIME = 5 * 60 * 1000;
 
 const EMPTY_ARRAY = Object.freeze([]);
 
-/* ============================================================
- * SORT
- * ============================================================ */
+const METHODS = Object.freeze({
+  getAll: (reportId, options = {}) =>
+    reportPhotoService.getAllPhotos(reportId, options),
+
+  create: (reportId, payload, options = {}) =>
+    reportPhotoService.createPhoto(reportId, payload, options),
+
+  update: (reportId, id, payload, options = {}) =>
+    reportPhotoService.updatePhoto(reportId, id, payload, options),
+
+  remove: (reportId, id, options = {}) =>
+    reportPhotoService.removePhoto(reportId, id, options),
+});
+
+const MESSAGES = Object.freeze({
+  fetch: "Gagal memuat foto laporan.",
+  create: "Gagal menambahkan foto.",
+  update: "Gagal memperbarui foto.",
+  delete: "Gagal menghapus foto.",
+});
 
 const sortPhotos = (photos) => {
   if (!Array.isArray(photos) || photos.length < 2) {
@@ -38,115 +57,154 @@ const sortPhotos = (photos) => {
   });
 };
 
-/* ============================================================
- * METHODS
- * ============================================================ */
-
-const METHODS = Object.freeze({
-  getAll: (reportId, options = {}) =>
-    reportPhotoService.getAllPhotos(reportId, options),
-
-  create: (reportId, payload, options = {}) =>
-    reportPhotoService.createPhoto(reportId, payload, options),
-
-  update: (reportId, id, payload, options = {}) =>
-    reportPhotoService.updatePhoto(reportId, id, payload, options),
-
-  remove: (reportId, id, options = {}) =>
-    reportPhotoService.removePhoto(reportId, id, options),
-});
-
-const MESSAGES = Object.freeze({
-  fetch: "Gagal memuat foto laporan.",
-
-  create: "Gagal menambahkan foto.",
-
-  update: "Gagal memperbarui foto.",
-
-  delete: "Gagal menghapus foto.",
-});
-
-/* ============================================================
- * NORMALIZATION
- * ============================================================ */
-
 const normalizePhoto = (photo) => {
   if (!photo || typeof photo !== "object") {
+    return photo;
+  }
+
+  const id = photo.id ?? photo.photo_id ?? photo.report_photo_id ?? null;
+
+  const numericSortOrder = Number(photo.sort_order);
+
+  const sortOrder = Number.isFinite(numericSortOrder) ? numericSortOrder : 0;
+
+  const photoUrl = photo.photo_url ?? photo.url ?? photo.image_url ?? null;
+
+  const photoValue = photo.photo ?? photoUrl ?? null;
+
+  /*
+   * Preserve identity when normalization
+   * does not change the value.
+   */
+  if (
+    photo.id === id &&
+    photo.sort_order === sortOrder &&
+    photo.photo_url === photoUrl &&
+    photo.photo === photoValue
+  ) {
     return photo;
   }
 
   return {
     ...photo,
 
-    id: photo.id ?? photo.photo_id ?? photo.report_photo_id ?? null,
+    id,
 
-    sort_order: Number.isFinite(Number(photo.sort_order))
-      ? Number(photo.sort_order)
-      : 0,
+    sort_order: sortOrder,
 
-    photo_url: photo.photo_url ?? photo.url ?? photo.image_url ?? null,
+    photo_url: photoUrl,
 
-    photo:
-      photo.photo ?? photo.photo_url ?? photo.url ?? photo.image_url ?? null,
+    photo: photoValue,
   };
 };
 
 const normalizePhotos = (value) => {
-  return Array.isArray(value) ? value.map(normalizePhoto).filter(Boolean) : [];
+  if (!Array.isArray(value) || value.length === 0) {
+    return EMPTY_ARRAY;
+  }
+
+  let changed = false;
+
+  const normalized = new Array(value.length);
+
+  let writeIndex = 0;
+
+  for (let index = 0; index < value.length; index += 1) {
+    const normalizedPhoto = normalizePhoto(value[index]);
+
+    if (normalizedPhoto !== value[index]) {
+      changed = true;
+    }
+
+    if (!normalizedPhoto) {
+      changed = true;
+      continue;
+    }
+
+    normalized[writeIndex] = normalizedPhoto;
+
+    writeIndex += 1;
+  }
+
+  if (writeIndex !== value.length) {
+    changed = true;
+    normalized.length = writeIndex;
+  }
+
+  return changed ? normalized : value;
 };
 
-/* ============================================================
- * HOOK
- * ============================================================ */
-
-export const useReportPhotos = (reportId, options = {}) => {
+const useReportPhotos = (reportId, options = {}) => {
   const {
     initialData,
-
     autoFetch = true,
-
     staleTime = PHOTO_STALE_TIME,
-
     forceFetchOnMount = false,
   } = options;
 
   const resource = useReportRelationResource({
     reportId,
-
     resourceKey: "photos",
-
     methods: METHODS,
-
     messages: MESSAGES,
-
     initialData,
-
     autoFetch,
-
     staleTime,
-
     forceFetchOnMount,
-
     sortData: sortPhotos,
   });
 
-  return {
-    photos: normalizePhotos(resource.data),
+  const photos = useMemo(() => normalizePhotos(resource.data), [resource.data]);
 
-    loading: resource.loading,
+  const fetchPhotos = resource.fetchItems ?? resource.fetchAll;
 
-    error: resource.error,
+  return useMemo(
+    () => ({
+      photos,
 
-    fetchPhotos: resource.fetchItems,
+      loading: resource.isInitialLoading ?? resource.loading ?? false,
 
-    createPhoto: resource.create,
+      isInitialLoading: resource.isInitialLoading ?? resource.loading ?? false,
 
-    updatePhoto: resource.update,
+      isFetching: resource.isFetching ?? resource.loading ?? false,
 
-    deletePhoto: resource.remove,
+      isRefreshing: resource.isRefreshing ?? false,
 
-    refresh: resource.refresh,
-  };
+      error: resource.error ?? null,
+
+      initialError:
+        resource.initialError ??
+        (resource.isInitialLoading || resource.loading
+          ? resource.error
+          : null) ??
+        null,
+
+      refreshError: resource.refreshError ?? null,
+
+      isCreating: resource.isCreating ?? false,
+
+      isUpdating: resource.isUpdating ?? false,
+
+      isDeleting: resource.isDeleting ?? false,
+
+      isMutating:
+        resource.isMutating ??
+        Boolean(
+          resource.isCreating || resource.isUpdating || resource.isDeleting,
+        ),
+
+      fetchPhotos,
+
+      createPhoto: resource.create,
+
+      updatePhoto: resource.update,
+
+      deletePhoto: resource.remove,
+
+      refresh: resource.refresh,
+    }),
+    [fetchPhotos, photos, resource],
+  );
 };
 
 useReportPhotos.displayName = "useReportPhotos";

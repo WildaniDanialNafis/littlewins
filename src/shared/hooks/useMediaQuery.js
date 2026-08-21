@@ -1,5 +1,9 @@
 import { useCallback, useSyncExternalStore } from "react";
 
+/* ============================================================
+ * HELPERS
+ * ============================================================ */
+
 const getMatchMedia = (query) => {
   if (
     typeof window === "undefined" ||
@@ -13,7 +17,11 @@ const getMatchMedia = (query) => {
   return window.matchMedia(query);
 };
 
-export const useMediaQuery = (query) => {
+/* ============================================================
+ * HOOK
+ * ============================================================ */
+
+const useMediaQuery = (query) => {
   const subscribe = useCallback(
     (onStoreChange) => {
       const mediaQuery = getMatchMedia(query);
@@ -22,23 +30,19 @@ export const useMediaQuery = (query) => {
         return () => {};
       }
 
-      const handleChange = () => {
-        onStoreChange();
-      };
-
       if (typeof mediaQuery.addEventListener === "function") {
-        mediaQuery.addEventListener("change", handleChange);
+        mediaQuery.addEventListener("change", onStoreChange);
 
         return () => {
-          mediaQuery.removeEventListener("change", handleChange);
+          mediaQuery.removeEventListener("change", onStoreChange);
         };
       }
 
       if (typeof mediaQuery.addListener === "function") {
-        mediaQuery.addListener(handleChange);
+        mediaQuery.addListener(onStoreChange);
 
         return () => {
-          mediaQuery.removeListener(handleChange);
+          mediaQuery.removeListener("change", onStoreChange);
         };
       }
 

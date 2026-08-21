@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 
 import { RatingCard, SectionTitle } from "@/shared/components/layout";
 
@@ -23,11 +23,33 @@ const normalizeRating = (value) => {
  * ============================================================ */
 
 const ReportProgress = memo(({ report }) => {
-  if (!report) {
+  const ratings = useMemo(() => {
+    if (!report) {
+      return null;
+    }
+
+    const source = report.ratings ?? {};
+
+    return {
+      understanding: normalizeRating(
+        source.understanding ?? report.rating_understanding,
+      ),
+
+      activity: normalizeRating(source.activity ?? report.rating_activity),
+
+      discipline: normalizeRating(
+        source.discipline ?? report.rating_discipline,
+      ),
+
+      communication: normalizeRating(
+        source.communication ?? report.rating_communication,
+      ),
+    };
+  }, [report]);
+
+  if (!ratings) {
     return null;
   }
-
-  const ratings = report.ratings ?? {};
 
   return (
     <section aria-labelledby="report-progress-title">
@@ -39,31 +61,13 @@ const ReportProgress = memo(({ report }) => {
       />
 
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <RatingCard
-          label="Pemahaman"
-          rating={normalizeRating(
-            ratings.understanding ?? report.rating_understanding,
-          )}
-        />
+        <RatingCard label="Pemahaman" rating={ratings.understanding} />
 
-        <RatingCard
-          label="Keaktifan"
-          rating={normalizeRating(ratings.activity ?? report.rating_activity)}
-        />
+        <RatingCard label="Keaktifan" rating={ratings.activity} />
 
-        <RatingCard
-          label="Disiplin"
-          rating={normalizeRating(
-            ratings.discipline ?? report.rating_discipline,
-          )}
-        />
+        <RatingCard label="Disiplin" rating={ratings.discipline} />
 
-        <RatingCard
-          label="Komunikasi"
-          rating={normalizeRating(
-            ratings.communication ?? report.rating_communication,
-          )}
-        />
+        <RatingCard label="Komunikasi" rating={ratings.communication} />
       </div>
     </section>
   );

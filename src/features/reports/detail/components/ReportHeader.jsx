@@ -10,7 +10,7 @@ import { formatReportDate } from "../utils/reportDetailUtils";
  * STATUS CONFIG
  * ============================================================ */
 
-const STATUS_CONFIG = {
+const STATUS_CONFIG = Object.freeze({
   completed: {
     label: "Selesai",
     className: "bg-success-soft text-success",
@@ -25,7 +25,7 @@ const STATUS_CONFIG = {
     label: "Batal",
     className: "bg-danger-soft text-danger",
   },
-};
+});
 
 /* ============================================================
  * REPORT HEADER
@@ -57,10 +57,6 @@ const ReportHeader = memo(({ report }) => {
           "sm:gap-5",
         )}
       >
-        {/* ==================================================
-         * REPORT INFO
-         * ================================================== */}
-
         <div className="min-w-0">
           <p className="truncate text-xs font-semibold uppercase tracking-[0.08em] text-primary">
             Laporan Belajar
@@ -99,10 +95,6 @@ const ReportHeader = memo(({ report }) => {
             </span>
           </div>
         </div>
-
-        {/* ==================================================
-         * STATUS
-         * ================================================== */}
 
         <span
           className={cx(

@@ -1,10 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { LOADING_TIMING } from "@/shared/constants";
-
-/* ============================================================
- * HELPERS
- * ============================================================ */
 
 const DEFAULT_POLICY = "page";
 
@@ -16,7 +12,12 @@ const resolvePolicy = (type) => {
     return LOADING_TIMING[type];
   }
 
-  return LOADING_TIMING[DEFAULT_POLICY];
+  return (
+    LOADING_TIMING[DEFAULT_POLICY] ?? {
+      showDelayMs: 0,
+      minVisibleMs: 0,
+    }
+  );
 };
 
 const normalizeDuration = (value, fallback = 0) => {
@@ -29,24 +30,6 @@ const normalizeDuration = (value, fallback = 0) => {
   return numericValue;
 };
 
-/* ============================================================
- * HOOK
- * ============================================================ */
-
-/**
- * Controls when a loading indicator becomes visible.
- *
- * This hook intentionally manages presentation timing only.
- * It does not:
- * - cancel requests
- * - timeout requests
- * - retry requests
- * - change the underlying loading state
- *
- * @param {boolean} loading
- * @param {"page"|"route"|"auth"|"inline"} type
- * @returns {boolean}
- */
 export const useDelayedLoading = (loading, type = DEFAULT_POLICY) => {
   const policy = resolvePolicy(type);
 
@@ -58,11 +41,62 @@ export const useDelayedLoading = (loading, type = DEFAULT_POLICY) => {
 
   const mountedRef = useRef(false);
 
+  const loadingRef = useRef(Boolean(loading));
+
+  const visibleRef = useRef(false);
+
   const showTimerRef = useRef(null);
 
   const hideTimerRef = useRef(null);
 
   const visibleSinceRef = useRef(0);
+
+  const generationRef = useRef(0);
+
+  const clearShowTimer = useCallback(() => {
+    if (showTimerRef.current !== null) {
+      window.clearTimeout(showTimerRef.current);
+
+      showTimerRef.current = null;
+    }
+  }, []);
+
+  const clearHideTimer = useCallback(() => {
+    if (hideTimerRef.current !== null) {
+      window.clearTimeout(hideTimerRef.current);
+
+      hideTimerRef.current = null;
+    }
+  }, []);
+
+  const clearTimers = useCallback(() => {
+    clearShowTimer();
+    clearHideTimer();
+  }, [clearHideTimer, clearShowTimer]);
+
+  const showLoading = useCallback((generation) => {
+    if (
+      !mountedRef.current ||
+      generation !== generationRef.current ||
+      !loadingRef.current
+    ) {
+      return;
+    }
+
+    visibleRef.current = true;
+
+    visibleSinceRef.current = Date.now();
+
+    setVisible(true);
+  }, []);
+
+  const hideLoading = useCallback(() => {
+    visibleRef.current = false;
+
+    visibleSinceRef.current = 0;
+
+    setVisible(false);
+  }, []);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -70,83 +104,90 @@ export const useDelayedLoading = (loading, type = DEFAULT_POLICY) => {
     return () => {
       mountedRef.current = false;
 
-      window.clearTimeout(showTimerRef.current);
+      generationRef.current += 1;
 
-      window.clearTimeout(hideTimerRef.current);
+      clearTimers();
     };
-  }, []);
+  }, [clearTimers]);
 
   useEffect(() => {
-    window.clearTimeout(showTimerRef.current);
+    loadingRef.current = Boolean(loading);
+  }, [loading]);
 
-    window.clearTimeout(hideTimerRef.current);
+  useEffect(() => {
+    generationRef.current += 1;
 
-    if (!loading) {
-      if (!visible) {
-        visibleSinceRef.current = 0;
+    const generation = generationRef.current;
+
+    clearTimers();
+
+    if (loading) {
+      if (visibleRef.current) {
+        return undefined;
+      }
+
+      if (showDelayMs === 0) {
+        showLoading(generation);
 
         return undefined;
       }
 
-      const visibleSince = visibleSinceRef.current;
+      showTimerRef.current = window.setTimeout(() => {
+        showTimerRef.current = null;
 
-      if (!visibleSince) {
-        if (mountedRef.current) {
-          setVisible(false);
-        }
+        showLoading(generation);
+      }, showDelayMs);
 
-        return undefined;
-      }
-
-      const elapsed = Date.now() - visibleSince;
-
-      const remaining = Math.max(0, minVisibleMs - elapsed);
-
-      hideTimerRef.current = window.setTimeout(() => {
-        if (!mountedRef.current) {
-          return;
-        }
-
-        visibleSinceRef.current = 0;
-
-        setVisible(false);
-      }, remaining);
-
-      return () => {
-        window.clearTimeout(hideTimerRef.current);
-      };
-    }
-
-    /*
-     * Loading is already visible.
-     *
-     * Do not restart the minimum-visible timer.
-     */
-    if (visible) {
       return undefined;
     }
 
-    /*
-     * Loading started, but we intentionally delay
-     * showing the indicator to avoid flashes for fast
-     * operations.
-     */
-    showTimerRef.current = window.setTimeout(() => {
-      if (!mountedRef.current) {
+    if (!visibleRef.current) {
+      visibleSinceRef.current = 0;
+
+      return undefined;
+    }
+
+    const visibleSince =
+      visibleSinceRef.current > 0 ? visibleSinceRef.current : Date.now();
+
+    const elapsed = Date.now() - visibleSince;
+
+    const remainingMs = Math.max(0, minVisibleMs - elapsed);
+
+    if (remainingMs === 0) {
+      hideLoading();
+
+      return undefined;
+    }
+
+    hideTimerRef.current = window.setTimeout(() => {
+      hideTimerRef.current = null;
+
+      if (!mountedRef.current || generation !== generationRef.current) {
         return;
       }
 
-      visibleSinceRef.current = Date.now();
+      if (loadingRef.current) {
+        return;
+      }
 
-      setVisible(true);
-    }, showDelayMs);
+      hideLoading();
+    }, remainingMs);
 
     return () => {
-      window.clearTimeout(showTimerRef.current);
+      clearHideTimer();
     };
-  }, [loading, minVisibleMs, showDelayMs, visible]);
+  }, [
+    clearHideTimer,
+    clearTimers,
+    hideLoading,
+    loading,
+    minVisibleMs,
+    showDelayMs,
+    showLoading,
+  ]);
 
-  return loading || visible ? visible : false;
+  return visible;
 };
 
 useDelayedLoading.displayName = "useDelayedLoading";

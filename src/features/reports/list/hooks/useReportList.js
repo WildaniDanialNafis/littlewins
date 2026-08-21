@@ -134,28 +134,64 @@ const useReportList = (options = {}) => {
   });
 
   const {
-    data: students = [],
-    loading: studentsLoading,
-    error: studentsError,
+    data: students = EMPTY_ARRAY,
+
+    isInitialLoading: studentsInitialLoading,
+
+    isFetching: studentsFetching,
+
+    isRefreshing: studentsRefreshing,
+
+    initialError: studentsInitialError,
+
+    refreshError: studentsRefreshError,
   } = studentsResource;
 
   const {
-    data: teachers = [],
-    loading: teachersLoading,
-    error: teachersError,
+    data: teachers = EMPTY_ARRAY,
+
+    isInitialLoading: teachersInitialLoading,
+
+    isFetching: teachersFetching,
+
+    isRefreshing: teachersRefreshing,
+
+    initialError: teachersInitialError,
+
+    refreshError: teachersRefreshError,
   } = teachersResource;
 
   const {
-    data: programs = [],
-    loading: programsLoading,
-    error: programsError,
+    data: programs = EMPTY_ARRAY,
+
+    isInitialLoading: programsInitialLoading,
+
+    isFetching: programsFetching,
+
+    isRefreshing: programsRefreshing,
+
+    initialError: programsInitialError,
+
+    refreshError: programsRefreshError,
   } = programsResource;
 
   const {
-    reports = [],
-    loading: reportsLoading,
-    error: reportsError,
+    reports = EMPTY_ARRAY,
+
+    isInitialLoading: reportsInitialLoading,
+
+    isFetching: reportsFetching,
+
+    isRefreshing: reportsRefreshing,
+
+    initialError: reportsInitialError,
+
+    refreshError: reportsRefreshError,
+
+    isDeleting,
+
     deleteReport,
+
     refresh,
   } = reportsResource;
 
@@ -171,9 +207,7 @@ const useReportList = (options = {}) => {
         reports: getSafeArray(reports),
 
         studentMap,
-
         teacherMap,
-
         programMap,
       }),
     [reports, studentMap, teacherMap, programMap],
@@ -199,6 +233,8 @@ const useReportList = (options = {}) => {
     [sortedReports, currentPage, normalizedPageSize],
   );
 
+  const effectivePage = pagination.page;
+
   const reportsForPage = pagination.items;
 
   const handleSearchChange = useCallback((value) => {
@@ -209,7 +245,6 @@ const useReportList = (options = {}) => {
 
   const handleSort = useCallback((key) => {
     setSortKey(key);
-
     setCurrentPage(1);
   }, []);
 
@@ -238,7 +273,6 @@ const useReportList = (options = {}) => {
 
   const clearSearch = useCallback(() => {
     setSearchQuery("");
-
     setCurrentPage(1);
   }, []);
 
@@ -258,28 +292,65 @@ const useReportList = (options = {}) => {
   );
 
   const cancelDelete = useCallback(() => {
+    if (isDeleting) {
+      return;
+    }
+
     setDeleteTargetId(null);
-  }, []);
+  }, [isDeleting]);
 
   const confirmDelete = useCallback(async () => {
     if (deleteTargetId === null || deleteTargetId === undefined) {
       return;
     }
 
+    if (isDeleting) {
+      return;
+    }
+
     await deleteReport(deleteTargetId);
 
     setDeleteTargetId(null);
-
     setCurrentPage(1);
-  }, [deleteReport, deleteTargetId]);
+  }, [deleteReport, deleteTargetId, isDeleting]);
 
-  const hasError = Boolean(
-    getFirstError(studentsError, teachersError, programsError, reportsError),
+  const initialError = getFirstError(
+    studentsInitialError,
+    teachersInitialError,
+    programsInitialError,
+    reportsInitialError,
   );
 
-  const isLoading = Boolean(
-    studentsLoading || teachersLoading || programsLoading || reportsLoading,
+  const refreshError = getFirstError(
+    studentsRefreshError,
+    teachersRefreshError,
+    programsRefreshError,
+    reportsRefreshError,
   );
+
+  const isInitialLoading = Boolean(
+    studentsInitialLoading ||
+    teachersInitialLoading ||
+    programsInitialLoading ||
+    reportsInitialLoading,
+  );
+
+  const isFetching = Boolean(
+    studentsFetching || teachersFetching || programsFetching || reportsFetching,
+  );
+
+  const isRefreshing = Boolean(
+    studentsRefreshing ||
+    teachersRefreshing ||
+    programsRefreshing ||
+    reportsRefreshing,
+  );
+
+  const isMutating = Boolean(isDeleting);
+
+  const isLoading = isInitialLoading;
+
+  const hasError = Boolean(initialError);
 
   return {
     searchQuery,
@@ -288,7 +359,7 @@ const useReportList = (options = {}) => {
 
     sortDirection,
 
-    currentPage,
+    currentPage: effectivePage,
 
     deleteTargetId,
 
@@ -306,14 +377,23 @@ const useReportList = (options = {}) => {
 
     isLoading,
 
+    isInitialLoading,
+
+    isFetching,
+
+    isRefreshing,
+
+    isMutating,
+
+    isDeleting,
+
     hasError,
 
-    error: getFirstError(
-      studentsError,
-      teachersError,
-      programsError,
-      reportsError,
-    ),
+    error: initialError,
+
+    initialError,
+
+    refreshError,
 
     refresh,
 

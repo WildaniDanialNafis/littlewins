@@ -36,10 +36,10 @@ export const createMutationCoordinator = () => {
 
     const operationGeneration = generation;
 
-    /* ======================================================
-     * EXACT OPERATION DEDUPE
-     * ====================================================== */
-
+    /*
+     * Same exact operation:
+     * one promise only.
+     */
     if (normalizedOperationKey) {
       const existing = inFlight.get(normalizedOperationKey);
 
@@ -48,18 +48,29 @@ export const createMutationCoordinator = () => {
       }
     }
 
-    /* ======================================================
-     * NO CONFLICT DOMAIN
-     * ====================================================== */
-
+    /*
+     * No conflict domain.
+     */
     if (!normalizedConflictKey) {
-      const promise = Promise.resolve().then(() => {
-        if (operationGeneration !== generation) {
-          throw createInvalidOperationError();
-        }
+      let promise;
 
-        return task();
-      });
+      promise = Promise.resolve()
+        .then(() => {
+          if (operationGeneration !== generation) {
+            throw createInvalidOperationError();
+          }
+
+          return task();
+        })
+        .finally(() => {
+          if (normalizedOperationKey) {
+            const current = inFlight.get(normalizedOperationKey);
+
+            if (current?.promise === promise) {
+              inFlight.delete(normalizedOperationKey);
+            }
+          }
+        });
 
       if (normalizedOperationKey) {
         inFlight.set(normalizedOperationKey, {
@@ -68,34 +79,22 @@ export const createMutationCoordinator = () => {
         });
       }
 
-      const cleanup = () => {
-        if (!normalizedOperationKey) {
-          return;
-        }
-
-        const current = inFlight.get(normalizedOperationKey);
-
-        if (current?.promise === promise) {
-          inFlight.delete(normalizedOperationKey);
-        }
-      };
-
-      void promise.then(cleanup, cleanup);
-
       return promise;
     }
 
-    /* ======================================================
-     * QUEUED OPERATION
-     * ====================================================== */
-
+    /*
+     * Same report conflict domain:
+     * serialize mutations.
+     */
     const previousPromise = queues.get(normalizedConflictKey);
 
     const previous = previousPromise
       ? previousPromise.catch(() => undefined)
       : Promise.resolve();
 
-    const promise = previous.then(() => {
+    let promise;
+
+    promise = previous.then(() => {
       if (operationGeneration !== generation) {
         throw createInvalidOperationError();
       }
@@ -111,10 +110,6 @@ export const createMutationCoordinator = () => {
         generation: operationGeneration,
       });
     }
-
-    /* ======================================================
-     * CLEANUP
-     * ====================================================== */
 
     const cleanup = () => {
       if (queues.get(normalizedConflictKey) === promise) {
@@ -145,18 +140,11 @@ export const createMutationCoordinator = () => {
 
   return {
     run,
-
     clear,
-
     reset: clear,
   };
 };
 
-/*
- * Shared application-level coordinator.
- *
- * Jangan membuat coordinator baru di setiap hook.
- */
 export const mutationCoordinator = createMutationCoordinator();
 
 export default createMutationCoordinator;

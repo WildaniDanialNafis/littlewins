@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 
 import { Button, EmptyState } from "@/shared/components/ui";
 
@@ -28,19 +28,28 @@ const ReportList = memo(
   }) => {
     const isTeacher = role === "teacher";
 
-    const hasSearch = Boolean(searchQuery.trim());
+    const safeReports = Array.isArray(reports) ? reports : [];
 
-    const emptyDescription = isTeacher
-      ? "Belum ada laporan. Buat laporan pertama."
-      : "Belum ada laporan untuk Anda.";
+    const hasSearch = String(searchQuery ?? "").trim().length > 0;
+
+    const emptyDescription = useMemo(
+      () =>
+        isTeacher
+          ? "Belum ada laporan. Buat laporan pertama."
+          : "Belum ada laporan untuk Anda.",
+      [isTeacher],
+    );
 
     /* ==========================================================
      * EMPTY
      * ========================================================== */
 
-    if (reports.length === 0) {
+    if (safeReports.length === 0) {
       return (
-        <div className="rounded-xl border border-border bg-surface px-4 py-10 sm:px-6 sm:py-12">
+        <div
+          className="rounded-xl border border-border bg-surface px-4 py-10 sm:px-6 sm:py-12"
+          aria-live="polite"
+        >
           <EmptyState
             title={hasSearch ? "Laporan tidak ditemukan" : "Belum ada laporan"}
             description={
@@ -79,18 +88,35 @@ const ReportList = memo(
      * ========================================================== */
 
     return (
-      <div className="min-w-0 space-y-5">
-        <div className="grid min-w-0 grid-cols-1 gap-3.5 md:grid-cols-2 xl:grid-cols-3">
-          {reports.map((report) => (
-            <ReportCard
-              key={report.id}
-              report={report}
-              role={role}
-              onPreview={onPreview}
-              onEdit={onEdit}
-              onDelete={onDelete}
-            />
-          ))}
+      <div className="min-w-0 space-y-5" aria-live="polite">
+        <div
+          className="grid min-w-0 grid-cols-1 gap-3.5 md:grid-cols-2 xl:grid-cols-3"
+          role="list"
+          aria-label="Daftar laporan"
+        >
+          {safeReports.map((report) => {
+            if (report === null || report === undefined) {
+              return null;
+            }
+
+            const key = report?.id ?? report?._id;
+
+            if (key === null || key === undefined) {
+              return null;
+            }
+
+            return (
+              <div key={String(key)} role="listitem" className="min-w-0">
+                <ReportCard
+                  report={report}
+                  role={role}
+                  onPreview={onPreview}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                />
+              </div>
+            );
+          })}
         </div>
 
         {(hasPreviousPage || hasNextPage) && (

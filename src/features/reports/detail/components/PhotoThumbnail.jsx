@@ -22,66 +22,46 @@ const PhotoThumbnail = memo(
       onOpen?.(index);
     }, [index, onOpen]);
 
-    if (hasError) {
-      return (
-        <div
-          className={cx(
-            "relative flex aspect-4/3 w-full items-center justify-center",
-            "overflow-hidden rounded-xl",
-            "border border-border bg-surface-muted",
-            "px-3 text-center text-sm text-muted",
-          )}
-          role="img"
-          aria-label={`Foto ${index + 1} gagal dimuat`}
-        >
-          <span>Foto gagal dimuat.</span>
-        </div>
-      );
-    }
+    const hasOverlay = Boolean(overlay);
 
-    const hasOverlay = Boolean(overlay?.count);
+    if (!photo) {
+      return null;
+    }
 
     return (
       <button
         type="button"
-        onClick={handleOpen}
         className={cx(
-          "group relative aspect-4/3 w-full overflow-hidden rounded-xl",
-          "bg-surface-muted ring-1 ring-border",
-          "transition-[box-shadow,transform]",
-          "duration-(--token-transition-base)",
-          "hover:ring-2 hover:ring-primary/50",
+          "group relative block w-full overflow-hidden rounded-xl",
+          "bg-surface-muted",
           "focus-visible:outline-none",
           "focus-visible:ring-2",
-          "focus-visible:ring-primary/50",
+          "focus-visible:ring-primary/30",
           "focus-visible:ring-offset-2",
           "focus-visible:ring-offset-background",
-          "motion-reduce:transition-none",
         )}
+        onClick={handleOpen}
         aria-label={
-          hasOverlay
-            ? overlay.label || `Lihat ${overlay.count} foto lagi`
-            : `Lihat foto ${index + 1}`
+          hasOverlay ? overlay.label : `Lihat foto ${index + 1} ${subject}`
         }
       >
-        <img
-          src={photo}
-          alt={`Foto ${subject} ${index + 1}`}
-          className={cx(
-            "h-full w-full object-cover",
-            "transition-transform",
-            "duration-(--token-transition-base)",
-            "group-hover:scale-105",
-            "motion-reduce:transform-none",
-          )}
-          loading={index < 3 ? "eager" : "lazy"}
-          decoding="async"
-          onError={handleError}
-        />
-
-        {/* ==================================================
-         * NORMAL OVERLAY
-         * ================================================== */}
+        {!hasError ? (
+          <img
+            src={photo}
+            alt={`${subject}, foto ${index + 1}`}
+            loading={index === 0 ? "eager" : "lazy"}
+            decoding="async"
+            className="aspect-square w-full object-cover"
+            onError={handleError}
+          />
+        ) : (
+          <span
+            className="flex aspect-square w-full items-center justify-center px-3 text-center text-xs font-medium text-muted"
+            aria-hidden="true"
+          >
+            Foto tidak dapat dimuat
+          </span>
+        )}
 
         {!hasOverlay && (
           <span
@@ -100,10 +80,6 @@ const PhotoThumbnail = memo(
             <span className="text-xs font-semibold text-white">Lihat</span>
           </span>
         )}
-
-        {/* ==================================================
-         * MORE PHOTOS OVERLAY
-         * ================================================== */}
 
         {hasOverlay && (
           <span

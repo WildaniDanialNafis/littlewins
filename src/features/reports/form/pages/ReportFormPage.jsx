@@ -1,22 +1,20 @@
 import { useCallback } from "react";
-
 import { useNavigate, useParams } from "react-router-dom";
 
 import ReportForm from "../components/ReportForm";
+import ReportFormSkeleton from "../components/ReportFormSkeleton";
+
 import useReportForm from "../hooks/useReportForm";
 
 import { PageContainer } from "@/layouts/components";
 
-import {
-  Button,
-  EmptyState,
-  ErrorState,
-  LoadingState,
-} from "@/shared/components/ui";
+import { Button, EmptyState, ErrorState } from "@/shared/components/ui";
 
 import { ArrowLeftIcon } from "@/shared/icons";
 
 import { ROUTES } from "@/shared/constants";
+
+import { useDelayedLoading } from "@/shared/hooks";
 
 /* ============================================================
  * HELPERS
@@ -27,7 +25,13 @@ const normalizeId = (value) => {
     return null;
   }
 
-  const numericValue = Number(value);
+  const normalized = String(value).trim();
+
+  if (!normalized) {
+    return null;
+  }
+
+  const numericValue = Number(normalized);
 
   if (!Number.isInteger(numericValue) || numericValue <= 0) {
     return null;
@@ -37,7 +41,7 @@ const normalizeId = (value) => {
 };
 
 /* ============================================================
- * ACTION
+ * BACK BUTTON
  * ============================================================ */
 
 const BackButton = ({ onClick, label = "Kembali" }) => {
@@ -89,9 +93,12 @@ const ReportFormPage = ({ mode = "create" }) => {
 
       navigate(ROUTES.teacher.reportDetail(savedReportId), {
         replace: true,
+
         state: {
           reportUpdated: true,
+
           reportId: savedReportId,
+
           updatedAt: Date.now(),
         },
       });
@@ -105,33 +112,76 @@ const ReportFormPage = ({ mode = "create" }) => {
 
   const {
     form,
+
     errors,
-    isLoading,
+
     submitting,
+
+    isInitialLoading,
+
+    isRefreshing,
+
     error,
+
+    initialError,
+
+    refreshError,
+
     existingPhotos,
+
     relationOptionsLoading,
+
+    relationOptionsRefreshing,
+
     studentOptions,
+
     teacherOptions,
+
     programOptions,
+
     classOptions,
+
     updateField,
+
     updateRating,
+
     addMaterial,
+
     removeMaterial,
+
     changeMaterial,
+
     addActivity,
+
     removeActivity,
+
     changeActivity,
+
     addPhoto,
+
     removePhoto,
+
     removeExistingPhoto,
+
     handleSubmit,
   } = useReportForm({
     mode,
+
     reportId: normalizedReportId,
+
     onSuccess: handleSuccess,
   });
+
+  /* ==========================================================
+   * LOADING
+   * ========================================================== */
+
+  const delayedInitialLoading = useDelayedLoading(
+    isEdit && isInitialLoading && !form,
+    "page",
+  );
+
+  const showSkeleton = isEdit && delayedInitialLoading && !form;
 
   /* ==========================================================
    * CANCEL
@@ -148,7 +198,7 @@ const ReportFormPage = ({ mode = "create" }) => {
   }, [navigate, isEdit, normalizedReportId]);
 
   /* ==========================================================
-   * PAGE CONFIG
+   * META
    * ========================================================== */
 
   const pageTitle = isEdit ? "Edit Laporan" : "Buat Laporan";
@@ -176,7 +226,7 @@ const ReportFormPage = ({ mode = "create" }) => {
       ];
 
   /* ==========================================================
-   * INVALID ID
+   * INVALID EDIT ID
    * ========================================================== */
 
   if (isEdit && normalizedReportId === null) {
@@ -184,15 +234,7 @@ const ReportFormPage = ({ mode = "create" }) => {
       <PageContainer
         title="Edit Laporan"
         subtitle="Laporan tidak valid."
-        breadcrumb={[
-          {
-            label: "Laporan",
-            path: ROUTES.teacher.reports,
-          },
-          {
-            label: "Edit",
-          },
-        ]}
+        breadcrumb={breadcrumb}
       >
         <EmptyState
           title="Laporan tidak valid"
@@ -204,39 +246,43 @@ const ReportFormPage = ({ mode = "create" }) => {
   }
 
   /* ==========================================================
-   * LOADING
+   * INITIAL LOADING
    * ========================================================== */
 
-  if (isLoading && !form) {
+  if (showSkeleton) {
     return (
       <PageContainer
         title={pageTitle}
         subtitle={pageSubtitle}
         breadcrumb={breadcrumb}
+        actions={<BackButton onClick={handleCancel} />}
       >
-        <LoadingState message="Memuat formulir..." />
+        <div aria-busy="true" aria-live="polite" className="min-w-0">
+          <ReportFormSkeleton />
+        </div>
       </PageContainer>
     );
   }
 
   /* ==========================================================
-   * ERROR
+   * INITIAL ERROR
    * ========================================================== */
 
-  if (error && isEdit && !form) {
+  if (initialError && isEdit && !form) {
     return (
       <PageContainer
         title={pageTitle}
         subtitle="Gagal memuat."
         breadcrumb={breadcrumb}
+        actions={<BackButton onClick={handleCancel} />}
       >
-        <ErrorState title="Gagal memuat laporan" description={error} />
+        <ErrorState error={initialError} />
       </PageContainer>
     );
   }
 
   /* ==========================================================
-   * VIEW
+   * PAGE
    * ========================================================== */
 
   return (
@@ -246,14 +292,65 @@ const ReportFormPage = ({ mode = "create" }) => {
       breadcrumb={breadcrumb}
       actions={<BackButton onClick={handleCancel} />}
     >
-      <div className="min-w-0">
+      <div
+        className="min-w-0 space-y-4"
+        aria-busy={
+          isInitialLoading ||
+          isRefreshing ||
+          relationOptionsLoading ||
+          relationOptionsRefreshing ||
+          undefined
+        }
+      >
+        {/* ==================================================
+         * REFRESH STATUS
+         * ================================================== */}
+
+        {(isRefreshing || refreshError || relationOptionsRefreshing) && (
+          <div
+            className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-border bg-surface-muted/40 px-4 py-3"
+            role={refreshError ? "alert" : "status"}
+            aria-live="polite"
+          >
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-text">
+                {refreshError
+                  ? "Pembaruan data form gagal."
+                  : "Memperbarui data..."}
+              </p>
+
+              {refreshError && (
+                <p className="mt-0.5 text-xs text-muted">
+                  Data yang sudah ada tetap ditampilkan.
+                </p>
+              )}
+            </div>
+
+            {refreshError && (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  window.location.reload();
+                }}
+                className="shrink-0"
+              >
+                Coba lagi
+              </Button>
+            )}
+          </div>
+        )}
+
+        {/* ==================================================
+         * FORM
+         * ================================================== */}
+
         <ReportForm
           mode={mode}
           form={form}
           errors={errors}
-          loading={isLoading}
           submitting={submitting}
-          error={error}
           existingPhotos={existingPhotos}
           studentOptions={studentOptions}
           teacherOptions={teacherOptions}
@@ -274,6 +371,19 @@ const ReportFormPage = ({ mode = "create" }) => {
           onSubmit={handleSubmit}
           onCancel={handleCancel}
         />
+
+        {/* ==================================================
+         * FORM ERROR
+         * ================================================== */}
+
+        {error && !submitting && !initialError && (
+          <div
+            role="alert"
+            className="rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger"
+          >
+            {error}
+          </div>
+        )}
       </div>
     </PageContainer>
   );

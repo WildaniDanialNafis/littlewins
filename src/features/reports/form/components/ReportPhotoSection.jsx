@@ -2,9 +2,58 @@ import { memo, useEffect, useMemo } from "react";
 
 import { PhotoIcon } from "@/shared/icons";
 
-/* ============================================================
- * REPORT PHOTO SECTION
- * ============================================================ */
+const isFile = (value) => {
+  return typeof File !== "undefined" && value instanceof File;
+};
+
+const getFileKey = (file, index) => {
+  if (!isFile(file)) {
+    return `new-photo-${index}`;
+  }
+
+  return [file.name, file.size, file.lastModified, file.type].join("-");
+};
+
+const getExistingPhotoSource = (photo) => {
+  if (!photo) {
+    return null;
+  }
+
+  if (typeof photo === "string") {
+    return photo;
+  }
+
+  return photo.photo_url ?? photo.url ?? photo.image_url ?? photo.photo ?? null;
+};
+
+const getExistingPhotoKey = (photo, index) => {
+  if (!photo || typeof photo !== "object") {
+    return `existing-photo-${index}`;
+  }
+
+  return (
+    photo.id ??
+    photo.photo_id ??
+    photo.report_photo_id ??
+    `existing-photo-${index}`
+  );
+};
+
+const revokeObjectUrls = (entries) => {
+  if (typeof URL === "undefined" || typeof URL.revokeObjectURL !== "function") {
+    return;
+  }
+
+  for (const entry of entries) {
+    if (entry?.url) {
+      try {
+        URL.revokeObjectURL(entry.url);
+      } catch {
+        // noop
+      }
+    }
+  }
+};
 
 const ReportPhotoSection = ({
   photos = [],
@@ -14,30 +63,44 @@ const ReportPhotoSection = ({
   onRemoveExisting,
   disabled = false,
 }) => {
-  const { newPhotos, newPhotoPreviews, savedPhotos } = useMemo(() => {
-    const normalizedPhotos = Array.isArray(photos)
-      ? photos.filter((photo) => photo instanceof File)
-      : [];
+  const normalizedPhotos = useMemo(
+    () => (Array.isArray(photos) ? photos.filter(isFile) : []),
+    [photos],
+  );
 
-    const previews = normalizedPhotos.map((file) => URL.createObjectURL(file));
+  const savedPhotos = useMemo(
+    () => (Array.isArray(existingPhotos) ? existingPhotos : []),
+    [existingPhotos],
+  );
 
-    return {
-      newPhotos: normalizedPhotos,
-      newPhotoPreviews: previews,
-      savedPhotos: Array.isArray(existingPhotos) ? existingPhotos : [],
-    };
-  }, [photos, existingPhotos]);
+  const previewEntries = useMemo(() => {
+    if (
+      typeof URL === "undefined" ||
+      typeof URL.createObjectURL !== "function"
+    ) {
+      return [];
+    }
+
+    return normalizedPhotos.map((file, index) => ({
+      key: getFileKey(file, index),
+      file,
+      url: URL.createObjectURL(file),
+    }));
+  }, [normalizedPhotos]);
 
   useEffect(() => {
     return () => {
-      newPhotoPreviews.forEach((url) => {
-        URL.revokeObjectURL(url);
-      });
+      revokeObjectUrls(previewEntries);
     };
-  }, [newPhotoPreviews]);
+  }, [previewEntries]);
+
+  const previewMap = useMemo(
+    () => new Map(previewEntries.map((entry) => [entry.key, entry.url])),
+    [previewEntries],
+  );
 
   const handleChange = (event) => {
-    const files = Array.from(event.target.files || []);
+    const files = Array.from(event.target.files ?? []);
 
     if (files.length > 0) {
       onAdd?.(files);
@@ -46,47 +109,24 @@ const ReportPhotoSection = ({
     event.target.value = "";
   };
 
-  const getExistingPhotoSource = (photo) => {
-    if (!photo) {
-      return null;
+  const handleRemoveNewPhoto = (index) => {
+    if (disabled) {
+      return;
     }
 
-    if (typeof photo === "string") {
-      return photo;
-    }
-
-    return (
-      photo.photo_url || photo.url || photo.image_url || photo.photo || null
-    );
+    onRemove?.(index);
   };
 
-  const getExistingPhotoKey = (photo, index) => {
-    if (!photo || typeof photo !== "object") {
-      return `existing-photo-${index}`;
+  const handleRemoveExistingPhoto = (photo) => {
+    if (disabled) {
+      return;
     }
 
-    return (
-      photo.id ??
-      photo.photo_id ??
-      photo.report_photo_id ??
-      `existing-photo-${index}`
-    );
-  };
-
-  const getNewPhotoKey = (file, index) => {
-    if (!(file instanceof File)) {
-      return `new-photo-${index}`;
-    }
-
-    return [file.name, file.size, file.lastModified].join("-");
+    onRemoveExisting?.(photo);
   };
 
   return (
     <div className="space-y-5">
-      {/* ======================================================
-       * UPLOAD
-       * ====================================================== */}
-
       <label
         htmlFor="report-photos"
         className={[
@@ -133,10 +173,6 @@ const ReportPhotoSection = ({
         />
       </label>
 
-      {/* ======================================================
-       * SAVED PHOTOS
-       * ====================================================== */}
-
       {savedPhotos.length > 0 && (
         <section>
           <div className="mb-2.5">
@@ -167,7 +203,7 @@ const ReportPhotoSection = ({
                   <button
                     type="button"
                     disabled={disabled}
-                    onClick={() => onRemoveExisting?.(photo)}
+                    onClick={() => handleRemoveExistingPhoto(photo)}
                     aria-label={`Hapus foto ${index + 1}`}
                     className={[
                       "absolute right-2 top-2",
@@ -202,19 +238,17 @@ const ReportPhotoSection = ({
         </section>
       )}
 
-      {/* ======================================================
-       * NEW PHOTOS
-       * ====================================================== */}
-
-      {newPhotos.length > 0 && (
+      {normalizedPhotos.length > 0 && (
         <section>
           <div className="mb-2.5">
             <p className="text-sm font-semibold text-text">Foto baru</p>
           </div>
 
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4">
-            {newPhotos.map((file, index) => {
-              const preview = newPhotoPreviews[index];
+            {normalizedPhotos.map((file, index) => {
+              const key = getFileKey(file, index);
+
+              const preview = previewMap.get(key);
 
               if (!preview) {
                 return null;
@@ -222,20 +256,21 @@ const ReportPhotoSection = ({
 
               return (
                 <figure
-                  key={getNewPhotoKey(file, index)}
+                  key={key}
                   className="group relative overflow-hidden rounded-xl border border-border bg-surface"
                 >
                   <img
                     src={preview}
                     alt={`Foto baru ${index + 1}`}
                     className="aspect-4/3 w-full object-cover"
+                    loading="lazy"
                     decoding="async"
                   />
 
                   <button
                     type="button"
                     disabled={disabled}
-                    onClick={() => onRemove?.(index)}
+                    onClick={() => handleRemoveNewPhoto(index)}
                     aria-label={`Hapus foto baru ${index + 1}`}
                     className={[
                       "absolute right-2 top-2",
@@ -270,11 +305,7 @@ const ReportPhotoSection = ({
         </section>
       )}
 
-      {/* ======================================================
-       * EMPTY
-       * ====================================================== */}
-
-      {savedPhotos.length === 0 && newPhotos.length === 0 && (
+      {savedPhotos.length === 0 && normalizedPhotos.length === 0 && (
         <p className="text-sm text-muted">Belum ada foto.</p>
       )}
     </div>

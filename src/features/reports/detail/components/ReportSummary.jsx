@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 
 import { InfoCard, SectionTitle } from "@/shared/components/layout";
 
@@ -11,7 +11,27 @@ import { formatReportDate, hasValue } from "../utils/reportDetailUtils";
  * ============================================================ */
 
 const ReportSummary = memo(({ report }) => {
-  if (!report) {
+  const summary = useMemo(() => {
+    if (!report) {
+      return null;
+    }
+
+    return {
+      studentName: report.studentName,
+
+      className: report.className,
+
+      duration: hasValue(report.duration) ? `${report.duration} menit` : "-",
+
+      programName: report.programName,
+
+      teacherName: report.teacherName,
+
+      reportDate: formatReportDate(report.reportDate),
+    };
+  }, [report]);
+
+  if (!summary) {
     return null;
   }
 
@@ -24,20 +44,17 @@ const ReportSummary = memo(({ report }) => {
       />
 
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <InfoCard label="Siswa" value={report.studentName} />
+        <InfoCard label="Siswa" value={summary.studentName} />
 
-        <InfoCard label="Kelas" value={report.className} />
+        <InfoCard label="Kelas" value={summary.className} />
 
-        <InfoCard
-          label="Durasi"
-          value={hasValue(report.duration) ? `${report.duration} menit` : "-"}
-        />
+        <InfoCard label="Durasi" value={summary.duration} />
 
-        <InfoCard label="Pelajaran" value={report.programName} />
+        <InfoCard label="Pelajaran" value={summary.programName} />
 
-        <InfoCard label="Guru" value={report.teacherName} />
+        <InfoCard label="Guru" value={summary.teacherName} />
 
-        <InfoCard label="Tanggal" value={formatReportDate(report.reportDate)} />
+        <InfoCard label="Tanggal" value={summary.reportDate} />
       </div>
     </section>
   );

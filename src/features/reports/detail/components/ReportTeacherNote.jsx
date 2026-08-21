@@ -9,7 +9,9 @@ import { NoteIcon } from "@/shared/icons";
  * ============================================================ */
 
 const ReportTeacherNote = memo(({ report }) => {
-  if (!report?.teacherNote) {
+  const teacherNote = report?.teacherNote;
+
+  if (!teacherNote) {
     return null;
   }
 
@@ -23,7 +25,7 @@ const ReportTeacherNote = memo(({ report }) => {
 
       <div className="mt-4 rounded-xl border-l-4 border-primary/40 bg-surface-muted px-4 py-4 sm:px-5 sm:py-5">
         <p className="text-sm leading-6 text-text sm:text-base">
-          {report.teacherNote}
+          {teacherNote}
         </p>
       </div>
     </section>

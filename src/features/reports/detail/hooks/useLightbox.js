@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+const EMPTY_ARRAY = Object.freeze([]);
+
 const normalizeIndex = (index, total) => {
   const numericIndex = Number(index);
 
@@ -14,8 +16,8 @@ const normalizeIndex = (index, total) => {
   return numericIndex;
 };
 
-const useLightbox = (photos = []) => {
-  const safePhotos = Array.isArray(photos) ? photos : [];
+const useLightbox = (photos = EMPTY_ARRAY) => {
+  const safePhotos = Array.isArray(photos) ? photos : EMPTY_ARRAY;
 
   const total = safePhotos.length;
 
@@ -23,18 +25,12 @@ const useLightbox = (photos = []) => {
 
   const previousActiveElementRef = useRef(null);
 
-  /*
-   * Jangan melakukan setState di effect hanya untuk
-   * mengoreksi index yang sudah tidak valid.
-   *
-   * Invalid index cukup dipresentasikan sebagai null.
-   */
   const visibleIndex = useMemo(() => {
-    if (selectedIndex === null || total <= 0) {
+    if (selectedIndex === null || total === 0) {
       return null;
     }
 
-    return selectedIndex >= 0 && selectedIndex < total ? selectedIndex : null;
+    return normalizeIndex(selectedIndex, total);
   }, [selectedIndex, total]);
 
   useEffect(() => {
@@ -55,7 +51,13 @@ const useLightbox = (photos = []) => {
 
       previousActiveElementRef.current = null;
 
-      activeElement?.focus?.();
+      if (activeElement && typeof activeElement.focus === "function") {
+        try {
+          activeElement.focus();
+        } catch {
+          // noop
+        }
+      }
     };
   }, [visibleIndex]);
 
@@ -96,52 +98,12 @@ const useLightbox = (photos = []) => {
     });
   }, [total]);
 
-  useEffect(() => {
-    if (visibleIndex === null || typeof document === "undefined") {
-      return undefined;
-    }
-
-    const handleKeyDown = (event) => {
-      if (event.defaultPrevented) {
-        return;
-      }
-
-      switch (event.key) {
-        case "Escape":
-          event.preventDefault();
-
-          close();
-
-          break;
-
-        case "ArrowLeft":
-          event.preventDefault();
-
-          goPrev();
-
-          break;
-
-        case "ArrowRight":
-          event.preventDefault();
-
-          goNext();
-
-          break;
-
-        default:
-          break;
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [close, goNext, goPrev, visibleIndex]);
-
   return {
     selectedIndex: visibleIndex,
+
+    isOpen: visibleIndex !== null,
+
+    total,
 
     open,
 

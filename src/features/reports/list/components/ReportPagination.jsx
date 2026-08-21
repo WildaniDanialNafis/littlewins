@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useCallback } from "react";
 
 import { Button } from "@/shared/components/ui";
 
@@ -29,21 +29,21 @@ const ReportPagination = memo(
   }) => {
     const page = toSafePage(currentPage);
 
-    const handlePrevious = () => {
+    const handlePrevious = useCallback(() => {
       if (!hasPreviousPage) {
         return;
       }
 
-      onPageChange?.(page - 1);
-    };
+      onPageChange?.(Math.max(1, page - 1));
+    }, [hasPreviousPage, onPageChange, page]);
 
-    const handleNext = () => {
+    const handleNext = useCallback(() => {
       if (!hasNextPage) {
         return;
       }
 
       onPageChange?.(page + 1);
-    };
+    }, [hasNextPage, onPageChange, page]);
 
     const hasItems = Number(startItem) > 0 && Number(endItem) > 0;
 
@@ -52,10 +52,6 @@ const ReportPagination = memo(
         aria-label="Navigasi laporan"
         className="flex min-w-0 flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between"
       >
-        {/* ==================================================
-         * INFO
-         * ================================================== */}
-
         <p className="text-sm text-muted" aria-live="polite">
           {hasItems ? (
             <>
@@ -65,10 +61,6 @@ const ReportPagination = memo(
             "Tidak ada laporan"
           )}
         </p>
-
-        {/* ==================================================
-         * CONTROLS
-         * ================================================== */}
 
         <div className="flex items-center gap-1.5">
           <Button

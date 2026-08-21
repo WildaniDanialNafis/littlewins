@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useCallback } from "react";
 
 import { Button } from "@/shared/components/ui";
 
@@ -10,7 +10,7 @@ import { cx } from "@/shared/utils";
  * CONSTANTS
  * ============================================================ */
 
-const SORT_OPTIONS = [
+const SORT_OPTIONS = Object.freeze([
   {
     key: "report_date",
     label: "Tanggal",
@@ -27,11 +27,7 @@ const SORT_OPTIONS = [
     key: "rating_understanding",
     label: "Pemahaman",
   },
-];
-
-/* ============================================================
- * SORT BUTTON CLASS
- * ============================================================ */
+]);
 
 const SORT_BUTTON_CLASS = [
   "shrink-0",
@@ -40,18 +36,14 @@ const SORT_BUTTON_CLASS = [
   "ring-1 ring-border",
   "shadow-none",
   "transition-colors duration-(--token-transition-fast)",
-
   "hover:bg-surface-muted",
   "hover:text-text",
-
   "active:bg-surface-hover",
-
   "focus-visible:outline-none",
   "focus-visible:ring-2",
   "focus-visible:ring-primary/30",
   "focus-visible:ring-offset-2",
   "focus-visible:ring-offset-background",
-
   "motion-reduce:transition-none",
 ].join(" ");
 
@@ -79,6 +71,26 @@ const ReportFilter = memo(
 
     const sortLabel = sortDirection === "asc" ? "Naik" : "Turun";
 
+    const selectedSortKey = SORT_OPTIONS.some(
+      (option) => option.key === sortKey,
+    )
+      ? sortKey
+      : SORT_OPTIONS[0].key;
+
+    const handleSearchChange = useCallback(
+      (event) => {
+        onSearchChange?.(event.target.value);
+      },
+      [onSearchChange],
+    );
+
+    const handleSortChange = useCallback(
+      (event) => {
+        onSortChange?.(event.target.value);
+      },
+      [onSortChange],
+    );
+
     return (
       <section aria-label="Filter laporan" className="min-w-0">
         <div
@@ -95,10 +107,6 @@ const ReportFilter = memo(
               "lg:flex-row lg:items-center",
             )}
           >
-            {/* ==================================================
-             * SEARCH
-             * ================================================== */}
-
             <div className="relative min-w-0 flex-1">
               <div
                 className={cx(
@@ -120,9 +128,8 @@ const ReportFilter = memo(
                 type="search"
                 value={searchQuery}
                 placeholder={placeholder}
-                onChange={(event) => {
-                  onSearchChange?.(event.target.value);
-                }}
+                onChange={handleSearchChange}
+                autoComplete="off"
                 className={cx(
                   "h-11 w-full rounded-xl",
                   "border border-border",
@@ -141,10 +148,6 @@ const ReportFilter = memo(
               />
             </div>
 
-            {/* ==================================================
-             * SORT
-             * ================================================== */}
-
             <div className="flex w-full min-w-0 gap-2 lg:w-auto">
               <label htmlFor={sortId} className="sr-only">
                 Urutkan laporan
@@ -152,10 +155,8 @@ const ReportFilter = memo(
 
               <select
                 id={sortId}
-                value={sortKey}
-                onChange={(event) => {
-                  onSortChange?.(event.target.value);
-                }}
+                value={selectedSortKey}
+                onChange={handleSortChange}
                 className={cx(
                   "h-11 min-w-0 flex-1 rounded-xl",
                   "border border-border",

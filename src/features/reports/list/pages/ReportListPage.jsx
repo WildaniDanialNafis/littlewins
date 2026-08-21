@@ -9,9 +9,9 @@ import { ROUTES } from "@/shared/constants";
 
 import { PlusIcon } from "@/shared/icons";
 
-import { ReportFilter, ReportList, ReportListSkeleton } from "../components";
-
 import { useDelayedLoading } from "@/shared/hooks";
+
+import { ReportFilter, ReportList, ReportListSkeleton } from "../components";
 
 import useReportList from "../hooks/useReportList";
 
@@ -24,33 +24,55 @@ const ReportListPage = ({ role = "teacher", accountId = null }) => {
 
   const {
     searchQuery,
+
     sortKey,
+
     sortDirection,
+
     currentPage,
+
     deleteTargetId,
 
     reports,
+
     allReports,
 
     hasPreviousPage,
+
     hasNextPage,
+
     startItem,
+
     endItem,
 
-    isLoading,
-    hasError,
-    error,
+    isInitialLoading,
+
+    isFetching,
+
+    isRefreshing,
+
+    isDeleting,
+
+    initialError,
+
+    refreshError,
 
     refresh,
 
     handleSearchChange,
+
     handleSort,
+
     toggleSortDirection,
+
     handlePageChange,
+
     clearSearch,
 
     requestDelete,
+
     cancelDelete,
+
     confirmDelete,
   } = useReportList({
     role,
@@ -59,15 +81,20 @@ const ReportListPage = ({ role = "teacher", accountId = null }) => {
 
   const isTeacher = role === "teacher";
 
-  /* ============================================================
-   * LOADING VISIBILITY
-   * ============================================================ */
+  /* ==========================================================
+   * LOADING
+   * ========================================================== */
 
-  const showSkeleton = useDelayedLoading(isLoading, "page");
+  const showSkeleton = useDelayedLoading(
+    isInitialLoading && allReports.length === 0,
+    "page",
+  );
 
-  /* ============================================================
+  const shouldShowSkeleton = showSkeleton && allReports.length === 0;
+
+  /* ==========================================================
    * NAVIGATION
-   * ============================================================ */
+   * ========================================================== */
 
   const goToCreate = useCallback(() => {
     if (!isTeacher) {
@@ -79,7 +106,7 @@ const ReportListPage = ({ role = "teacher", accountId = null }) => {
 
   const goToPreview = useCallback(
     (reportId) => {
-      if (!reportId) {
+      if (reportId === null || reportId === undefined || reportId === "") {
         return;
       }
 
@@ -94,7 +121,12 @@ const ReportListPage = ({ role = "teacher", accountId = null }) => {
 
   const goToEdit = useCallback(
     (reportId) => {
-      if (!isTeacher || !reportId) {
+      if (
+        !isTeacher ||
+        reportId === null ||
+        reportId === undefined ||
+        reportId === ""
+      ) {
         return;
       }
 
@@ -103,13 +135,13 @@ const ReportListPage = ({ role = "teacher", accountId = null }) => {
     [isTeacher, navigate],
   );
 
-  /* ============================================================
-   * PAGE META
-   * ============================================================ */
+  /* ==========================================================
+   * META
+   * ========================================================== */
 
   const reportCount = allReports.length;
 
-  const pageSubtitle = isLoading
+  const pageSubtitle = shouldShowSkeleton
     ? "Memuat laporan..."
     : reportCount > 0
       ? `${reportCount} laporan.`
@@ -129,43 +161,25 @@ const ReportListPage = ({ role = "teacher", accountId = null }) => {
     </Button>
   ) : null;
 
-  /* ============================================================
-   * LOADING
-   * ============================================================ */
+  /* ==========================================================
+   * INITIAL ERROR
+   * ========================================================== */
 
-  if (showSkeleton) {
+  if (!shouldShowSkeleton && initialError && allReports.length === 0) {
     return (
       <PageContainer
         title="Laporan"
-        subtitle="Memuat laporan..."
+        subtitle="Data laporan tidak dapat dimuat."
         actions={pageActions}
       >
-        <div aria-busy="true" aria-live="polite">
-          <ReportListSkeleton count={6} />
-        </div>
+        <ErrorState
+          error={initialError}
+          onRetry={refresh}
+          title="Gagal memuat laporan"
+        />
       </PageContainer>
     );
   }
-
-  /* ============================================================
-   * ERROR
-   * ============================================================ */
-
-  if (hasError) {
-    return (
-      <PageContainer
-        title="Laporan"
-        subtitle="Gagal memuat."
-        actions={pageActions}
-      >
-        <ErrorState error={error} onRetry={refresh} />
-      </PageContainer>
-    );
-  }
-
-  /* ============================================================
-   * VIEW
-   * ============================================================ */
 
   return (
     <PageContainer
@@ -173,45 +187,119 @@ const ReportListPage = ({ role = "teacher", accountId = null }) => {
       subtitle={pageSubtitle}
       actions={pageActions}
     >
-      <div className="min-w-0 space-y-5 sm:space-y-6">
-        <ReportFilter
-          role={role}
-          searchQuery={searchQuery}
-          sortKey={sortKey}
-          sortDirection={sortDirection}
-          onSearchChange={handleSearchChange}
-          onSortChange={handleSort}
-          onToggleSort={toggleSortDirection}
-        />
+      <div
+        className="min-w-0 space-y-5 sm:space-y-6"
+        aria-busy={isFetching || undefined}
+      >
+        {/* ==================================================
+         * INITIAL SKELETON
+         * ================================================== */}
 
-        <ReportList
-          role={role}
-          reports={reports}
-          searchQuery={searchQuery}
-          currentPage={currentPage}
-          hasPreviousPage={hasPreviousPage}
-          hasNextPage={hasNextPage}
-          startItem={startItem}
-          endItem={endItem}
-          onPreview={goToPreview}
-          onEdit={isTeacher ? goToEdit : undefined}
-          onDelete={isTeacher ? requestDelete : undefined}
-          onPageChange={handlePageChange}
-          onClearSearch={clearSearch}
-          onCreate={isTeacher ? goToCreate : undefined}
-        />
+        {shouldShowSkeleton ? (
+          <ReportListSkeleton />
+        ) : (
+          <>
+            {/* ==============================================
+             * BACKGROUND REFRESH STATUS
+             * ============================================== */}
 
-        {isTeacher && (
-          <ConfirmDialog
-            isOpen={deleteTargetId !== null}
-            onClose={cancelDelete}
-            onConfirm={confirmDelete}
-            title="Hapus Laporan"
-            message="Laporan akan dihapus permanen."
-            confirmText="Hapus"
-            cancelText="Batal"
-            variant="danger"
-          />
+            {(isRefreshing || refreshError) && (
+              <div
+                className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-border bg-surface-muted/40 px-4 py-3"
+                role={refreshError ? "alert" : "status"}
+                aria-live="polite"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-text">
+                    {refreshError
+                      ? "Pembaruan laporan gagal."
+                      : "Memperbarui laporan..."}
+                  </p>
+
+                  {refreshError && (
+                    <p className="mt-0.5 text-xs text-muted">
+                      Data sebelumnya tetap ditampilkan.
+                    </p>
+                  )}
+                </div>
+
+                {refreshError && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={refresh}
+                    disabled={isRefreshing}
+                    className="shrink-0"
+                  >
+                    Coba lagi
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {/* ==============================================
+             * FILTER
+             * ============================================== */}
+
+            <ReportFilter
+              role={role}
+              searchQuery={searchQuery}
+              sortKey={sortKey}
+              sortDirection={sortDirection}
+              onSearchChange={handleSearchChange}
+              onSortChange={handleSort}
+              onToggleSort={toggleSortDirection}
+            />
+
+            {/* ==============================================
+             * LIST
+             * ============================================== */}
+
+            <ReportList
+              role={role}
+              reports={reports}
+              searchQuery={searchQuery}
+              currentPage={currentPage}
+              hasPreviousPage={hasPreviousPage}
+              hasNextPage={hasNextPage}
+              startItem={startItem}
+              endItem={endItem}
+              onPreview={goToPreview}
+              onEdit={isTeacher ? goToEdit : undefined}
+              onDelete={isTeacher ? requestDelete : undefined}
+              onPageChange={handlePageChange}
+              onClearSearch={clearSearch}
+              onCreate={isTeacher ? goToCreate : undefined}
+            />
+
+            {/* ==============================================
+             * DELETE STATUS
+             * ============================================== */}
+
+            {isDeleting && (
+              <div className="sr-only" role="status" aria-live="polite">
+                Menghapus laporan...
+              </div>
+            )}
+
+            {/* ==============================================
+             * DELETE CONFIRMATION
+             * ============================================== */}
+
+            {isTeacher && (
+              <ConfirmDialog
+                isOpen={deleteTargetId !== null}
+                onClose={cancelDelete}
+                onConfirm={confirmDelete}
+                title="Hapus Laporan"
+                message="Laporan akan dihapus permanen."
+                confirmText="Hapus"
+                cancelText="Batal"
+                variant="danger"
+              />
+            )}
+          </>
         )}
       </div>
     </PageContainer>

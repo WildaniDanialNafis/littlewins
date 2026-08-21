@@ -17,6 +17,8 @@ export { default as useLightbox } from "./hooks/useLightbox";
 
 export { default as useReportDetail } from "./hooks/useReportDetail";
 
+export { default as ReportDetailSkeleton } from "./components/ReportDetailSkeleton";
+
 export {
   createLookupMap,
   formatReportDate,

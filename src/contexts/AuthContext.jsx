@@ -22,6 +22,13 @@ AuthContext.displayName = "AuthContext";
 const VALID_ROLES = new Set(["teacher", "student"]);
 
 /* ============================================================
+ * MODULE RESTORE DEDUPE
+ * ============================================================ */
+
+let restoreSessionPromise = null;
+let restoreSessionKey = null;
+
+/* ============================================================
  * HELPERS
  * ============================================================ */
 
@@ -86,6 +93,16 @@ const getSessionIdentity = (user) => {
   return `${role}:${id}`;
 };
 
+const getRestoreKey = (user, token) => {
+  const identity = getSessionIdentity(user);
+
+  if (!identity || typeof token !== "string" || !token.trim()) {
+    return null;
+  }
+
+  return `${identity}:${token}`;
+};
+
 const createSessionSnapshot = (user, token) => {
   if (!user || typeof user !== "object") {
     throw new Error("Data pengguna tidak valid.");
@@ -109,25 +126,16 @@ const createSessionSnapshot = (user, token) => {
 
   return {
     user,
-
     token,
-
     identity: `${role}:${userId}`,
-
     updatedAt: Date.now(),
   };
 };
 
-/*
- * Backend /me saat ini dapat mengembalikan:
- *
- * {
- *   user: {...}
- * }
- *
- * Compatibility dengan response user langsung
- * tetap dipertahankan.
- */
+/* ============================================================
+ * RESPONSE
+ * ============================================================ */
+
 const extractUserFromResponse = (response) => {
   if (!response || typeof response !== "object") {
     return null;
@@ -174,7 +182,6 @@ const parseSessionSnapshot = (rawValue) => {
 
     return {
       user,
-
       token,
     };
   } catch {
@@ -192,17 +199,12 @@ const clearStoredAuth = () => {
 
     localStorage.removeItem(STORAGE_KEYS.refreshToken);
   } catch {
-    /*
-     * Storage unavailable.
-     */
+    // Storage unavailable.
   }
 };
 
 const getStoredAuth = () => {
   try {
-    /*
-     * Canonical session.
-     */
     const sessionRaw = localStorage.getItem(STORAGE_KEYS.session);
 
     const session = parseSessionSnapshot(sessionRaw);
@@ -211,9 +213,6 @@ const getStoredAuth = () => {
       return session;
     }
 
-    /*
-     * Legacy fallback.
-     */
     const storedUser = localStorage.getItem(STORAGE_KEYS.user);
 
     const token = localStorage.getItem(STORAGE_KEYS.authToken);
@@ -239,7 +238,6 @@ const getStoredAuth = () => {
 
     return {
       user: parsedUser,
-
       token,
     };
   } catch {
@@ -256,14 +254,8 @@ const saveAuth = (user, token) => {
   const session = createSessionSnapshot(user, token);
 
   try {
-    /*
-     * Canonical session.
-     */
     localStorage.setItem(STORAGE_KEYS.session, JSON.stringify(session));
 
-    /*
-     * Legacy compatibility.
-     */
     localStorage.setItem(STORAGE_KEYS.authToken, session.token);
 
     localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(session.user));
@@ -289,6 +281,44 @@ const saveUser = (user) => {
 };
 
 /* ============================================================
+ * RESTORE REQUEST
+ * ============================================================ */
+
+const requestRestoreUser = (storedUser, token) => {
+  const key = getRestoreKey(storedUser, token);
+
+  if (!key) {
+    return Promise.reject(new Error("Sesi autentikasi tidak valid."));
+  }
+
+  if (restoreSessionPromise && restoreSessionKey === key) {
+    return restoreSessionPromise;
+  }
+
+  restoreSessionKey = key;
+
+  const promise = Promise.resolve()
+    .then(() =>
+      authService.me({
+        signal: undefined,
+      }),
+    )
+    .finally(() => {
+      if (restoreSessionPromise === promise) {
+        restoreSessionPromise = null;
+      }
+
+      if (restoreSessionKey === key) {
+        restoreSessionKey = null;
+      }
+    });
+
+  restoreSessionPromise = promise;
+
+  return promise;
+};
+
+/* ============================================================
  * CACHE
  * ============================================================ */
 
@@ -301,15 +331,6 @@ const resetSessionCache = () => {
  * ============================================================ */
 
 export const AuthProvider = ({ children }) => {
-  /*
-   * Router sudah berada di atas AuthProvider:
-   *
-   * BrowserRouter
-   *   └─ Providers
-   *       └─ AuthProvider
-   *
-   * sehingga useNavigate aman digunakan di sini.
-   */
   const navigate = useNavigate();
 
   const mountedRef = useRef(false);
@@ -358,9 +379,6 @@ export const AuthProvider = ({ children }) => {
     return () => {
       mountedRef.current = false;
 
-      /*
-       * Tidak menganggap unmount sebagai logout.
-       */
       loginControllerRef.current?.abort();
 
       loginControllerRef.current = null;
@@ -433,7 +451,7 @@ export const AuthProvider = ({ children }) => {
 
       const { user: storedUser, token } = getStoredAuth();
 
-      if (!mountedRef.current || cancelled) {
+      if (cancelled || !mountedRef.current) {
         return;
       }
 
@@ -441,9 +459,7 @@ export const AuthProvider = ({ children }) => {
         resetSessionCache();
 
         setUser(null);
-
         setError(null);
-
         setLoading(false);
 
         return;
@@ -460,9 +476,7 @@ export const AuthProvider = ({ children }) => {
       }
 
       try {
-        const response = await authService.me({
-          signal: undefined,
-        });
+        const response = await requestRestoreUser(storedUser, token);
 
         if (
           cancelled ||
@@ -486,18 +500,10 @@ export const AuthProvider = ({ children }) => {
           return;
         }
 
-        /*
-         * Backend menjadi source of truth
-         * untuk user data.
-         *
-         * Token tetap token lokal.
-         */
         try {
           saveAuth(resolvedUser, token);
         } catch {
-          /*
-           * Runtime authentication tetap dipertahankan.
-           */
+          // Runtime session tetap digunakan.
         }
 
         applyAuthenticatedSession(resolvedUser);
@@ -511,6 +517,8 @@ export const AuthProvider = ({ children }) => {
         }
 
         if (isAbortError(restoreError)) {
+          setLoading(false);
+
           return;
         }
 
@@ -520,10 +528,6 @@ export const AuthProvider = ({ children }) => {
           return;
         }
 
-        /*
-         * Network/server error:
-         * session lokal tetap dipertahankan.
-         */
         applyAuthenticatedSession(storedUser);
       }
     };
@@ -562,9 +566,7 @@ export const AuthProvider = ({ children }) => {
 
       if (!storedUser || !token) {
         setUser(null);
-
         setError(null);
-
         setLoading(false);
 
         return;
@@ -589,7 +591,6 @@ export const AuthProvider = ({ children }) => {
       setUser(storedUser);
 
       setError(null);
-
       setLoading(false);
     };
 
@@ -598,7 +599,7 @@ export const AuthProvider = ({ children }) => {
     return () => {
       window.removeEventListener("storage", handleStorage);
     };
-  }, [clearAuthenticatedSession, invalidateSessionOperations]);
+  }, [invalidateSessionOperations]);
 
   /* ==========================================================
    * LOGIN
@@ -610,9 +611,6 @@ export const AuthProvider = ({ children }) => {
         return loginPromiseRef.current;
       }
 
-      /*
-       * Session lama tidak lagi dipercaya.
-       */
       invalidateSessionOperations();
 
       resetSessionCache();
@@ -621,13 +619,13 @@ export const AuthProvider = ({ children }) => {
 
       const sessionVersion = sessionVersionRef.current;
 
-      const controller = new AbortController();
+      const controller =
+        typeof AbortController === "undefined" ? null : new AbortController();
 
       loginControllerRef.current = controller;
 
       if (mountedRef.current) {
         setError(null);
-
         setLoading(true);
       }
 
@@ -648,9 +646,11 @@ export const AuthProvider = ({ children }) => {
           const response = await authService.login(
             normalizedUsername,
             password,
-            {
-              signal: controller.signal,
-            },
+            controller
+              ? {
+                  signal: controller.signal,
+                }
+              : undefined,
           );
 
           const isCurrent =
@@ -691,7 +691,6 @@ export const AuthProvider = ({ children }) => {
             setUser(authenticatedUser);
 
             setError(null);
-
             setLoading(false);
           }
 
@@ -711,11 +710,9 @@ export const AuthProvider = ({ children }) => {
             setError(normalizedError);
 
             setUser(null);
-
             setLoading(false);
 
             clearStoredAuth();
-
             resetSessionCache();
 
             throw normalizedError;
@@ -754,9 +751,6 @@ export const AuthProvider = ({ children }) => {
    * ========================================================== */
 
   const logout = useCallback(() => {
-    /*
-     * Jangan membuat dua logout operation.
-     */
     if (logoutPromiseRef.current) {
       return logoutPromiseRef.current;
     }
@@ -767,74 +761,28 @@ export const AuthProvider = ({ children }) => {
 
     logoutRequestedRef.current = true;
 
-    /*
-     * Invalidate auth operations:
-     *
-     * - login yang sedang berlangsung dibatalkan
-     * - restore/auth operation lama menjadi obsolete
-     */
     invalidateSessionOperations();
 
-    /*
-     * Ambil promise backend untuk tetap menyelesaikan
-     * request logout, tetapi JANGAN menunggu promise tersebut
-     * untuk melakukan navigasi.
-     */
     const backendLogoutPromise = Promise.resolve()
       .then(() => authService.logout())
       .catch(() => undefined);
 
     logoutPromiseRef.current = backendLogoutPromise;
 
-    /*
-     * =======================================================
-     * LOCAL LOGOUT — INSTANT
-     * =======================================================
-     *
-     * Ini yang menghilangkan flicker.
-     *
-     * Kita tidak:
-     *
-     * setLoading(true)
-     * window.location.assign(...)
-     *
-     * Sebaliknya:
-     *
-     * clear session
-     * user = null
-     * navigate replace
-     *
-     * sehingga React tetap hidup dan hanya route/layout
-     * yang berganti.
-     */
     resetSessionCache();
 
     clearStoredAuth();
 
     if (mountedRef.current) {
       setUser(null);
-
       setError(null);
-
       setLoading(false);
     }
 
-    /*
-     * React Router navigation:
-     *
-     * - tidak reload browser
-     * - tidak membuat AuthProvider baru
-     * - tidak meminta /me lagi
-     * - tidak memuat ulang bundle
-     */
     navigate(ROUTES.login, {
       replace: true,
     });
 
-    /*
-     * Cleanup promise reference setelah request
-     * backend benar-benar selesai.
-     */
     void backendLogoutPromise.finally(() => {
       if (logoutPromiseRef.current === backendLogoutPromise) {
         logoutPromiseRef.current = null;
@@ -877,7 +825,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   /* ==========================================================
-   * DERIVED STATE
+   * DERIVED
    * ========================================================== */
 
   const role = normalizeRole(user?.role);
@@ -891,44 +839,26 @@ export const AuthProvider = ({ children }) => {
   const value = useMemo(
     () => ({
       user,
-
       loading,
-
       error,
-
       login,
-
       logout,
-
       updateUser,
-
       role,
-
       isAuthenticated,
-
       isTeacher,
-
       isStudent,
     }),
     [
       user,
-
       loading,
-
       error,
-
       login,
-
       logout,
-
       updateUser,
-
       role,
-
       isAuthenticated,
-
       isTeacher,
-
       isStudent,
     ],
   );

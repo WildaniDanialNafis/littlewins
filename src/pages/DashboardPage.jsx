@@ -12,6 +12,8 @@ import { APP_NAME, ROUTES } from "@/shared/constants";
 
 import { useDashboardData } from "@/features/dashboard";
 
+import { useDelayedLoading } from "@/shared/hooks";
+
 import { cx, formatDateShort } from "@/shared/utils";
 
 /* ============================================================
@@ -47,7 +49,6 @@ const ActionLink = ({
         "duration-(--token-transition-fast)",
         "ease-out",
         "motion-reduce:transition-none",
-
         "focus-visible:outline-none",
         "focus-visible:ring-2",
         "focus-visible:ring-primary/30",
@@ -180,21 +181,16 @@ WelcomeSection.displayName = "WelcomeSection";
  * ============================================================ */
 
 const ReportMeta = ({ reportDate, duration }) => {
-  if (!reportDate && !hasValue(duration)) {
-    return null;
-  }
-
   return (
-    <div
-      className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted"
-      aria-label="Informasi laporan"
-    >
-      {reportDate && (
-        <span className="inline-flex items-center gap-1.5">
+    <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted">
+      {hasValue(reportDate) && (
+        <div className="inline-flex min-w-0 items-center gap-1.5">
           <CalendarIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
 
-          <time dateTime={reportDate}>{formatDateShort(reportDate)}</time>
-        </span>
+          <time className="truncate" dateTime={reportDate || undefined}>
+            {formatDateShort(reportDate)}
+          </time>
+        </div>
       )}
 
       {hasValue(duration) && <span className="shrink-0">{duration} menit</span>}
@@ -213,41 +209,38 @@ const LatestReport = ({ report, isTeacher, reportDetailRoute }) => {
     return null;
   }
 
+  const score = hasValue(report.score) ? report.score : "-";
+
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-surface">
+    <article className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
       <div className="p-4 sm:p-5">
-        <div className="flex min-w-0 items-start gap-3 sm:gap-4">
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-semibold uppercase tracking-[0.08em] text-primary">
-              {report.programName || "Program belajar"}
+        <div className="relative min-w-0">
+          <div className="min-w-0 pr-24 sm:pr-28">
+            <p className="text-xs font-medium text-muted">
+              {isTeacher ? "Laporan siswa" : "Laporan belajar"}
             </p>
 
-            <h3 className="mt-1 truncate text-lg font-bold tracking-tight text-text sm:text-xl">
-              {isTeacher
-                ? report.studentName || "Siswa"
-                : "Perkembangan Belajar"}
+            <h3
+              className="mt-1 truncate text-lg font-bold tracking-tight text-text"
+              title={report.programName}
+            >
+              {report.programName || "Laporan"}
             </h3>
+
+            <p className="mt-1 truncate text-sm text-muted">
+              {isTeacher
+                ? report.studentName || "-"
+                : report.teacherName || "-"}
+            </p>
           </div>
 
-          <div
-            className={cx(
-              "flex shrink-0 flex-col items-center justify-center",
-              "min-w-18",
-              "rounded-xl border border-border",
-              "bg-surface-muted/50",
-              "px-3 py-2",
-              "sm:min-w-20 sm:px-3.5 sm:py-2.5",
-            )}
-            aria-label={`Nilai ${
-              hasValue(report.score) ? report.score : "tidak tersedia"
-            }`}
-          >
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
+          <div className="absolute right-0 top-0 rounded-xl bg-primary-soft px-4 py-3 text-right">
+            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted">
               Nilai
             </p>
 
-            <p className="mt-0.5 text-xl font-bold tabular-nums text-text sm:text-2xl">
-              {hasValue(report.score) ? report.score : "-"}
+            <p className="mt-0.5 text-2xl font-bold tabular-nums text-primary">
+              {score}
             </p>
           </div>
         </div>
@@ -287,7 +280,7 @@ const LatestReport = ({ report, isTeacher, reportDetailRoute }) => {
           </ActionLink>
         </div>
       </div>
-    </div>
+    </article>
   );
 };
 
@@ -399,8 +392,23 @@ DashboardError.displayName = "DashboardError";
  * ============================================================ */
 
 const DashboardPage = ({ role = "teacher" }) => {
-  const { userName, isTeacher, latestReportData, isLoading, error, refresh } =
-    useDashboardData(role);
+  const {
+    userName,
+
+    isTeacher,
+
+    latestReportData,
+
+    isInitialLoading,
+
+    isRefreshing,
+
+    initialError,
+
+    refreshError,
+
+    refresh,
+  } = useDashboardData(role);
 
   const dashboardTitle = isTeacher ? "Dashboard Guru" : "Dashboard Siswa";
 
@@ -424,20 +432,64 @@ const DashboardPage = ({ role = "teacher" }) => {
       : ROUTES.student.reportDetail(latestReportData.id)
     : null;
 
-  if (isLoading) {
+  const showInitialLoading = useDelayedLoading(
+    isInitialLoading && !latestReportData,
+    "page",
+  );
+
+  if (showInitialLoading) {
     return <DashboardLoading title={dashboardTitle} />;
   }
 
-  if (error) {
+  if (initialError && !latestReportData) {
     return (
-      <DashboardError title={dashboardTitle} error={error} refresh={refresh} />
+      <DashboardError
+        title={dashboardTitle}
+        error={initialError}
+        refresh={refresh}
+      />
     );
   }
 
   return (
     <PageContainer title={dashboardTitle} subtitle={subtitle}>
       <ContentBlock>
-        <div className="divide-y divide-border">
+        <div
+          className="min-w-0 divide-y divide-border"
+          aria-busy={isRefreshing || undefined}
+        >
+          {(isRefreshing || refreshError) && (
+            <div
+              className="flex min-w-0 items-center justify-between gap-3 py-4"
+              role={refreshError ? "alert" : "status"}
+              aria-live="polite"
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-text">
+                  {refreshError
+                    ? "Pembaruan dashboard gagal."
+                    : "Memperbarui dashboard..."}
+                </p>
+
+                {refreshError && (
+                  <p className="mt-0.5 text-xs text-muted">
+                    Data sebelumnya tetap ditampilkan.
+                  </p>
+                )}
+              </div>
+
+              {refreshError && (
+                <button
+                  type="button"
+                  onClick={refresh}
+                  className="shrink-0 rounded-lg border border-border bg-surface px-3 py-2 text-xs font-semibold text-text transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                >
+                  Coba lagi
+                </button>
+              )}
+            </div>
+          )}
+
           <WelcomeSection
             userName={userName}
             isTeacher={isTeacher}

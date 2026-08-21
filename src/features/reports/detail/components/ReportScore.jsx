@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 
 import { cx } from "@/shared/utils";
 
@@ -9,13 +9,27 @@ import { hasValue } from "../utils/reportDetailUtils";
  * ============================================================ */
 
 const ReportScore = memo(({ report, style }) => {
-  if (!report || !style || !hasValue(report.score)) {
+  const score = useMemo(() => {
+    if (!report || !style || !hasValue(report.score)) {
+      return null;
+    }
+
+    return {
+      value: report.score,
+      textClass: style.text,
+      backgroundClass: style.background,
+    };
+  }, [report, style]);
+
+  if (!score) {
     return null;
   }
 
   return (
     <section aria-labelledby="report-score-title">
-      <div className={cx("rounded-xl p-4 ring-1", "sm:p-5", style.background)}>
+      <div
+        className={cx("rounded-xl p-4 ring-1", "sm:p-5", score.backgroundClass)}
+      >
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted">
@@ -37,11 +51,11 @@ const ReportScore = memo(({ report, style }) => {
               <span
                 className={cx(
                   "text-4xl font-bold tracking-tight tabular-nums",
-                  style.text,
+                  score.textClass,
                   "sm:text-5xl",
                 )}
               >
-                {report.score}
+                {score.value}
               </span>
 
               <span className="ml-1 text-sm font-medium text-muted">/ 100</span>

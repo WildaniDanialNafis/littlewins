@@ -81,21 +81,13 @@ const getUserScope = (user) => {
 
 const useReportRelationResource = ({
   reportId,
-
   resourceKey,
-
   methods,
-
   messages,
-
   initialData = EMPTY_ARRAY,
-
   autoFetch = true,
-
   sortData,
-
   staleTime = DEFAULT_STALE_TIME,
-
   forceFetchOnMount = false,
 }) => {
   const { user } = useAuth();
@@ -127,6 +119,10 @@ const useReportRelationResource = ({
     });
   }, [canCache, normalizedReportId, normalizedResourceKey, userScope]);
 
+  /* ==========================================================
+   * NORMALIZATION
+   * ========================================================== */
+
   const normalizeData = useCallback(
     (value) => {
       const array = toArray(value);
@@ -135,7 +131,9 @@ const useReportRelationResource = ({
         return array;
       }
 
-      return sortData(array);
+      const sorted = sortData(array);
+
+      return Array.isArray(sorted) ? sorted : array;
     },
     [sortData],
   );
@@ -145,12 +143,7 @@ const useReportRelationResource = ({
     [initialData, normalizeData],
   );
 
-  /**
-   * FIX:
-   * Cache resolution dipindahkan dari useEffect ke useMemo.
-   * Tidak ada setState synchronously dalam effect.
-   */
-  const resolvedInitialData = useMemo(() => {
+  const resolveInitialData = useCallback(() => {
     if (!hasReportId) {
       return normalizedInitialData;
     }
@@ -178,25 +171,45 @@ const useReportRelationResource = ({
     () =>
       [
         userScope ?? "anonymous",
-
         normalizedReportId ?? "invalid",
-
         normalizedResourceKey ?? "unknown",
       ].join(":"),
     [normalizedReportId, normalizedResourceKey, userScope],
   );
 
-  const [data, setData] = useState(resolvedInitialData);
+  /* ==========================================================
+   * STATE
+   * ========================================================== */
 
-  const [loading, setLoading] = useState(Boolean(autoFetch && hasReportId));
+  const [data, setData] = useState(resolveInitialData);
 
-  const [error, setError] = useState(null);
+  const [isInitialLoading, setIsInitialLoading] = useState(() =>
+    Boolean(autoFetch && hasReportId),
+  );
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const [initialError, setInitialError] = useState(null);
+
+  const [refreshError, setRefreshError] = useState(null);
+
+  const [isCreating, setIsCreating] = useState(false);
+
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  /* ==========================================================
+   * REFS
+   * ========================================================== */
 
   const mountedRef = useRef(false);
 
   const generationRef = useRef(0);
 
   const identityRef = useRef(identity);
+
+  const requestVersionRef = useRef(0);
 
   const createPromiseRef = useRef(null);
 
@@ -221,6 +234,8 @@ const useReportRelationResource = ({
 
       generationRef.current += 1;
 
+      requestVersionRef.current += 1;
+
       createPromiseRef.current = null;
 
       updatePromises.clear();
@@ -242,28 +257,16 @@ const useReportRelationResource = ({
 
     generationRef.current += 1;
 
-    setError(null);
+    requestVersionRef.current += 1;
 
-    if (!hasReportId) {
-      return;
-    }
+    setData(resolveInitialData());
 
-    if (!cacheKey) {
-      return;
-    }
+    setInitialError(null);
+    setRefreshError(null);
+    setIsRefreshing(false);
 
-    const cached = getCachedResource(cacheKey, staleTime);
-
-    if (cached !== null) {
-      return;
-    }
-
-    const snapshot = getResourceSnapshot(cacheKey);
-
-    if (snapshot?.data !== undefined) {
-      return;
-    }
-  }, [identity, cacheKey, hasReportId, staleTime]);
+    setIsInitialLoading(Boolean(autoFetch && hasReportId));
+  }, [autoFetch, hasReportId, identity, resolveInitialData]);
 
   /* ==========================================================
    * INVALIDATE
@@ -284,9 +287,13 @@ const useReportRelationResource = ({
   const fetchItems = useCallback(
     async ({ force = false } = {}) => {
       if (!hasReportId) {
-        setData(normalizeData(initialData));
+        if (mountedRef.current) {
+          setData(normalizeData(initialData));
 
-        setLoading(false);
+          setIsInitialLoading(false);
+
+          setIsRefreshing(false);
+        }
 
         return EMPTY_ARRAY;
       }
@@ -295,9 +302,11 @@ const useReportRelationResource = ({
         const methodError = new Error("GetAll method tidak tersedia.");
 
         if (mountedRef.current) {
-          setError(methodError);
+          setInitialError(methodError);
 
-          setLoading(false);
+          setIsInitialLoading(false);
+
+          setIsRefreshing(false);
         }
 
         throw methodError;
@@ -311,10 +320,12 @@ const useReportRelationResource = ({
 
           if (mountedRef.current) {
             setData(nextData);
+            setInitialError(null);
+            setRefreshError(null);
 
-            setError(null);
+            setIsInitialLoading(false);
 
-            setLoading(false);
+            setIsRefreshing(false);
           }
 
           return nextData;
@@ -329,10 +340,24 @@ const useReportRelationResource = ({
 
       const requestIdentity = identity;
 
-      if (mountedRef.current) {
-        setLoading(true);
+      const requestVersion = cacheKey ? getResourceVersion(cacheKey) : null;
 
-        setError(null);
+      const requestId = ++requestVersionRef.current;
+
+      const showInitialLoading = data.length === 0;
+
+      if (mountedRef.current) {
+        if (showInitialLoading) {
+          setIsInitialLoading(true);
+        } else {
+          setIsRefreshing(true);
+        }
+
+        if (force) {
+          setRefreshError(null);
+        } else {
+          setInitialError(null);
+        }
       }
 
       try {
@@ -347,13 +372,14 @@ const useReportRelationResource = ({
 
         if (cacheKey) {
           setCachedResource(cacheKey, nextData, {
-            version: getResourceVersion(cacheKey),
+            version: requestVersion,
           });
         }
 
         const isCurrent =
           mountedRef.current &&
           requestGeneration === generationRef.current &&
+          requestId === requestVersionRef.current &&
           identityRef.current === requestIdentity;
 
         if (!isCurrent) {
@@ -362,18 +388,20 @@ const useReportRelationResource = ({
 
         setData(nextData);
 
-        setError(null);
+        setInitialError(null);
+        setRefreshError(null);
 
-        setLoading(false);
+        setIsInitialLoading(false);
+
+        setIsRefreshing(false);
 
         return nextData;
       } catch (fetchError) {
         if (isAbortError(fetchError)) {
-          if (
-            mountedRef.current &&
-            requestGeneration === generationRef.current
-          ) {
-            setLoading(false);
+          if (mountedRef.current && requestId === requestVersionRef.current) {
+            setIsInitialLoading(false);
+
+            setIsRefreshing(false);
           }
 
           return EMPTY_ARRAY;
@@ -384,14 +412,22 @@ const useReportRelationResource = ({
           messages?.fetch ?? "Gagal memuat data.",
         );
 
-        if (
+        const isCurrent =
           mountedRef.current &&
           requestGeneration === generationRef.current &&
-          identityRef.current === requestIdentity
-        ) {
-          setError(normalizedError);
+          requestId === requestVersionRef.current &&
+          identityRef.current === requestIdentity;
 
-          setLoading(false);
+        if (isCurrent) {
+          if (showInitialLoading) {
+            setInitialError(normalizedError);
+          } else {
+            setRefreshError(normalizedError);
+          }
+
+          setIsInitialLoading(false);
+
+          setIsRefreshing(false);
         }
 
         throw normalizedError;
@@ -399,6 +435,7 @@ const useReportRelationResource = ({
     },
     [
       cacheKey,
+      data.length,
       hasReportId,
       identity,
       initialData,
@@ -433,27 +470,44 @@ const useReportRelationResource = ({
 
       const mutationGeneration = generationRef.current;
 
+      if (mountedRef.current) {
+        setIsCreating(true);
+      }
+
       const promise = (async () => {
         try {
           const created = await methods.create(normalizedReportId, payload);
 
-          if (
-            mountedRef.current &&
-            mutationGeneration === generationRef.current
-          ) {
+          const isCurrent =
+            mountedRef.current && mutationGeneration === generationRef.current;
+
+          if (isCurrent) {
             setData((current) => {
-              const next = normalizeData([...current, created]);
+              if (!created) {
+                return current;
+              }
+
+              const exists = current.some((item) =>
+                sameId(item?.id, created?.id),
+              );
+
+              if (exists) {
+                return current;
+              }
+
+              const nextData = normalizeData([...current, created]);
 
               if (cacheKey) {
-                setCachedResource(cacheKey, next, {
+                setCachedResource(cacheKey, nextData, {
                   version: getResourceVersion(cacheKey),
                 });
               }
 
-              return next;
+              return nextData;
             });
 
-            setError(null);
+            setInitialError(null);
+            setRefreshError(null);
           }
 
           return created;
@@ -463,17 +517,18 @@ const useReportRelationResource = ({
             messages?.create ?? "Gagal membuat data.",
           );
 
-          if (
-            mountedRef.current &&
-            mutationGeneration === generationRef.current
-          ) {
-            setError(normalizedError);
+          if (mountedRef.current) {
+            setInitialError(normalizedError);
           }
 
           throw normalizedError;
         } finally {
           if (createPromiseRef.current === promise) {
             createPromiseRef.current = null;
+          }
+
+          if (mountedRef.current) {
+            setIsCreating(false);
           }
         }
       })();
@@ -499,8 +554,6 @@ const useReportRelationResource = ({
 
   const update = useCallback(
     (id, payload) => {
-      const key = String(id);
-
       if (!hasReportId) {
         return Promise.reject(new Error("Report ID wajib diisi."));
       }
@@ -508,6 +561,8 @@ const useReportRelationResource = ({
       if (!methods || typeof methods.update !== "function") {
         return Promise.reject(new Error("Update method tidak tersedia."));
       }
+
+      const key = String(id);
 
       const existing = updatePromisesRef.current.get(key);
 
@@ -519,29 +574,34 @@ const useReportRelationResource = ({
 
       const mutationGeneration = generationRef.current;
 
+      if (mountedRef.current) {
+        setIsUpdating(true);
+      }
+
       const promise = (async () => {
         try {
           const updated = await methods.update(normalizedReportId, id, payload);
 
-          if (
-            mountedRef.current &&
-            mutationGeneration === generationRef.current
-          ) {
+          const isCurrent =
+            mountedRef.current && mutationGeneration === generationRef.current;
+
+          if (isCurrent) {
             setData((current) => {
-              const next = normalizeData(
+              const nextData = normalizeData(
                 current.map((item) => (sameId(item?.id, id) ? updated : item)),
               );
 
               if (cacheKey) {
-                setCachedResource(cacheKey, next, {
+                setCachedResource(cacheKey, nextData, {
                   version: getResourceVersion(cacheKey),
                 });
               }
 
-              return next;
+              return nextData;
             });
 
-            setError(null);
+            setInitialError(null);
+            setRefreshError(null);
           }
 
           return updated;
@@ -551,17 +611,18 @@ const useReportRelationResource = ({
             messages?.update ?? "Gagal memperbarui data.",
           );
 
-          if (
-            mountedRef.current &&
-            mutationGeneration === generationRef.current
-          ) {
-            setError(normalizedError);
+          if (mountedRef.current) {
+            setInitialError(normalizedError);
           }
 
           throw normalizedError;
         } finally {
           if (updatePromisesRef.current.get(key) === promise) {
             updatePromisesRef.current.delete(key);
+          }
+
+          if (mountedRef.current && updatePromisesRef.current.size === 0) {
+            setIsUpdating(false);
           }
         }
       })();
@@ -591,6 +652,10 @@ const useReportRelationResource = ({
         return Promise.reject(new Error("Report ID wajib diisi."));
       }
 
+      if (!methods || typeof methods.remove !== "function") {
+        return Promise.reject(new Error("Delete method tidak tersedia."));
+      }
+
       const key = String(id);
 
       const existing = removePromisesRef.current.get(key);
@@ -603,29 +668,34 @@ const useReportRelationResource = ({
 
       const mutationGeneration = generationRef.current;
 
+      if (mountedRef.current) {
+        setIsDeleting(true);
+      }
+
       const promise = (async () => {
         try {
           await methods.remove(normalizedReportId, id);
 
-          if (
-            mountedRef.current &&
-            mutationGeneration === generationRef.current
-          ) {
+          const isCurrent =
+            mountedRef.current && mutationGeneration === generationRef.current;
+
+          if (isCurrent) {
             setData((current) => {
-              const next = normalizeData(
+              const nextData = normalizeData(
                 current.filter((item) => !sameId(item?.id, id)),
               );
 
               if (cacheKey) {
-                setCachedResource(cacheKey, next, {
+                setCachedResource(cacheKey, nextData, {
                   version: getResourceVersion(cacheKey),
                 });
               }
 
-              return next;
+              return nextData;
             });
 
-            setError(null);
+            setInitialError(null);
+            setRefreshError(null);
           }
 
           return true;
@@ -635,17 +705,18 @@ const useReportRelationResource = ({
             messages?.delete ?? "Gagal menghapus data.",
           );
 
-          if (
-            mountedRef.current &&
-            mutationGeneration === generationRef.current
-          ) {
-            setError(normalizedError);
+          if (mountedRef.current) {
+            setInitialError(normalizedError);
           }
 
           throw normalizedError;
         } finally {
           if (removePromisesRef.current.get(key) === promise) {
             removePromisesRef.current.delete(key);
+          }
+
+          if (mountedRef.current && removePromisesRef.current.size === 0) {
+            setIsDeleting(false);
           }
         }
       })();
@@ -672,11 +743,13 @@ const useReportRelationResource = ({
   useEffect(() => {
     if (!autoFetch || !hasReportId) {
       if (mountedRef.current) {
-        setLoading(false);
+        setIsInitialLoading(false);
       }
 
       return undefined;
     }
+
+    let cancelled = false;
 
     let force = false;
 
@@ -686,11 +759,23 @@ const useReportRelationResource = ({
       force = true;
     }
 
-    void fetchItems({
-      force,
-    }).catch(() => {});
+    void (async () => {
+      if (cancelled) {
+        return;
+      }
 
-    return undefined;
+      try {
+        await fetchItems({
+          force,
+        });
+      } catch {
+        // Error sudah diproses di fetchItems.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [autoFetch, fetchItems, forceFetchOnMount, hasReportId, identity]);
 
   /* ==========================================================
@@ -705,12 +790,46 @@ const useReportRelationResource = ({
     [fetchItems],
   );
 
+  /* ==========================================================
+   * DERIVED STATE
+   * ========================================================== */
+
+  const loading = isInitialLoading;
+
+  const isFetching = Boolean(isInitialLoading || isRefreshing);
+
+  const error = initialError ?? refreshError ?? null;
+
+  const isMutating = Boolean(isCreating || isUpdating || isDeleting);
+
+  /* ==========================================================
+   * RETURN
+   * ========================================================== */
+
   return {
     data,
 
     loading,
 
+    isInitialLoading,
+
+    isFetching,
+
+    isRefreshing,
+
     error,
+
+    initialError,
+
+    refreshError,
+
+    isCreating,
+
+    isUpdating,
+
+    isDeleting,
+
+    isMutating,
 
     fetchItems,
 

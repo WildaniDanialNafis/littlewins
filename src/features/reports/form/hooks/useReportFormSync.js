@@ -4,9 +4,7 @@ import {
   reportPhotoService,
 } from "@/services/api";
 
-import { getResourceKey, invalidateResource } from "@/shared/cache";
-
-import { STORAGE_KEYS } from "@/shared/constants";
+import { invalidateReportCaches } from "@/features/reports/utils/reportCacheSync";
 
 import {
   fileToBase64,
@@ -16,70 +14,6 @@ import {
   normalizeImageFiles,
   normalizeRelationComparisonValue,
 } from "../utils/reportFormUtils";
-
-/* ============================================================
- * HELPERS
- * ============================================================ */
-
-const getCurrentUserScope = () => {
-  try {
-    const rawUser = localStorage.getItem(STORAGE_KEYS.user);
-
-    if (!rawUser) {
-      return null;
-    }
-
-    const user = JSON.parse(rawUser);
-
-    const userId = user?.profile?.id ?? user?.id;
-
-    if (userId === null || userId === undefined || userId === "") {
-      return null;
-    }
-
-    return `${String(user?.role ?? "unknown")
-      .trim()
-      .toLowerCase()}:${String(userId)}`;
-  } catch {
-    return null;
-  }
-};
-
-const invalidateReportRelationCaches = (reportId) => {
-  const normalizedReportId = normalizeId(reportId);
-
-  const userScope = getCurrentUserScope();
-
-  if (normalizedReportId === null || !userScope) {
-    return;
-  }
-
-  const resourceNames = ["materials", "activities", "photos"];
-
-  for (const resourceName of resourceNames) {
-    invalidateResource(
-      getResourceKey({
-        scope: `user:${userScope}`,
-
-        resource: `report:${normalizedReportId}:${resourceName}`,
-      }),
-    );
-  }
-
-  /*
-   * Backward compatibility:
-   *
-   * Cache versi lama menggunakan:
-   * report:{id}:relation
-   */
-  invalidateResource(
-    getResourceKey({
-      scope: `user:${userScope}`,
-
-      resource: `report:${normalizedReportId}:relation`,
-    }),
-  );
-};
 
 /* ============================================================
  * RELATION CONFIG
@@ -147,7 +81,7 @@ export const createReportSyncError = (
 };
 
 /* ============================================================
- * NORMALIZE
+ * NORMALIZATION
  * ============================================================ */
 
 const normalizeText = (value) =>
@@ -161,7 +95,6 @@ const getDesiredValues = (values) => {
   }
 
   const result = [];
-
   const seen = new Set();
 
   for (const value of values) {
@@ -169,11 +102,7 @@ const getDesiredValues = (values) => {
 
     const key = normalizeRelationComparisonValue(text);
 
-    if (!key) {
-      continue;
-    }
-
-    if (seen.has(key)) {
+    if (!key || seen.has(key)) {
       continue;
     }
 
@@ -280,7 +209,7 @@ const buildRelationPlan = ({ existing, desired, type }) => {
 };
 
 /* ============================================================
- * COMPENSATION
+ * RELATION OPERATIONS
  * ============================================================ */
 
 const createRelation = async (reportId, type, value) => {
@@ -303,6 +232,7 @@ const createRelation = async (reportId, type, value) => {
 
   return {
     entity: created,
+
     id: config.getId(created),
   };
 };
@@ -318,15 +248,15 @@ const removeRelation = async (reportId, type, id) => {
 };
 
 const rollbackCreatedRelations = async ({ reportId, type, createdIds }) => {
-  const rollbackFailed = [];
-
   if (!Array.isArray(createdIds) || createdIds.length === 0) {
-    return rollbackFailed;
+    return [];
   }
 
   const results = await Promise.allSettled(
     createdIds.map((id) => removeRelation(reportId, type, id)),
   );
+
+  const rollbackFailed = [];
 
   results.forEach((result, index) => {
     if (result.status === "rejected") {
@@ -349,12 +279,6 @@ const restoreDeletedRelations = async ({ reportId, type, deletedItems }) => {
     };
   }
 
-  /*
-   * Backend tidak menyediakan restore-by-id.
-   *
-   * Compensation dilakukan dengan recreate value.
-   * ID lama tidak dapat dijamin tetap sama.
-   */
   for (const item of deletedItems) {
     try {
       const value = normalizeText(
@@ -388,7 +312,7 @@ const restoreDeletedRelations = async ({ reportId, type, deletedItems }) => {
 };
 
 /* ============================================================
- * SYNC RELATION
+ * RELATION SYNC
  * ============================================================ */
 
 const syncRelation = async ({
@@ -403,9 +327,7 @@ const syncRelation = async ({
     throw new Error("Report ID wajib diisi.");
   }
 
-  const config = RELATION_CONFIG[type];
-
-  if (!config) {
+  if (!RELATION_CONFIG[type]) {
     throw new Error(`Relation "${type}" tidak didukung.`);
   }
 
@@ -418,13 +340,9 @@ const syncRelation = async ({
   if (plan.create.length === 0 && plan.remove.length === 0) {
     return {
       created: [],
-
       deleted: [],
-
       restored: [],
-
       kept: plan.keep.map((item) => item.id),
-
       changed: false,
     };
   }
@@ -436,16 +354,6 @@ const syncRelation = async ({
   const deletedItems = [];
 
   try {
-    /*
-     * ========================================================
-     * CREATE FIRST
-     * ========================================================
-     *
-     * Create semua desired relation baru sebelum
-     * menghapus relation lama.
-     *
-     * Jika CREATE gagal, existing state belum tersentuh.
-     */
     for (const value of plan.create) {
       const result = await createRelation(normalizedReportId, type, value);
 
@@ -454,11 +362,6 @@ const syncRelation = async ({
       }
     }
 
-    /*
-     * ========================================================
-     * DELETE OLD
-     * ========================================================
-     */
     for (const item of plan.remove) {
       await removeRelation(normalizedReportId, type, item.id);
 
@@ -469,22 +372,12 @@ const syncRelation = async ({
 
     return {
       created: createdIds,
-
       deleted: deletedIds,
-
       restored: [],
-
       kept: plan.keep.map((item) => item.id),
-
       changed: true,
     };
   } catch (error) {
-    /*
-     * ========================================================
-     * COMPENSATION
-     * ========================================================
-     */
-
     const rollbackFailed = await rollbackCreatedRelations({
       reportId: normalizedReportId,
 
@@ -501,8 +394,6 @@ const syncRelation = async ({
       deletedItems,
     });
 
-    const allRollbackFailed = [...rollbackFailed, ...restoreFailed];
-
     throw createReportSyncError(`Gagal menyinkronkan ${type}.`, {
       cause: error,
 
@@ -516,14 +407,8 @@ const syncRelation = async ({
 
       partial: createdIds.length > 0 || deletedIds.length > 0,
 
-      rollbackFailed: allRollbackFailed,
+      rollbackFailed: [...rollbackFailed, ...restoreFailed],
     });
-  } finally {
-    /*
-     * State backend mungkin sudah berubah walaupun
-     * operation gagal. Cache lama tidak boleh dipercaya.
-     */
-    invalidateReportRelationCaches(normalizedReportId);
   }
 };
 
@@ -536,15 +421,20 @@ export const syncMaterials = async ({
   existing = [],
   desired = [],
 }) => {
-  return syncRelation({
-    reportId,
-
-    existing,
-
-    desired,
-
-    type: "material",
-  });
+  try {
+    return await syncRelation({
+      reportId,
+      existing,
+      desired,
+      type: "material",
+    });
+  } finally {
+    invalidateReportCaches(reportId, {
+      relations: true,
+      list: true,
+      detail: true,
+    });
+  }
 };
 
 /* ============================================================
@@ -556,15 +446,20 @@ export const syncActivities = async ({
   existing = [],
   desired = [],
 }) => {
-  return syncRelation({
-    reportId,
-
-    existing,
-
-    desired,
-
-    type: "activity",
-  });
+  try {
+    return await syncRelation({
+      reportId,
+      existing,
+      desired,
+      type: "activity",
+    });
+  } finally {
+    invalidateReportCaches(reportId, {
+      relations: true,
+      list: true,
+      detail: true,
+    });
+  }
 };
 
 /* ============================================================
@@ -585,33 +480,25 @@ export const syncReportRelations = async ({
   }
 
   try {
-    /*
-     * Serialisasi dilakukan di level group.
-     *
-     * Material dan activity sama-sama merupakan bagian
-     * dari satu logical report mutation.
-     *
-     * Kita tidak menjalankannya dengan Promise.all lagi,
-     * sehingga failure pertama tidak meninggalkan operasi
-     * kedua yang masih berjalan di background.
-     */
-    const materialResult = await syncMaterials({
+    const materialResult = await syncRelation({
       reportId: normalizedReportId,
 
       existing: existingMaterials,
 
       desired: materials,
+
+      type: "material",
     });
 
-    const activityResult = await syncActivities({
+    const activityResult = await syncRelation({
       reportId: normalizedReportId,
 
       existing: existingActivities,
 
       desired: activities,
-    });
 
-    invalidateReportRelationCaches(normalizedReportId);
+      type: "activity",
+    });
 
     return {
       materials: materialResult,
@@ -620,10 +507,12 @@ export const syncReportRelations = async ({
 
       changed: Boolean(materialResult.changed || activityResult.changed),
     };
-  } catch (error) {
-    invalidateReportRelationCaches(normalizedReportId);
-
-    throw error;
+  } finally {
+    invalidateReportCaches(normalizedReportId, {
+      relations: true,
+      list: true,
+      detail: true,
+    });
   }
 };
 
@@ -636,7 +525,12 @@ const getFileIdentity = (file) => {
     return "";
   }
 
-  return [file.name ?? "", file.size ?? 0, file.lastModified ?? 0].join(":");
+  return [
+    file.name ?? "",
+    file.size ?? 0,
+    file.lastModified ?? 0,
+    file.type ?? "",
+  ].join(":");
 };
 
 const dedupeFiles = (files) => {
@@ -680,31 +574,29 @@ export const uploadPhotos = async ({
 
   const uploaded = [];
 
+  const normalizedStartOrder = Number.isFinite(Number(startOrder))
+    ? Number(startOrder)
+    : 0;
+
   try {
-    /*
-     * Intentionally sequential.
-     *
-     * sort_order harus deterministik dan setiap upload
-     * harus diketahui hasilnya sebelum lanjut.
-     */
     for (let index = 0; index < uniqueFiles.length; index += 1) {
       const file = uniqueFiles[index];
 
       const encoded = await fileToBase64(file, {
         maxWidth: 1600,
-
         maxHeight: 1600,
-
         quality: 0.82,
       });
 
       const created = await reportPhotoService.createPhoto(normalizedReportId, {
         photo: encoded,
 
-        sort_order: Number(startOrder) + index,
+        sort_order: normalizedStartOrder + index,
       });
 
-      uploaded.push(created);
+      if (created) {
+        uploaded.push(created);
+      }
     }
 
     return uploaded;
@@ -731,6 +623,12 @@ export const uploadPhotos = async ({
       partial: uploaded.length > 0,
 
       rollbackFailed,
+    });
+  } finally {
+    invalidateReportCaches(normalizedReportId, {
+      relations: true,
+      list: true,
+      detail: true,
     });
   }
 };
@@ -778,6 +676,12 @@ export const removePhotos = async ({ reportId, photoIds = [] }) => {
 
       partial: deleted.length > 0,
     });
+  } finally {
+    invalidateReportCaches(normalizedReportId, {
+      relations: true,
+      list: true,
+      detail: true,
+    });
   }
 };
 
@@ -798,12 +702,6 @@ export const syncReportPhotos = async ({
   }
 
   try {
-    /*
-     * Upload new files FIRST.
-     *
-     * Existing photos remain untouched until
-     * all uploads are successful.
-     */
     const uploaded = await uploadPhotos({
       reportId: normalizedReportId,
 
@@ -813,16 +711,11 @@ export const syncReportPhotos = async ({
     });
 
     try {
-      /*
-       * Delete old photos SECOND.
-       */
       const deleted = await removePhotos({
         reportId: normalizedReportId,
 
         photoIds: removedPhotoIds,
       });
-
-      invalidateReportRelationCaches(normalizedReportId);
 
       return {
         uploaded,
@@ -836,17 +729,6 @@ export const syncReportPhotos = async ({
         rollbackFailed: [],
       };
     } catch (error) {
-      /*
-       * Delete gagal setelah sebagian/seluruh upload baru
-       * berhasil.
-       *
-       * New uploads dibatalkan.
-       *
-       * Existing deleted photos TIDAK dipalsukan sebagai
-       * restored karena backend tidak menyediakan restore
-       * endpoint dan kita tidak memiliki canonical binary
-       * payload yang aman untuk recreate.
-       */
       const uploadedIds = uploaded.map(getPhotoId).filter((id) => id !== null);
 
       const rollbackResults = await Promise.allSettled(
@@ -871,10 +753,12 @@ export const syncReportPhotos = async ({
         rollbackFailed,
       });
     }
-  } catch (error) {
-    invalidateReportRelationCaches(normalizedReportId);
-
-    throw error;
+  } finally {
+    invalidateReportCaches(normalizedReportId, {
+      relations: true,
+      list: true,
+      detail: true,
+    });
   }
 };
 

@@ -5,6 +5,7 @@ import Spinner from "./Spinner";
 export const LoadingState = ({
   message = "Memuat data...",
   className = "",
+  label = message,
 }) => {
   return (
     <div
@@ -16,8 +17,14 @@ export const LoadingState = ({
       )}
       aria-busy="true"
       aria-live="polite"
+      aria-label={label}
     >
-      <Spinner size="md" className="mx-auto" aria-hidden="true" />
+      <Spinner
+        size="md"
+        className="mx-auto"
+        aria-hidden="true"
+        aria-label={undefined}
+      />
 
       <p className="mt-4 text-sm text-muted">{message}</p>
     </div>
