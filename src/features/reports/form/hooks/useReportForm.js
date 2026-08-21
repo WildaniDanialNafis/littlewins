@@ -189,6 +189,9 @@ const getRelationValues = (items, type) => {
 };
 
 const buildEditState = ({ report, materials, activities }) => {
+  const materialValues = getRelationValues(materials, "material");
+  const activityValues = getRelationValues(activities, "activity");
+
   const nextForm = buildEditForm({
     report,
     materials,
@@ -198,12 +201,9 @@ const buildEditState = ({ report, materials, activities }) => {
   return {
     ...nextForm,
 
-    materials:
-      getRelationValues(materials, "material").length > 0
-        ? getRelationValues(materials, "material")
-        : [""],
+    materials: materialValues.length > 0 ? materialValues : [""],
 
-    activities: getRelationValues(activities, "activity"),
+    activities: activityValues,
   };
 };
 
@@ -888,11 +888,19 @@ const useReportForm = ({
     materialsRefreshing || activitiesRefreshing || photosRefreshing,
   );
 
+  const studentOptionsLoading = Boolean(studentsInitialLoading);
+
+  const teacherOptionsLoading = Boolean(teachersInitialLoading);
+
+  const programOptionsLoading = Boolean(programsInitialLoading);
+
+  const classOptionsLoading = Boolean(classesInitialLoading);
+
   const relationOptionsLoading = Boolean(
-    studentsInitialLoading ||
-    teachersInitialLoading ||
-    programsInitialLoading ||
-    classesInitialLoading,
+    studentOptionsLoading ||
+    teacherOptionsLoading ||
+    programOptionsLoading ||
+    classOptionsLoading,
   );
 
   const relationOptionsRefreshing = Boolean(
@@ -940,9 +948,7 @@ const useReportForm = ({
 
     const nextForm = buildEditState({
       report: currentReport,
-
       materials,
-
       activities,
     });
 
@@ -1581,10 +1587,6 @@ const useReportForm = ({
       return false;
     }
 
-    /*
-     * Jangan overwrite form yang sedang diedit
-     * sebelum hydration berikutnya selesai.
-     */
     userEditingRelationsRef.current = false;
 
     dispatch({
@@ -1627,10 +1629,6 @@ const useReportForm = ({
       return;
     }
 
-    /*
-     * Reset hydration guard setelah identity baru
-     * masuk sehingga form tidak menahan state lama.
-     */
     if (formIdentityRef.current !== formIdentity) {
       return;
     }
@@ -1710,34 +1708,29 @@ const useReportForm = ({
 
     relationOptionsRefreshing,
 
+    studentOptionsLoading,
+    teacherOptionsLoading,
+    programOptionsLoading,
+    classOptionsLoading,
+
     studentOptions,
-
     teacherOptions,
-
     programOptions,
-
     classOptions,
 
     updateField,
-
     updateRating,
 
     addMaterial,
-
     removeMaterial,
-
     changeMaterial,
 
     addActivity,
-
     removeActivity,
-
     changeActivity,
 
     addPhoto,
-
     removePhoto,
-
     removeExistingPhoto,
 
     handleSubmit,

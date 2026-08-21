@@ -8,6 +8,8 @@ import {
   Textarea,
 } from "@/shared/components/ui";
 
+import { SkeletonBase } from "@/shared/components/ui/Skeleton";
+
 import { CheckIcon, CloseIcon, PlusIcon, TrashIcon } from "@/shared/icons";
 
 import ReportFormSection from "./ReportFormSection";
@@ -57,6 +59,22 @@ const FieldError = ({ error }) => {
 };
 
 FieldError.displayName = "FieldError";
+
+/* ============================================================
+ * OPTION FIELD SKELETON
+ * ============================================================ */
+
+const OptionFieldSkeleton = memo(({ labelWidth = "w-24" }) => {
+  return (
+    <div aria-hidden="true" className="min-w-0 space-y-2">
+      <SkeletonBase className={`h-3 ${labelWidth}`} />
+
+      <SkeletonBase className="h-11 w-full rounded-xl" />
+    </div>
+  );
+});
+
+OptionFieldSkeleton.displayName = "OptionFieldSkeleton";
 
 /* ============================================================
  * DYNAMIC TEXT LIST
@@ -151,6 +169,11 @@ const ReportForm = ({
   programOptions = [],
   classOptions = [],
 
+  studentOptionsLoading = false,
+  teacherOptionsLoading = false,
+  programOptionsLoading = false,
+  classOptionsLoading = false,
+
   relationOptionsLoading = false,
   submitting = false,
 
@@ -205,53 +228,69 @@ const ReportForm = ({
         description="Pilih siswa, guru, program, dan kelas."
       >
         <div className="grid min-w-0 gap-4 md:grid-cols-2">
-          <Select
-            id="student_id"
-            label="Siswa"
-            required
-            value={form.student_id ?? ""}
-            options={studentOptions}
-            placeholder="Pilih siswa"
-            disabled={disabled || relationOptionsLoading}
-            error={errors.student_id}
-            onChange={(value) => onChange("student_id", value)}
-          />
+          {studentOptionsLoading ? (
+            <OptionFieldSkeleton labelWidth="w-14" />
+          ) : (
+            <Select
+              id="student_id"
+              label="Siswa"
+              required
+              value={form.student_id ?? ""}
+              options={studentOptions}
+              placeholder="Pilih siswa"
+              disabled={disabled}
+              error={errors.student_id}
+              onChange={(value) => onChange("student_id", value)}
+            />
+          )}
 
-          <Select
-            id="teacher_id"
-            label="Pengajar"
-            required
-            value={form.teacher_id ?? ""}
-            options={teacherOptions}
-            placeholder="Pilih pengajar"
-            disabled={disabled || relationOptionsLoading}
-            error={errors.teacher_id}
-            onChange={(value) => onChange("teacher_id", value)}
-          />
+          {teacherOptionsLoading ? (
+            <OptionFieldSkeleton labelWidth="w-20" />
+          ) : (
+            <Select
+              id="teacher_id"
+              label="Pengajar"
+              required
+              value={form.teacher_id ?? ""}
+              options={teacherOptions}
+              placeholder="Pilih pengajar"
+              disabled={disabled}
+              error={errors.teacher_id}
+              onChange={(value) => onChange("teacher_id", value)}
+            />
+          )}
 
-          <Select
-            id="program_id"
-            label="Program"
-            required
-            value={form.program_id ?? ""}
-            options={programOptions}
-            placeholder="Pilih program"
-            disabled={disabled || relationOptionsLoading}
-            error={errors.program_id}
-            onChange={(value) => onChange("program_id", value)}
-          />
+          {programOptionsLoading ? (
+            <OptionFieldSkeleton labelWidth="w-16" />
+          ) : (
+            <Select
+              id="program_id"
+              label="Program"
+              required
+              value={form.program_id ?? ""}
+              options={programOptions}
+              placeholder="Pilih program"
+              disabled={disabled}
+              error={errors.program_id}
+              onChange={(value) => onChange("program_id", value)}
+            />
+          )}
 
-          <Select
-            id="class_id"
-            label="Kelas"
-            required
-            value={form.class_id ?? ""}
-            options={classOptions}
-            placeholder="Pilih kelas"
-            disabled={disabled || relationOptionsLoading}
-            error={errors.class_id}
-            onChange={(value) => onChange("class_id", value)}
-          />
+          {classOptionsLoading ? (
+            <OptionFieldSkeleton labelWidth="w-12" />
+          ) : (
+            <Select
+              id="class_id"
+              label="Kelas"
+              required
+              value={form.class_id ?? ""}
+              options={classOptions}
+              placeholder="Pilih kelas"
+              disabled={disabled}
+              error={errors.class_id}
+              onChange={(value) => onChange("class_id", value)}
+            />
+          )}
         </div>
 
         <div className="mt-4 grid min-w-0 gap-4 md:grid-cols-2">
@@ -470,7 +509,14 @@ const ReportForm = ({
         <Button
           type="submit"
           variant="primary"
-          disabled={disabled || relationOptionsLoading}
+          disabled={
+            disabled ||
+            relationOptionsLoading ||
+            studentOptionsLoading ||
+            teacherOptionsLoading ||
+            programOptionsLoading ||
+            classOptionsLoading
+          }
           loading={submitting}
           className="w-full sm:w-auto"
         >

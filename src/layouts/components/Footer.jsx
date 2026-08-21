@@ -10,9 +10,9 @@ import { useAuth } from "@/shared/hooks";
 
 const CURRENT_YEAR = new Date().getFullYear();
 
-const SUPPORT_EMAIL = "support@example.com";
+const SUPPORT_EMAIL = "wildaninafis203@gmail.com";
 
-const SUPPORT_PHONE = "+620000000000";
+const SUPPORT_PHONE = "+6289602864250";
 
 /* ============================================================
  * ICONS
